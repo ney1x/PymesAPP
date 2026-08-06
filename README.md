@@ -1,59 +1,188 @@
-# Plataforma de Optimización de Inventarios para PYMES
+# Plataforma Inteligente de Gestión de Inventarios para PYMES
 
-Plataforma web que usa **aprendizaje automático** para predecir la demanda
-y clasificar la **rentabilidad** de los productos de pequeñas empresas
-minoristas, ayudándolas a decidir en qué productos invertir.
+Sistema web para la administración de inventarios de pequeñas y medianas empresas, con un motor de Inteligencia Artificial capaz de predecir la demanda de productos utilizando Machine Learning.
 
-## Arquitectura
+---
 
-| Capa        | Tecnología                        | Carpeta      |
-| ----------- | --------------------------------- | ------------ |
-| Frontend    | React + Vite                      | `frontend/`  |
-| Backend     | Node.js + Express + Prisma        | `backend/`   |
-| Base de datos| MySQL                            | —            |
-| ML          | Python + FastAPI + scikit-learn   | `ml-service/`|
+# Características principales
 
-Comunicación: `Frontend -> Backend (REST) -> MySQL` y `Backend -> ML (REST)`.
+- Autenticación mediante JWT.
+- Gestión de PYMES.
+- Gestión de productos.
+- Gestión de inventario.
+- Registro de ventas.
+- Predicción automática de demanda mediante IA.
+- Dashboard con indicadores.
+- Despliegue completo mediante Docker.
 
-## Módulos
+---
 
-1. Autenticación (JWT; roles: COMERCIANTE, ADMIN).
-2. Gestión de PYMES.
-3. Gestión de Productos.
-4. Inventario (alerta cuando `stock_actual <= stock_minimo`).
-5. Registro de Ventas (actualiza inventario y dispara predicción).
-6. Predicciones (Random Forest / Gradient Boosting).
-7. Dashboard con métricas, gráficas y alertas.
+# Arquitectura
 
-## Requisitos
-
-- Node.js >= 18
-- MySQL 8+
-- Python >= 3.10 (solo para el servicio ML)
-
-## Puesta en marcha
-
-### 1. Base de datos (MySQL)
-
-Crea la base de datos y configura las credenciales en `backend/.env`:
-
-```env
-DATABASE_URL="mysql://usuario:clave@localhost:3306/inventario_pymes"
+```
+                React + Vite
+                      │
+                      ▼
+             Backend (Node.js)
+          Express + Prisma ORM
+                      │
+        ┌─────────────┴─────────────┐
+        ▼                           ▼
+     MySQL                     ML Service
+(ai_inventory)              FastAPI + Python
+                                    │
+                                    ▼
+                         Motor IA (LightGBM)
 ```
 
-> Si instalas Docker, hay un `docker-compose.yml` en la raíz con una imagen
-> MySQL lista: `docker compose up -d`.
+### Tecnologías
 
-### 2. Backend
+| Capa | Tecnología |
+|------|------------|
+| Frontend | React + Vite |
+| Backend | Node.js + Express |
+| ORM | Prisma |
+| Base de datos | MySQL 8 |
+| IA | Python + FastAPI + LightGBM |
+| Contenedores | Docker + Docker Compose |
+
+---
+
+# Estructura del proyecto
+
+```
+PymesAPP
+│
+├── backend/
+│
+├── frontend/
+│
+├── ml-service/
+│
+├── docker-compose.yml
+│
+├── Dockerfiles
+│
+└── README.md
+```
+
+---
+
+# Flujo de una predicción
+
+```
+Usuario
+     │
+     ▼
+Frontend
+     │
+     ▼
+Backend
+     │
+     ▼
+ML Service
+     │
+     ▼
+Motor LightGBM
+     │
+     ▼
+Predicción
+```
+
+---
+
+# Flujo de una venta
+
+1. Registrar venta.
+2. Actualizar inventario.
+3. Guardar histórico.
+4. Solicitar nueva predicción.
+5. Guardar resultado.
+6. Actualizar dashboard.
+
+---
+
+# Motor de Inteligencia Artificial
+
+El sistema utiliza un modelo **LightGBM** entrenado inicialmente con el dataset **M5 Forecasting**.
+
+El motor genera predicciones de demanda utilizando:
+
+- histórico de ventas
+- medias móviles
+- lags
+- variaciones de precio
+- calendario
+- variables temporales
+
+Actualmente el modelo se encuentra integrado al botón **Generar Predicción** de la aplicación.
+
+---
+
+# Base de datos
+
+El proyecto utiliza una única base MySQL llamada:
+
+```
+ai_inventory
+```
+
+En ella conviven dos esquemas independientes:
+
+### Aplicación
+
+- User
+- Pyme
+- Producto
+- Inventario
+- Venta
+- Prediccion
+
+### Motor IA
+
+- productos
+- bodegas
+- ventas
+- precios
+- calendario
+- inventario_actual
+- compras
+
+Esto permite mantener desacoplada la lógica del backend y la del motor de IA.
+
+---
+
+# Docker
+
+Todo el sistema puede ejecutarse mediante Docker Compose.
+
+Servicios incluidos:
+
+- frontend
+- backend
+- ml-service
+- mysql
+
+Primer despliegue:
 
 ```bash
-cd backend
-npm install
-npx prisma migrate dev --name init   # crea tablas
-npm run dev
+docker compose build
+
+docker compose up -d
 ```
 
-### 3. Frontend
+Inicializar la base de datos:
+
+```bash
+docker compose exec backend npx prisma db push
+docker compose exec backend npm run seed
+```
+
+---
+
+# Desarrollo local
+
+## Frontend
 
 ```bash
 cd frontend
@@ -61,65 +190,75 @@ npm install
 npm run dev
 ```
 
-Abre `http://localhost:5173`.
+---
 
-### 4. Servicio ML
+## Backend
+
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+---
+
+## ML Service
 
 ```bash
 cd ml-service
+
 python -m venv .venv
-.venv\Scripts\activate          # Windows
+
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+
+uvicorn app.main:app --reload
 ```
 
-## Estructura del proyecto
+---
 
-```
-├── backend/          # API REST (Express + Prisma)
-│   ├── prisma/       # schema.prisma (modelo de datos)
-│   └── src/
-│       ├── config/       # variables de entorno
-│       ├── controllers/  # capa HTTP
-│       ├── services/     # lógica de negocio
-│       ├── routes/       # rutas REST
-│       ├── middlewares/  # auth + errores
-│       ├── lib/          # cliente Prisma
-│       └── utils/        # helpers (JWT, manejo de errores)
-├── frontend/         # SPA React + Vite
-│   └── src/
-│       ├── api/          # cliente HTTP (axios)
-│       ├── components/   # UI reutilizable
-│       ├── context/      # AuthContext
-│       ├── hooks/        # hooks personalizados
-│       ├── pages/        # pantallas
-│       └── routes/       # rutas protegidas
-└── ml-service/       # API ML (FastAPI)
-    ├── app/
-    │   ├── api/          # endpoints (/predict, /health)
-    │   ├── models/       # entrenamiento y modelos
-    │   ├── services/     # lógica de predicción
-    │   └── data/         # datasets (raw/processed)
-```
+# Estado actual del proyecto
 
-## Flujo de una venta
+## Completado
 
-1. Guardar venta.
-2. Actualizar stock del producto.
-3. Consultar histórico de ventas.
-4. Solicitar predicción al servicio ML.
-5. Guardar predicción.
-6. Actualizar dashboard.
+- Autenticación.
+- Gestión de PYMES.
+- Gestión de productos.
+- Inventario.
+- Registro de ventas.
+- Dashboard.
+- Integración Backend ↔ IA.
+- Integración LightGBM.
+- Integración MySQL.
+- Despliegue mediante Docker.
+- Predicción desde la interfaz web.
 
-## Roadmap
+---
 
-- [x] Estructura base del proyecto
-- [ ] Autenticación
-- [ ] CRUD PYMES
-- [ ] CRUD Productos
-- [ ] Inventario
-- [ ] Ventas
-- [ ] Dashboard
-- [ ] Integración ML
-- [ ] Alertas
-- [ ] Pruebas
+# Trabajo futuro
+
+- Asistente conversacional para consulta de inventario mediante lenguaje natural.
+- Reentrenamiento del modelo utilizando datos reales de PYMES.
+- Sincronización automática entre las ventas registradas y el motor de IA.
+- Mejorar la precisión del modelo con histórico propio.
+- Reportes avanzados y analítica de negocio.
+
+---
+
+# Requisitos
+
+- Docker Desktop
+- Git
+
+o, para desarrollo:
+
+- Node.js 18+
+- Python 3.10+
+- MySQL 8+
+
+---
+
+# Autores
+
+Proyecto de grado
+
+Sistema Inteligente para Gestión y Predicción de Inventarios en PYMES utilizando Machine Learning.
