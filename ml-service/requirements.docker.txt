@@ -1,0 +1,12 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+scikit-learn==1.9.0
+numpy==2.5.1
+pandas==3.0.5
+joblib==1.5.3
+python-dotenv==1.0.1
+
+# Motor de forecast (LightGBM). En local (Windows) se instala en modo
+# editable desde IA_INVENTARIO/ (fuera del repo, ver requirements.txt).
+# Para Docker se usa la copia vendorizada en vendor/ia-inventario/.
+-e ./vendor/ia-inventario

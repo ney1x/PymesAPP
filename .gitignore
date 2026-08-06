@@ -1,0 +1,44 @@
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+
+# Builds
+dist/
+build/
+*.tsbuildinfo
+
+# Entornos
+.env
+.env.local
+.env.*.local
+
+# Base de datos
+*.db
+*.sqlite
+prisma/*.db
+
+# ML
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+ml-service/models/*.joblib
+ml-service/models/*.pkl
+ml-service/data/processed/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Agent/local workspace
+.claude/

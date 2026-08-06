@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+app/models/*.joblib
+app/models/*.pkl
+data/processed/

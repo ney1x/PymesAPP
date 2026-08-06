@@ -1,0 +1,91 @@
+import React from 'react';
+import { IconArchive, IconClose } from './Icons';
+
+export function Button({ variant = 'primary', loading, children, className = '', ...props }) {
+  return (
+    <button className={`btn btn-${variant} ${className}`.trim()} disabled={loading || props.disabled} {...props}>
+      {loading && <span className="spinner spinner-sm" />}
+      {children}
+    </button>
+  );
+}
+
+export function Spinner({ label = 'Cargando...' }) {
+  return (
+    <div className="center-page">
+      <span className="spinner" />
+      <p className="muted">{label}</p>
+    </div>
+  );
+}
+
+export function ErrorBox({ error }) {
+  if (!error) return null;
+  return <div className="alert alert-error">{error}</div>;
+}
+
+export function EmptyState({ title = 'Sin información', message = 'Aún no hay datos para mostrar.' }) {
+  return (
+    <div className="empty">
+      <span className="empty-icon"><IconArchive size={22} /></span>
+      <h3>{title}</h3>
+      <p className="muted">{message}</p>
+    </div>
+  );
+}
+
+export function PageHeader({ title, subtitle, actions }) {
+  return (
+    <div className="page-header">
+      <div>
+        <h1>{title}</h1>
+        {subtitle && <p className="muted">{subtitle}</p>}
+      </div>
+      {actions && <div className="page-actions">{actions}</div>}
+    </div>
+  );
+}
+
+export function StatCard({ label, value, hint, tone = 'default' }) {
+  return (
+    <div className={`stat-card stat-${tone}`}>
+      <span className="stat-label">{label}</span>
+      <span className="stat-value">{value}</span>
+      {hint && <span className="stat-hint">{hint}</span>}
+    </div>
+  );
+}
+
+export function Badge({ tone = 'default', children }) {
+  return <span className={`badge badge-${tone}`}>{children}</span>;
+}
+
+export function Modal({ open, title, onClose, children }) {
+  if (!open) return null;
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>{title}</h2>
+          <button className="btn btn-ghost" onClick={onClose} aria-label="Cerrar">
+            <IconClose size={16} />
+          </button>
+        </div>
+        <div className="modal-body">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+export function money(value) {
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(value || 0);
+}
+
+export function date(value) {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString('es-CO');
+}

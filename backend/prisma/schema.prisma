@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// Motor de IA (IA_INVENTARIO) - propiedad de db/repository.py, Node no la usa.
+model bodegas {
+  store_id          String              @id @db.VarChar(50)
+  state_id          String?             @db.VarChar(50)
+  nombre            String?             @db.VarChar(255)
+  compras           compras[]
+  inventario_actual inventario_actual[]
+  precios           precios[]
+  ventas            ventas[]
+
+  @@ignore
+}
+
+/// Motor de IA (IA_INVENTARIO) - propiedad de db/repository.py, Node no la usa.
+model calendario {
+  fecha      DateTime @id @db.Date
+  weekday    Int?     @db.TinyInt
+  month      Int?     @db.TinyInt
+  year       Int?     @db.SmallInt
+  snap       Boolean? @default(false)
+  event_name String?  @db.VarChar(100)
+  event_type String?  @db.VarChar(50)
+
+  @@ignore
+}
+
+/// Motor de IA (IA_INVENTARIO) - propiedad de db/repository.py, Node no la usa.
+model compras {
+  id                     BigInt          @id @default(autoincrement())
+  item_id                String?         @db.VarChar(50)
+  store_id               String?         @db.VarChar(50)
+  cantidad               Decimal         @db.Decimal(12, 2)
+  fecha_pedido           DateTime        @db.Date
+  fecha_llegada_estimada DateTime?       @db.Date
+  estado                 compras_estado? @default(pendiente)
+  productos              productos?      @relation(fields: [item_id], references: [item_id], onDelete: NoAction, onUpdate: NoAction, map: "compras_ibfk_1")
+  bodegas                bodegas?        @relation(fields: [store_id], references: [store_id], onDelete: NoAction, onUpdate: NoAction, map: "compras_ibfk_2")
+
+  @@index([item_id], map: "item_id")
+  @@index([store_id], map: "store_id")
+  @@ignore
+}
+
+model inventario {
+  id          Int      @id @default(autoincrement())
+  productoId  Int      @unique(map: "Inventario_productoId_key")
+  stockActual Int
+  stockMinimo Int      @default(5)
+  stockMaximo Int?
+  ubicacion   String?
+  updatedAt   DateTime @updatedAt
+  producto    producto @relation(fields: [productoId], references: [id], map: "Inventario_productoId_fkey")
+
+  @@index([stockActual, stockMinimo], map: "Inventario_stockActual_stockMinimo_idx")
+}
+
+/// Motor de IA (IA_INVENTARIO) - propiedad de db/repository.py, Node no la usa.
+model inventario_actual {
+  item_id      String    @db.VarChar(50)
+  store_id     String    @db.VarChar(50)
+  stock_actual Decimal   @db.Decimal(12, 2)
+  fecha_corte  DateTime  @db.DateTime(0)
+  productos    productos @relation(fields: [item_id], references: [item_id], onDelete: NoAction, onUpdate: NoAction, map: "inventario_actual_ibfk_1")
+  bodegas      bodegas   @relation(fields: [store_id], references: [store_id], onDelete: NoAction, onUpdate: NoAction, map: "inventario_actual_ibfk_2")
+
+  @@id([item_id, store_id])
+  @@index([store_id], map: "store_id")
+  @@ignore
+}
+
+/// Motor de IA (IA_INVENTARIO) - propiedad de db/repository.py, Node no la usa.
+model precios {
+  id           BigInt     @id @default(autoincrement())
+  item_id      String?    @db.VarChar(50)
+  store_id     String?    @db.VarChar(50)
+  fecha_inicio DateTime   @db.Date
+  sell_price   Decimal    @db.Decimal(10, 2)
+  productos    productos? @relation(fields: [item_id], references: [item_id], onDelete: NoAction, onUpdate: NoAction, map: "precios_ibfk_1")
+  bodegas      bodegas?   @relation(fields: [store_id], references: [store_id], onDelete: NoAction, onUpdate: NoAction, map: "precios_ibfk_2")
+
+  @@index([item_id, store_id, fecha_inicio], map: "idx_item_store_fecha")
+  @@index([store_id], map: "store_id")
+  @@ignore
+}
+
+model prediccion {
+  id                   Int      @id @default(autoincrement())
+  productoId           Int
+  fecha                DateTime
+  demandaPredicha      Float
+  nivelConfianza       Float
+  rentabilidadPredicha Float
+  horizonteDias        Int      @default(7)
+  estado               String   @default("PENDIENTE")
+  createdAt            DateTime @default(now())
+  producto             producto @relation(fields: [productoId], references: [id], map: "Prediccion_productoId_fkey")
+
+  @@index([productoId, fecha], map: "Prediccion_productoId_fecha_idx")
+}
+
+model producto {
+  id           Int          @id @default(autoincrement())
+  pymeId       Int
+  nombre       String
+  descripcion  String?
+  codigo       String
+  categoria    String?
+  precioVenta  Float
+  costo        Float
+  leadTimeDias Int          @default(7)
+  stockSeguridad Int        @default(0)
+  estado       String       @default("ACTIVO")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  inventario   inventario?
+  predicciones prediccion[]
+  pyme         pyme         @relation(fields: [pymeId], references: [id], map: "Producto_pymeId_fkey")
+  ventas       venta[]
+
+  @@unique([pymeId, codigo], map: "Producto_pymeId_codigo_key")
+  @@index([pymeId], map: "Producto_pymeId_idx")
+}
+
+/// Motor de IA (IA_INVENTARIO) - propiedad de db/repository.py, Node no la usa.
+model productos {
+  item_id           String              @id @db.VarChar(50)
+  dept_id           String?             @db.VarChar(50)
+  cat_id            String?             @db.VarChar(50)
+  nombre            String?             @db.VarChar(255)
+  unidad            String?             @db.VarChar(20)
+  lead_time_dias    Int?                @default(7)
+  stock_seguridad   Int?                @default(0)
+  compras           compras[]
+  inventario_actual inventario_actual[]
+  precios           precios[]
+  ventas            ventas[]
+
+  @@ignore
+}
+
+model pyme {
+  id          Int        @id @default(autoincrement())
+  nombre      String
+  tipo        String     @default("MINIMARKET")
+  sector      String?
+  ciudad      String?
+  direccion   String?
+  telefono    String?
+  descripcion String?
+  userId      Int
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  productos   producto[]
+  user        user       @relation(fields: [userId], references: [id], map: "Pyme_userId_fkey")
+  ventas      venta[]
+
+  @@index([userId], map: "Pyme_userId_idx")
+}
+
+model user {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  email     String   @unique(map: "User_email_key")
+  password  String
+  rol       String   @default("COMERCIANTE")
+  telefono  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  pymes     pyme[]
+}
+
+model venta {
+  id             Int      @id @default(autoincrement())
+  pymeId         Int
+  productoId     Int
+  cantidad       Int
+  precioUnitario Float
+  costoUnitario  Float
+  total          Float
+  fecha          DateTime @default(now())
+  producto       producto @relation(fields: [productoId], references: [id], map: "Venta_productoId_fkey")
+  pyme           pyme     @relation(fields: [pymeId], references: [id], map: "Venta_pymeId_fkey")
+
+  @@index([productoId, fecha], map: "Venta_productoId_fecha_idx")
+  @@index([pymeId, fecha], map: "Venta_pymeId_fecha_idx")
+}
+
+/// Motor de IA (IA_INVENTARIO) - propiedad de db/repository.py, Node no la usa.
+model ventas {
+  id        BigInt     @id @default(autoincrement())
+  item_id   String?    @db.VarChar(50)
+  store_id  String?    @db.VarChar(50)
+  fecha     DateTime   @db.Date
+  unidades  Decimal    @db.Decimal(12, 2)
+  productos productos? @relation(fields: [item_id], references: [item_id], onDelete: NoAction, onUpdate: NoAction, map: "ventas_ibfk_1")
+  bodegas   bodegas?   @relation(fields: [store_id], references: [store_id], onDelete: NoAction, onUpdate: NoAction, map: "ventas_ibfk_2")
+
+  @@unique([item_id, store_id, fecha], map: "uq_venta")
+  @@index([item_id, store_id, fecha], map: "idx_item_store_fecha")
+  @@index([store_id], map: "store_id")
+  @@ignore
+}
+
+enum compras_estado {
+  pendiente
+  recibido
+  cancelado
+}

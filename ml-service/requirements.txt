@@ -1,0 +1,10 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+scikit-learn==1.9.0
+numpy==2.5.1
+pandas==3.0.5
+joblib==1.5.3
+python-dotenv==1.0.1
+
+# Motor de forecast (LightGBM), instalado en modo editable desde IA_INVENTARIO
+-e file:///C:/Users/USER/Desktop/IA_INVENTARIO

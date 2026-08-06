@@ -1,0 +1,10 @@
+require('dotenv').config();
+
+module.exports = {
+  port: parseInt(process.env.PORT || '4000', 10),
+  nodeEnv: process.env.NODE_ENV || 'development',
+  jwtSecret: process.env.JWT_SECRET || 'secret-dev',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  mlServiceUrl: process.env.ML_SERVICE_URL || 'http://localhost:8000',
+  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+};
