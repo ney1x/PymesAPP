@@ -6,7 +6,6 @@ const list = async (user, { alertas, pymeId } = {}) => {
 
   const inventarios = await prisma.inventario.findMany({
     where: {
-      ...(alertas === 'true' ? { stockActual: { lte: prisma.inventario.fields.stockMinimo } } : {}),
       producto: {
         pyme: wherePyme,
         ...(pymeId ? { pymeId: Number(pymeId) } : {}),
@@ -18,10 +17,16 @@ const list = async (user, { alertas, pymeId } = {}) => {
     orderBy: [{ stockActual: 'asc' }],
   });
 
-  return inventarios.map((inv) => ({
+  const withAlerta = inventarios.map((inv) => ({
     ...inv,
     alerta: inv.stockActual <= inv.stockMinimo,
   }));
+
+  if (alertas === 'true') {
+    return withAlerta.filter((inv) => inv.alerta);
+  }
+
+  return withAlerta;
 };
 
 const update = async (id, user, data) => {

@@ -31,7 +31,7 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'alertas_stock',
-      description: 'Lista productos con stock bajo (stockActual <= stockMinimo). Usa cuando el usuario pregunta qué falta, qué está bajo, alertas, productos críticos. NO necesitas pymeId, se usa el del usuario autenticado.',
+      description: 'ÚNICA FUENTE DE VERDAD para productos con stock bajo (stockActual <= stockMinimo). Usa cuando el usuario pregunta qué falta, qué está bajo, alertas, productos críticos. NO necesitas pymeId. LLAMA A ESTA HERRAMIENTA INMEDIATAMENTE. NO decidas tú qué está bajo. Si devuelve lista vacía, NO HAY productos bajos.',
       parameters: { type: 'object', properties: {}, required: [] },
     },
   },
@@ -39,7 +39,7 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'predecir_demanda',
-      description: 'Predice la demanda futura de un producto (usa motor LightGBM). Usa cuando el usuario pregunta "cuánto voy a vender", "predicción", "demanda futura", "pronóstico". NO necesitas pymeId, se usa el del usuario autenticado.',
+      description: 'Predice la demanda futura de un producto (usa motor LightGBM). Usa cuando el usuario pregunta "cuánto voy a vender", "predicción", "demanda futura", "pronóstico". NO necesitas pymeId. Parámetro dias es opcional (default 7). LLAMA A ESTA HERRAMIENTA INMEDIATAMENTE. NO pidas más información. EJEMPLO DE LLAMADA CORRECTA: predecir_demanda({"producto": "arroz", "dias": 7})',
       parameters: {
         type: 'object',
         properties: {
@@ -54,7 +54,7 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'sugerir_reorden',
-      description: 'Sugiere cantidades de reorden para productos que necesitan reposición. Usa cuando el usuario pregunta "qué comprar", "qué reordenar", "sugerencia de compra", "lista de compras". NO necesitas pymeId, se usa el del usuario autenticado. El parámetro diasForecast es opcional (default 30). LLAMA A ESTA HERRAMIENTA SIN PEDIR MÁS DATOS.',
+      description: 'Sugiere cantidades de reorden para productos que necesitan reposición. Usa cuando el usuario pregunta "qué comprar", "qué reordenar", "sugerencia de compra", "lista de compras". NO necesitas pymeId. El parámetro diasForecast es opcional (default 30). LLAMA A ESTA HERRAMIENTA INMEDIATAMENTE con parámetros vacíos: {}. NO preguntes por diasForecast. NO pidas confirmación. EJEMPLO DE LLAMADA CORRECTA: sugerir_reorden({})',
       parameters: {
         type: 'object',
         properties: {
@@ -82,7 +82,7 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'resumen_dashboard',
-      description: 'Resumen general del negocio: ingresos, margen, productos totales, alertas de stock, top productos, ranking de rentabilidad. Usa para "cómo va todo", "resumen", "dashboard", "panorama general". NO necesitas pymeId, se usa el del usuario autenticado. NO TIENE PARÁMETROS. LLAMA A ESTA HERRAMIENTA DIRECTAMENTE.',
+      description: 'Resumen general del negocio: ingresos, margen, productos totales, alertas de stock, top productos, ranking de rentabilidad. Usa para "cómo va todo", "resumen", "dashboard", "panorama general". NO necesitas pymeId. NO TIENE PARÁMETROS. LLAMA A ESTA HERRAMIENTA INMEDIATAMENTE con {}. NO pidas información adicional.',
       parameters: { type: 'object', properties: {}, required: [] },
     },
   },
