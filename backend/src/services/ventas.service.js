@@ -88,4 +88,15 @@ const create = async (user, data) => {
   return venta;
 };
 
-module.exports = { list, create };
+const historialProducto = async (productoId, dias = 30) => {
+  const desde = new Date();
+  desde.setDate(desde.getDate() - dias);
+
+  return prisma.venta.findMany({
+    where: { productoId: Number(productoId), fecha: { gte: desde } },
+    orderBy: { fecha: 'asc' },
+    select: { fecha: true, cantidad: true, precioUnitario: true, total: true },
+  });
+};
+
+module.exports = { list, create, historialProducto };

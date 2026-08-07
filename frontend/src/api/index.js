@@ -44,3 +44,8 @@ export const dashboardApi = {
 export const reordenApi = {
   list: (params) => client.get('/reorden', { params }),
 };
+
+export const chatApi = {
+  enviar: (mensaje) => client.post('/chat', { mensaje }),
+  limpiarHistorial: () => client.delete('/chat/historial'),
+};

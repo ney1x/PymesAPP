@@ -127,4 +127,31 @@ const list = async (user, { productoId } = {}) => {
   });
 };
 
-module.exports = { generarParaProducto, generarTodo, list };
+const predecir = async (productoId, pymeId, horizonteDias = 7) => {
+  const producto = await prisma.producto.findUnique({
+    where: { id: Number(productoId) },
+    include: { pyme: true, inventario: true },
+  });
+  if (!producto) throw new ApiError(404, 'Producto no encontrado');
+  if (producto.pymeId !== Number(pymeId)) throw new ApiError(403, 'No tiene acceso a este producto');
+
+  let prediccion;
+  try {
+    prediccion = await mlClient.predict({
+      itemId: producto.codigo,
+      storeId: String(producto.pymeId),
+      horizonteDias,
+    });
+  } catch (err) {
+    const historico = await historicoDeProducto(producto.id);
+    prediccion = heuristica(historico, horizonteDias);
+  }
+
+  return {
+    demandaPredicha: prediccion.demandaPredicha || 0,
+    nivelConfianza: prediccion.nivelConfianza || 0,
+    metodo: prediccion.metodo || 'heuristica',
+  };
+};
+
+module.exports = { generarParaProducto, generarTodo, list, predecir };

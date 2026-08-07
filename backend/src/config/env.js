@@ -7,4 +7,7 @@ module.exports = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   mlServiceUrl: process.env.ML_SERVICE_URL || 'http://localhost:8000',
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  llmProvider: process.env.LLM_PROVIDER || 'ollama',
+  ollamaUrl: process.env.OLLAMA_URL || 'http://ollama:11434/v1',
+  ollamaModel: process.env.OLLAMA_MODEL || 'qwen2.5:3b',
 };

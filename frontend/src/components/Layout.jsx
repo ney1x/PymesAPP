@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { IconBox, IconChart, IconUser, IconLogout, IconStore, IconTrendUp, IconGrid, IconAlert } from './Icons';
+import { ChatWidget } from './ChatWidget';
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: IconGrid },
@@ -78,6 +79,8 @@ export default function Layout() {
           <IconStore size={16} />
         </div>
       </footer>
+
+      <ChatWidget />
     </div>
   );
 }

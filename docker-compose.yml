@@ -19,6 +19,16 @@ services:
       timeout: 5s
       retries: 10
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: inventario_ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "${OLLAMA_HOST_PORT:-11434}:11434"
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 15 && ollama pull qwen2.5:3b && wait"]
+
   backend:
     build: ./backend
     container_name: inventario_backend
@@ -26,6 +36,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      ollama:
+        condition: service_started
     environment:
       PORT: 4000
       NODE_ENV: production
@@ -34,6 +46,9 @@ services:
       JWT_EXPIRES_IN: "7d"
       ML_SERVICE_URL: "http://ml-service:8000"
       CORS_ORIGIN: "http://localhost:8080"
+      LLM_PROVIDER: "ollama"
+      OLLAMA_URL: "http://ollama:11434/v1"
+      OLLAMA_MODEL: "qwen2.5:3b"
     command: >
       sh -c "npx prisma db push &&
              npm run seed &&
@@ -73,3 +88,4 @@ services:
 
 volumes:
   mysql_data:
+  ollama_data:

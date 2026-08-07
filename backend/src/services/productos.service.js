@@ -14,12 +14,13 @@ const findOwned = async (id, user) => {
   return producto;
 };
 
-const list = async (user, { pymeId } = {}) => {
+const list = async (user, { pymeId, search } = {}) => {
   const wherePyme = user.rol === 'ADMIN' ? {} : { userId: user.id };
 
   const where = {
     pyme: wherePyme,
     ...(pymeId ? { pymeId: Number(pymeId) } : {}),
+    ...(search ? { nombre: { contains: search } } : {}),
   };
 
   return prisma.producto.findMany({
