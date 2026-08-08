@@ -259,6 +259,6 @@ o, para desarrollo:
 
 # Autores
 
-Proyecto de grado
+Ney Salazar
 
 Sistema Inteligente para Gestión y Predicción de Inventarios en PYMES utilizando Machine Learning.

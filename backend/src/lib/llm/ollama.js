@@ -10,10 +10,17 @@ class OllamaProvider extends LLMProvider {
   async chat(messages, tools) {
     const body = {
       model: this.model,
-      messages: messages.map(m => ({
-        role: m.role,
-        content: m.content,
-      })),
+      messages: messages.map((m) => {
+        const message = {
+          role: m.role,
+          content: m.content || '',
+        };
+
+        if (m.tool_calls) message.tool_calls = m.tool_calls;
+        if (m.tool_call_id) message.tool_call_id = m.tool_call_id;
+
+        return message;
+      }),
       temperature: 0.1,
       stream: false,
     };
