@@ -44,6 +44,24 @@ h3 { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
 
 a { color: var(--primary); }
 
+/* Skip link */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  padding: 12px 16px;
+  background: var(--navy);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  z-index: 1000;
+  transition: top 0.2s ease;
+}
+.skip-link:focus {
+  top: 16px;
+}
+
 /* ======================== LAYOUT ======================== */
 
 .app-shell {
@@ -96,6 +114,15 @@ a { color: var(--primary); }
   align-items: center;
   gap: 2px;
   margin-left: 24px;
+  height: 100%;
+}
+
+.topbar-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  margin-right: 16px;
   height: 100%;
 }
 
@@ -415,6 +442,132 @@ tbody tr:hover { background: var(--surface-alt); }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ======================== DASHBOARD ANIMATIONS ======================== */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulseSoft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.animate-fade-in {
+  animation: fadeIn 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 350ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.animate-pulse-soft {
+  animation: pulseSoft 2s ease-in-out infinite;
+}
+
+/* Stagger delays */
+.delay-1 { animation-delay: 0ms; }
+.delay-2 { animation-delay: 80ms; }
+.delay-3 { animation-delay: 160ms; }
+.delay-4 { animation-delay: 240ms; }
+.delay-5 { animation-delay: 320ms; }
+.delay-6 { animation-delay: 400ms; }
+
+/* Card hover lift */
+.card {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 36, 56, 0.08);
+  border-color: var(--petrol);
+}
+
+/* Stat card entrance */
+.stat-card {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stat-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(15, 36, 56, 0.07);
+}
+
+/* Rank item animation */
+.rank-item {
+  transition: background-color 150ms ease, transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rank-item:hover {
+  background-color: var(--surface-alt);
+  transform: translateX(4px);
+}
+
+/* Badge animation */
+.badge {
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1), background-color 150ms ease;
+}
+
+.badge:hover {
+  transform: scale(1.05);
+}
+
+/* Table row hover */
+tbody tr {
+  transition: background-color 120ms ease;
+}
+
+/* Button transitions */
+.btn {
+  transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1), opacity 150ms ease, transform 100ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Link transitions */
+a {
+  transition: color 150ms ease;
+}
+
+/* Responsive container animation */
+.recharts-wrapper {
+  transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .animate-fade-in,
+  .animate-slide-in-right,
+  .card,
+  .stat-card,
+  .rank-item,
+  .badge,
+  tbody tr,
+  .btn,
+  .recharts-wrapper {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* ======================== EMPTY ======================== */
 
 .empty { text-align: center; padding: 48px 20px; }
@@ -601,7 +754,7 @@ tbody tr:hover { background: var(--surface-alt); }
   font-size: 13.5px;
 }
 
-.toast-success { border-left: 3px solid var(--success); }
+.toast-success { border-left: 2px solid var(--success); }
 .toast-icon { display: flex; align-items: center; color: var(--success); }
 
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -816,15 +969,15 @@ tbody tr:hover { background: var(--surface-alt); }
   height: 8px;
   background: var(--muted);
   border-radius: 50%;
-  animation: bounce 1.4s infinite ease-in-out both;
+  animation: pulse 1.4s infinite ease-in-out both;
 }
 
 .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
 .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
 
-@keyframes bounce {
-  0%, 80%, 100% { transform: scale(0); }
-  40% { transform: scale(1); }
+@keyframes pulse {
+  0%, 80%, 100% { opacity: 0.4; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
 }
 
 .chat-error {

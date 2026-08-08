@@ -17,10 +17,49 @@ export function ChatWidget() {
   const { mensajes, cargando, error, enviar, limpiar, cancelar } = useChat();
   const mensajesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const panelRef = useRef(null);
+  const previousActiveElement = useRef(null);
 
   useEffect(() => {
     mensajesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [mensajes]);
+
+  useEffect(() => {
+    if (abierto) {
+      previousActiveElement.current = document.activeElement;
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => inputRef.current?.focus(), 100);
+
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setAbierto(false);
+        }
+        if (e.key === 'Tab') {
+          const focusableElements = panelRef.current?.querySelectorAll(
+            'button, input, select, textarea, a, [tabindex]:not([tabindex="-1"])'
+          );
+          if (!focusableElements || focusableElements.length === 0) return;
+          const firstElement = focusableElements[0];
+          const lastElement = focusableElements[focusableElements.length - 1];
+          if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+        document.body.style.overflow = '';
+        previousActiveElement.current?.focus?.();
+      };
+    }
+  }, [abierto]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -48,17 +87,18 @@ export function ChatWidget() {
         className="chat-fab"
         onClick={toggleChat}
         aria-label="Abrir asistente de inventario"
+        aria-expanded={abierto}
       >
-        <MessageSquare className="w-6 h-6" />
+        <MessageSquare className="w-6 h-6" aria-hidden="true" />
         <span className="chat-badge">Asistente</span>
       </button>
     );
   }
 
   return (
-    <div className="chat-container">
+    <div className="chat-container" ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="chat-title">
       <header className="chat-header">
-        <div className="chat-title">
+        <div className="chat-title" id="chat-title">
           <MessageSquare className="w-5 h-5" aria-hidden="true" />
           <span>Asistente de Inventario</span>
         </div>

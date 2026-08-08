@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ventasApi, productosApi, pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, PageHeader, Button, EmptyState, money, date } from '../components/ui';
@@ -9,6 +9,7 @@ export default function Ventas() {
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const formRef = useRef(null);
 
   const pymes = useAsync(() => pymesApi.list());
   const productos = useAsync(
@@ -39,6 +40,7 @@ export default function Ventas() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return; // prevent double submit
     setSaving(true);
     setActionError(null);
     setSuccess(null);
@@ -80,13 +82,13 @@ export default function Ventas() {
       <div className="grid-2">
         <div className="card">
           <div className="card-title">Nueva venta</div>
-          <form onSubmit={handleSubmit}>
+          <form ref={formRef} onSubmit={handleSubmit}>
             <ErrorBox error={actionError} />
             {success && <div className="alert alert-success">{success}</div>}
 
             <div className="form-group">
-              <label>Producto</label>
-              <select name="productoId" value={form.productoId} onChange={handleChange} required>
+              <label htmlFor="productoId">Producto</label>
+              <select id="productoId" name="productoId" value={form.productoId} onChange={handleChange} required>
                 <option value="">Selecciona un producto</option>
                 {productos.data?.productos?.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -98,12 +100,12 @@ export default function Ventas() {
 
             <div className="form-row">
               <div className="form-group">
-                <label>Cantidad</label>
-                <input name="cantidad" type="number" min="1" required value={form.cantidad} onChange={handleChange} />
+                <label htmlFor="cantidad">Cantidad</label>
+                <input id="cantidad" name="cantidad" type="number" min="1" required value={form.cantidad} onChange={handleChange} />
               </div>
               <div className="form-group">
-                <label>Precio unitario (COP)</label>
-                <input name="precioUnitario" type="number" min="0" step="0.01" required value={form.precioUnitario} onChange={handleChange} />
+                <label htmlFor="precioUnitario">Precio unitario (COP)</label>
+                <input id="precioUnitario" name="precioUnitario" type="number" min="0" step="0.01" required value={form.precioUnitario} onChange={handleChange} />
               </div>
             </div>
 
@@ -111,7 +113,7 @@ export default function Ventas() {
               <strong>Total: {money(total)}</strong>
             </div>
 
-            <Button type="submit" loading={saving} className="btn-block">Registrar venta</Button>
+            <Button type="submit" loading={saving} className="btn-block" aria-busy={saving} aria-label={saving ? 'Registrando venta...' : 'Registrar venta'}>Registrar venta</Button>
           </form>
         </div>
 

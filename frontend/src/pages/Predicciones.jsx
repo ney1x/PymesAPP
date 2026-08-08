@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { prediccionesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, PageHeader, Badge, Button, EmptyState, money } from '../components/ui';
@@ -19,10 +19,12 @@ export default function Predicciones() {
   const [ranking, setRanking] = useState(null);
   const [search, setSearch] = useState('');
   const [horizonte, setHorizonte] = useState(7);
+  const formRef = useRef(null);
 
   const historico = useAsync(() => prediccionesApi.list());
 
   const generar = async () => {
+    if (generating) return; // prevent double submit
     setGenerating(true);
     setGenError(null);
     try {
@@ -78,7 +80,7 @@ export default function Predicciones() {
                 <option key={h.value} value={h.value}>{h.label}</option>
               ))}
             </select>
-            <Button loading={generating} onClick={generar}>
+            <Button loading={generating} onClick={generar} aria-busy={generating} aria-label={generating ? 'Generando predicción...' : 'Generar predicción'}>
               {generating ? 'Analizando...' : 'Generar Predicción'}
             </Button>
           </div>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { productosApi, pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
@@ -26,6 +26,13 @@ export default function Productos() {
   const [otraCategoria, setOtraCategoria] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState(null);
+  const [toast, setToast] = useState(null);
+  const formRef = useRef(null);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const pymes = useAsync(() => pymesApi.list());
   const { data, loading, error, run } = useAsync(
@@ -102,6 +109,7 @@ export default function Productos() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return; // prevent double submit
     setSaving(true);
     setActionError(null);
     const payload = {
@@ -119,6 +127,7 @@ export default function Productos() {
       }
       setModalOpen(false);
       run();
+      showToast(editing ? 'Producto actualizado con éxito' : 'Producto creado con éxito');
     } catch (err) {
       setActionError(err.message);
     } finally {
@@ -131,8 +140,9 @@ export default function Productos() {
     try {
       await productosApi.remove(prod.id);
       run();
+      showToast('Producto eliminado');
     } catch (err) {
-      window.alert(err.message);
+      showToast(err.message);
     }
   };
 
@@ -215,8 +225,8 @@ export default function Productos() {
                       ) : '—'}
                     </td>
                     <td>
-                      <Button variant="outline" onClick={() => openEdit(p)}><IconEdit size={14} /> Editar</Button>{' '}
-                      <Button variant="danger" onClick={() => handleDelete(p)}><IconTrash size={14} /> Eliminar</Button>
+                      <Button variant="outline" onClick={() => openEdit(p)} aria-label={`Editar ${p.nombre}`}><IconEdit size={14} aria-hidden="true" /> Editar</Button>{' '}
+                      <Button variant="danger" onClick={() => handleDelete(p)} aria-label={`Eliminar ${p.nombre}`}><IconTrash size={14} aria-hidden="true" /> Eliminar</Button>
                     </td>
                   </tr>
                 );
@@ -227,7 +237,7 @@ export default function Productos() {
       </div>
 
       <Modal open={modalOpen} title={editing ? 'Editar producto' : 'Nuevo producto'} onClose={() => setModalOpen(false)}>
-        <form onSubmit={handleSubmit}>
+        <form ref={formRef} onSubmit={handleSubmit}>
           <ErrorBox error={actionError} />
 
           <div className="form-group">
@@ -310,7 +320,9 @@ export default function Productos() {
 
           <div className="form-row">
             <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button type="submit" loading={saving}>{editing ? 'Guardar cambios' : 'Crear producto'}</Button>
+            <Button type="submit" loading={saving} aria-busy={saving} aria-label={saving ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear producto'}>
+              {editing ? 'Guardar cambios' : 'Crear producto'}
+            </Button>
           </div>
         </form>
       </Modal>

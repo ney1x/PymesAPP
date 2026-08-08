@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui';
 
@@ -12,11 +12,13 @@ export default function Perfil() {
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const formRef = useRef(null);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (saving) return; // prevent double submit
     setSaving(true);
     setTimeout(() => {
       setSaving(false);
@@ -33,7 +35,7 @@ export default function Perfil() {
       <div className="card" style={{ maxWidth: 500 }}>
         {saved && <div className="alert alert-success">Perfil actualizado con éxito</div>}
 
-        <form onSubmit={handleSubmit}>
+        <form ref={formRef} onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Nombre</label>
             <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Tu nombre" />
@@ -54,7 +56,7 @@ export default function Perfil() {
             <input name="password" type="password" value={form.password} onChange={handleChange} placeholder="Dejar vacío para no cambiar" />
           </div>
 
-          <Button type="submit" loading={saving}>Guardar</Button>
+          <Button type="submit" loading={saving} aria-busy={saving} aria-label={saving ? 'Guardando...' : 'Guardar'}>Guardar</Button>
         </form>
       </div>
     </div>

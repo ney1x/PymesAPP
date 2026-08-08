@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ErrorBox } from '../components/ui';
@@ -11,11 +11,13 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const formRef = useRef(null);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return; // prevent double submit
     setError(null);
     setLoading(true);
     try {
@@ -37,7 +39,7 @@ export default function Login() {
       </div>
 
       <div className="auth-form-wrap">
-        <form className="auth-card" onSubmit={handleSubmit}>
+        <form className="auth-card" ref={formRef} onSubmit={handleSubmit}>
           <h2>Iniciar sesión</h2>
 
           <ErrorBox error={error} />
@@ -68,7 +70,7 @@ export default function Login() {
             />
           </div>
 
-          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+          <button type="submit" className="btn btn-primary btn-block" disabled={loading} aria-busy={loading} aria-label={loading ? 'Iniciando sesión...' : 'Iniciar sesión'}>
             {loading ? 'Ingresando...' : 'Iniciar sesión'}
           </button>
 

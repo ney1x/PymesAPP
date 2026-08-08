@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, EmptyState, date } from '../components/ui';
@@ -34,6 +34,13 @@ export default function Pymes() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState(null);
+  const [toast, setToast] = useState(null);
+  const formRef = useRef(null);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const { data, loading, error, run } = useAsync(() => pymesApi.list());
 
@@ -63,6 +70,7 @@ export default function Pymes() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return; // prevent double submit
     setSaving(true);
     setActionError(null);
     try {
@@ -73,6 +81,7 @@ export default function Pymes() {
       }
       setModalOpen(false);
       run();
+      showToast(editing ? 'PYME actualizada con éxito' : 'PYME creada con éxito');
     } catch (err) {
       setActionError(err.message);
     } finally {
@@ -85,8 +94,9 @@ export default function Pymes() {
     try {
       await pymesApi.remove(pyme.id);
       run();
+      showToast('PYME eliminada');
     } catch (err) {
-      window.alert(err.message);
+      showToast(err.message);
     }
   };
 
@@ -138,7 +148,7 @@ export default function Pymes() {
       </div>
 
       <Modal open={modalOpen} title={editing ? 'Editar PYME' : 'Nueva PYME'} onClose={() => setModalOpen(false)}>
-        <form onSubmit={handleSubmit}>
+        <form ref={formRef} onSubmit={handleSubmit}>
           <ErrorBox error={actionError} />
           <div className="form-group">
             <label>Nombre</label>
@@ -183,7 +193,9 @@ export default function Pymes() {
 
           <div className="form-row">
             <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button type="submit" loading={saving}>{editing ? 'Guardar cambios' : 'Crear PYME'}</Button>
+            <Button type="submit" loading={saving} aria-busy={saving} aria-label={saving ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear PYME'}>
+              {editing ? 'Guardar cambios' : 'Crear PYME'}
+            </Button>
           </div>
         </form>
       </Modal>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ErrorBox } from '../components/ui';
@@ -18,6 +18,7 @@ export default function Register() {
   });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const formRef = useRef(null);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -26,6 +27,7 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return; // prevent double submit
     setError(null);
 
     if (form.password !== form.confirmPassword) {
@@ -82,7 +84,7 @@ export default function Register() {
       </div>
 
       <div className="auth-form-wrap">
-        <form className="auth-card" onSubmit={handleSubmit}>
+        <form className="auth-card" ref={formRef} onSubmit={handleSubmit}>
           <h2>Crear cuenta</h2>
 
           <ErrorBox error={error} />
@@ -128,7 +130,7 @@ export default function Register() {
             </span>
           </div>
 
-          <button type="submit" className="btn btn-primary btn-block" disabled={loading} style={{ marginTop: 16 }}>
+          <button type="submit" className="btn btn-primary btn-block" disabled={loading} aria-busy={loading} aria-label={loading ? 'Registrando...' : 'Registrarse'} style={{ marginTop: 16 }}>
             {loading ? 'Registrando...' : 'Registrarse'}
           </button>
 

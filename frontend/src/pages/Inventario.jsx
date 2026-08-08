@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { inventarioApi, productosApi, pymesApi, ventasApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
@@ -28,6 +28,8 @@ export default function Inventario() {
   const [toast, setToast] = useState(null);
   const [ventaInputs, setVentaInputs] = useState({});
   const [vendiendoId, setVendiendoId] = useState(null);
+  const [focusedRowIndex, setFocusedRowIndex] = useState(-1);
+  const modalFormRef = useRef(null);
 
   const pymes = useAsync(() => pymesApi.list());
   const { data, loading, error, run } = useAsync(
@@ -65,6 +67,25 @@ export default function Inventario() {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
+
+  // Keyboard navigation for table rows
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setFocusedRowIndex(prev => Math.min(prev + 1, paginated.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setFocusedRowIndex(prev => Math.max(prev - 1, -1));
+      } else if (e.key === 'Enter' && focusedRowIndex >= 0) {
+        e.preventDefault();
+        // Could trigger edit on focused row
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [paginated.length, focusedRowIndex]);
 
   const openCreate = () => {
     setEditing(null);
@@ -115,9 +136,10 @@ export default function Inventario() {
     const cantidad = Number(ventaInputs[inv.id]);
     if (!cantidad || cantidad <= 0) return;
     if (cantidad > inv.stockActual) {
-      window.alert(`No puedes vender ${cantidad} unidades, solo quedan ${inv.stockActual}.`);
+      showToast(`No puedes vender ${cantidad} unidades, solo quedan ${inv.stockActual}.`);
       return;
     }
+    if (vendiendoId === inv.id) return; // prevent double click
     setVendiendoId(inv.id);
     try {
       await ventasApi.create({
@@ -129,7 +151,7 @@ export default function Inventario() {
       showToast(`Venta registrada: ${cantidad} uds de ${inv.producto.nombre}`);
       run();
     } catch (err) {
-      window.alert(err.message);
+      showToast(err.message);
     } finally {
       setVendiendoId(null);
     }
