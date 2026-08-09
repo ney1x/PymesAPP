@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { dashboardApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { useAuth } from '../context/AuthContext';
-import { Spinner, ErrorBox, StatCard, PageHeader, EmptyState, Badge, money } from '../components/ui';
+import { Spinner, ErrorBox, StatCard, PageHeader, EmptyState, money } from '../components/ui';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
@@ -58,20 +58,106 @@ export default function Dashboard() {
   if (!data?.data) return null;
 
   const { resumen, ventasPorDia, topProductos, productosBajoStock, rankingRentabilidad } = data.data;
+  const productoUrgente = productosBajoStock[0];
+  const productoDestacado = topProductos[0];
+  const oportunidad = rankingRentabilidad[0];
+  const productosConConfianza = rankingRentabilidad.filter((item) => typeof item.nivelConfianza === 'number');
+  const confianzaPromedio = productosConConfianza.length
+    ? productosConConfianza.reduce((sum, item) => sum + item.nivelConfianza, 0) / productosConConfianza.length
+    : null;
+  const demandaPromedio = rankingRentabilidad.length
+    ? rankingRentabilidad.reduce((sum, item) => sum + (Number(item.demandaPredicha) || 0), 0) / rankingRentabilidad.length
+    : 0;
+
+  const nombreProducto = (producto) => producto?.nombre || producto?.producto?.nombre || 'Producto';
+
+  const interpretarDemanda = (demanda) => {
+    if (!demandaPromedio) return 'Revisar tendencia antes de comprar';
+    if (demanda > demandaPromedio) return 'Considerar aumentar stock';
+    if (demanda < demandaPromedio) return 'Evitar sobreabastecer';
+    return 'Mantener stock';
+  };
+
+  const confianzaLabel = confianzaPromedio === null
+    ? 'Sin datos de confianza'
+    : `${(confianzaPromedio * 100).toFixed(0)}% promedio`;
 
   return (
     <div className="animate-fade-in-up">
       <PageHeader
         title={`Hola, ${user?.nombre?.split(' ')[0] || 'comerciante'}`}
-        subtitle="Este es el resumen de tu negocio hoy."
+        subtitle="Decisiones clave para tu negocio hoy."
       />
 
-      <div className="stat-grid">
-        <StatCard className="animate-fade-in-up delay-1" label="Ingresos (histórico)" value={money(resumen.ingresos)} hint="Total vendido" />
-        <StatCard className="animate-fade-in-up delay-2" label="Margen bruto" value={money(resumen.margenBruto)} hint="Utilidad estimada" tone="success" />
-        <StatCard className="animate-fade-in-up delay-3" label="Unidades vendidas" value={resumen.unidadesVendidas} />
+      <section className="dashboard-decision-grid" aria-label="Decisiones principales">
+        <div className={`dashboard-decision-card dashboard-decision-urgent${productoUrgente ? '' : ' dashboard-decision-ok'}`}>
+          <span className="dashboard-decision-label">Reponer ahora</span>
+          {productoUrgente ? (
+            <>
+              <strong>{productoUrgente.nombre}</strong>
+              <small>Actual: {productoUrgente.stockActual} · Mínimo: {productoUrgente.stockMinimo}</small>
+              {productoUrgente.cantidadSugerida && <small>Sugerido: {productoUrgente.cantidadSugerida} uds</small>}
+              <Link to="/inventario" className="btn btn-outline">Revisar inventario</Link>
+            </>
+          ) : (
+            <>
+              <strong>Sin urgencias</strong>
+              <small>No hay productos por debajo del stock mínimo.</small>
+              <Link to="/inventario" className="btn btn-outline">Ver inventario</Link>
+            </>
+          )}
+        </div>
+
+        <div className="dashboard-decision-card">
+          <span className="dashboard-decision-label">Mejor oportunidad</span>
+          {oportunidad ? (
+            <>
+              <strong>{oportunidad.nombre}</strong>
+              <small>Rentabilidad estimada: {money(oportunidad.rentabilidadPredicha)}</small>
+              <small>{interpretarDemanda(Number(oportunidad.demandaPredicha) || 0)}</small>
+            </>
+          ) : (
+            <>
+              <strong>Sin predicciones aún</strong>
+              <small>Genera predicciones para priorizar productos.</small>
+              <Link to="/predicciones" className="btn btn-outline">Generar predicción</Link>
+            </>
+          )}
+        </div>
+
+        <div className="dashboard-decision-card">
+          <span className="dashboard-decision-label">Producto destacado</span>
+          {productoDestacado ? (
+            <>
+              <strong>{nombreProducto(productoDestacado)}</strong>
+              <small>Más vendido: {productoDestacado.unidades} unidades</small>
+              <small>Ingresos: {money(productoDestacado.ingresos)}</small>
+            </>
+          ) : (
+            <>
+              <strong>Sin ventas registradas</strong>
+              <small>Registra ventas para identificar el mejor producto.</small>
+              <Link to="/ventas" className="btn btn-outline">Registrar venta</Link>
+            </>
+          )}
+        </div>
+
+        <div className="dashboard-decision-card">
+          <span className="dashboard-decision-label">Confianza de predicciones</span>
+          <strong>{confianzaLabel}</strong>
+          <small>
+            {confianzaPromedio === null
+              ? 'No hay confianza disponible en los datos actuales.'
+              : 'Usa esta señal como apoyo antes de reponer.'}
+          </small>
+        </div>
+      </section>
+
+      <div className="stat-grid dashboard-kpis">
+        <StatCard label="Ingresos (histórico)" value={money(resumen.ingresos)} hint="Total vendido" />
+        <StatCard label="Margen bruto" value={money(resumen.margenBruto)} hint="Utilidad estimada" tone="success" />
+        <StatCard label="Unidades vendidas" value={resumen.unidadesVendidas} />
         <StatCard
-          className="animate-fade-in-up delay-4"
           label="Alertas de stock"
           value={resumen.alertasStock}
           hint={resumen.alertasStock > 0 ? 'Productos por debajo del mínimo' : 'Inventario en orden'}
@@ -82,20 +168,27 @@ export default function Dashboard() {
       <div className="grid-2">
         <div className="card animate-fade-in-up delay-1">
           <div className="card-title">Ventas de los últimos 7 días</div>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={ventasPorDia}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#dfe4e7" />
-              <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v) => money(v)} labelStyle={{ color: '#16232c' }} />
-              <Bar dataKey="ingresos" name="Ingresos" fill="#0d5c63" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {ventasPorDia.length === 0 ? (
+            <EmptyState
+              title="Sin ventas recientes"
+              message="Registra ventas para ver la tendencia de ingresos."
+            />
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={ventasPorDia}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#dfe4e7" />
+                <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v) => money(v)} labelStyle={{ color: '#16232c' }} />
+                <Bar dataKey="ingresos" name="Ingresos" fill="#0d5c63" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         <div className="card animate-fade-in-up delay-2">
           <div className="card-title">
-            Ranking de rentabilidad
+            Predicciones para decidir stock
             <Link to="/predicciones" className="btn btn-outline">Ver todo</Link>
           </div>
           {rankingRentabilidad.length === 0 ? (
@@ -115,8 +208,14 @@ export default function Dashboard() {
                   <div className="rank-info">
                     <strong>{item.nombre}</strong>
                     <small>Demanda estimada: {item.demandaPredicha} uds</small>
+                    <small>{interpretarDemanda(Number(item.demandaPredicha) || 0)}</small>
                   </div>
-                  <strong>{money(item.rentabilidadPredicha)}</strong>
+                  <div className="dashboard-rank-metric">
+                    <strong>{money(item.rentabilidadPredicha)}</strong>
+                    {typeof item.nivelConfianza === 'number' && (
+                      <small>Confianza {(item.nivelConfianza * 100).toFixed(0)}%</small>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -127,17 +226,24 @@ export default function Dashboard() {
       <div className="grid-2">
         <div className="card animate-fade-in-up delay-3">
           <div className="card-title">
-            Top productos por ingresos
+            Productos destacados
             <Link to="/productos" className="btn btn-outline">Gestionar</Link>
           </div>
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Producto</th><th>Unidades</th><th>Ingresos</th></tr>
+                <tr><th>Mejor producto / Más vendido</th><th>Unidades vendidas</th><th>Ingresos</th></tr>
               </thead>
               <tbody>
                 {topProductos.length === 0 ? (
-                  <tr><td colSpan="3">Sin ventas registradas</td></tr>
+                  <tr>
+                    <td colSpan="3">
+                      <EmptyState
+                        title="Sin ventas registradas"
+                        message="Registra ventas para identificar productos destacados."
+                      />
+                    </td>
+                  </tr>
                 ) : (
                   topProductos.map((p, i) => (
                     <tr key={p.id} className="animate-fade-in" style={{ animationDelay: `${i * 50}ms`, backgroundColor: focusedRowIndex === i && focusedList.current === 'table' ? 'var(--primary-soft)' : undefined }} tabIndex={0} onClick={() => { focusedList.current = 'table'; setFocusedRowIndex(i); }} onKeyDown={(e) => {
@@ -145,7 +251,7 @@ export default function Dashboard() {
                         e.preventDefault();
                       }
                     }}>
-                      <td>#{p.id}</td>
+                      <td>{p.nombre}</td>
                       <td>{p.unidades}</td>
                       <td>{money(p.ingresos)}</td>
                     </tr>
@@ -156,7 +262,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="card animate-fade-in-up delay-4">
+        <div className="card dashboard-alert-card animate-fade-in-up delay-4">
           <div className="card-title">
             Alertas de inventario
             <Link to="/inventario" className="btn btn-outline">Revisar</Link>
@@ -166,16 +272,18 @@ export default function Dashboard() {
           ) : (
             <ul className="list-card">
               {productosBajoStock.map((p, i) => (
-                <li className="rank-item animate-slide-in-right" style={{ animationDelay: `${i * 60}ms`, backgroundColor: focusedRowIndex === i && focusedList.current === 'list' ? 'var(--primary-soft)' : undefined }} tabIndex={0} onClick={() => { focusedList.current = 'list'; setFocusedRowIndex(i); }} onKeyDown={(e) => {
+                <li className="rank-item dashboard-alert-item animate-slide-in-right" style={{ animationDelay: `${i * 60}ms`, backgroundColor: focusedRowIndex === i && focusedList.current === 'list' ? 'var(--primary-soft)' : undefined }} tabIndex={0} onClick={() => { focusedList.current = 'list'; setFocusedRowIndex(i); }} onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                   }
                 }} key={p.id}>
                   <div className="rank-info">
                     <strong>{p.nombre}</strong>
-                    <small>Mínimo {p.stockMinimo} · Actual {p.stockActual}</small>
+                    <small>Reponer ahora</small>
+                    <small>Actual: {p.stockActual} · Mínimo: {p.stockMinimo}</small>
+                    {p.cantidadSugerida && <small>Sugerido: {p.cantidadSugerida} uds</small>}
                   </div>
-                  <Badge tone="danger" className="animate-pulse-soft">Reordenar</Badge>
+                  <Link to="/inventario" className="btn btn-outline">Revisar inventario</Link>
                 </li>
               ))}
             </ul>

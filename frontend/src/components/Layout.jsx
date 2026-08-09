@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { IconBox, IconChart, IconUser, IconLogout, IconStore, IconTrendUp, IconGrid, IconAlert } from './Icons';
@@ -14,14 +14,16 @@ const NAV_LEFT = [
 
 const NAV_RIGHT = [
   { to: '/alertas', label: 'Alertas', icon: IconAlert },
-  { to: '/perfil', label: 'Perfil', icon: IconUser },
 ];
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileMenuRef = useRef(null);
 
   const handleLogout = () => {
+    setProfileOpen(false);
     logout();
     navigate('/login');
   };
@@ -29,6 +31,9 @@ export default function Layout() {
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setProfileOpen(false);
+      }
       // Cmd/Ctrl + K for search/command palette
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -39,6 +44,17 @@ export default function Layout() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const handlePointerDown = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setProfileOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, []);
 
   return (
@@ -76,16 +92,46 @@ export default function Layout() {
               <span>{item.label}</span>
             </NavLink>
           ))}
+          <div className="topbar-profile" ref={profileMenuRef}>
+            <button
+              className="topbar-icon"
+              type="button"
+              title="Perfil"
+              aria-haspopup="menu"
+              aria-expanded={profileOpen}
+              onClick={() => setProfileOpen((open) => !open)}
+            >
+              <IconUser size={16} aria-hidden="true" />
+              <span>Perfil</span>
+              <span aria-hidden="true">&#9662;</span>
+            </button>
+            {profileOpen && (
+              <div className="topbar-dropdown" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="topbar-dropdown-item"
+                  onClick={() => {
+                    setProfileOpen(false);
+                    navigate('/perfil');
+                  }}
+                >
+                  <IconUser size={16} aria-hidden="true" />
+                  <span>Perfil</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="topbar-dropdown-item"
+                  onClick={handleLogout}
+                >
+                  <IconLogout size={16} aria-hidden="true" />
+                  <span>Salir</span>
+                </button>
+              </div>
+            )}
+          </div>
         </nav>
-
-        <button
-          className="btn btn-ghost logout-btn"
-          onClick={handleLogout}
-          title="Cerrar sesión"
-        >
-          <IconLogout size={16} aria-hidden="true" />
-          <span>Salir</span>
-        </button>
       </header>
 
       <main className="main" id="main-content" role="main">

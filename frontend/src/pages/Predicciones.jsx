@@ -67,7 +67,7 @@ export default function Predicciones() {
   return (
     <div>
       <PageHeader
-        title="Prediccion de demanda"
+        title="Predicción de demanda"
         subtitle="El modelo analiza tu histórico de ventas y predice la demanda futura."
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

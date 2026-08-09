@@ -130,7 +130,7 @@ export function ChatWidget() {
               <MessageSquare className="w-10 h-10" />
             </div>
             <p className="chat-empty-text">
-              Pregúntame sobre tu inventario, stock, predicciones o reordenes.
+              Pregúntame sobre tu inventario, stock, predicciones o reórdenes.
             </p>
             <div className="chat-sugerencias">
               {SUGERENCIAS.map((s, i) => (

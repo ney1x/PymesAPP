@@ -71,6 +71,9 @@ export default function Inventario() {
   // Keyboard navigation for table rows
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (modalOpen || e.target.closest('input, select, textarea, button')) {
+        return;
+      }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setFocusedRowIndex(prev => Math.min(prev + 1, paginated.length - 1));
@@ -85,7 +88,7 @@ export default function Inventario() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [paginated.length, focusedRowIndex]);
+  }, [paginated.length, focusedRowIndex, modalOpen]);
 
   const openCreate = () => {
     setEditing(null);
@@ -125,7 +128,7 @@ export default function Inventario() {
       setForm({ ...form, pymeId: value, categoria: '' });
       return;
     }
-    setForm({ ...form, [name]: name.includes('stock') ? Number(value) : value });
+    setForm({ ...form, [name]: value });
   };
 
   const handleVenderChange = (invId, value) => {
@@ -184,8 +187,8 @@ export default function Inventario() {
           leadTimeDias: Number(form.leadTimeDias),
           stockSeguridad: Number(form.stockSeguridad),
           inventario: {
-            stockActual: form.stockActual,
-            stockMinimo: form.stockMinimo,
+            stockActual: Number(form.stockActual),
+            stockMinimo: Number(form.stockMinimo),
           },
         });
         showToast('Producto actualizado con éxito');
@@ -206,8 +209,8 @@ export default function Inventario() {
           leadTimeDias: Number(form.leadTimeDias),
           stockSeguridad: Number(form.stockSeguridad),
           inventario: {
-            stockActual: form.stockActual,
-            stockMinimo: form.stockMinimo,
+            stockActual: Number(form.stockActual),
+            stockMinimo: Number(form.stockMinimo),
           },
         });
         showToast('Producto exitoso');
@@ -292,9 +295,9 @@ export default function Inventario() {
           <thead>
             <tr>
               <th>Producto</th>
-              <th>Categoria</th>
+              <th>Categoría</th>
               <th>Stock actual</th>
-              <th>Stock minimo</th>
+              <th>Stock mínimo</th>
               <th>Estado</th>
               <th>Vendido</th>
               <th>Acciones</th>
@@ -408,7 +411,7 @@ export default function Inventario() {
           </div>
 
           <div className="form-group">
-            <label>Categoria</label>
+            <label>Categoría</label>
             <select
               value={otraCategoria ? OTRA_CATEGORIA : form.categoria}
               onChange={handleCategoriaSelect}
@@ -470,7 +473,7 @@ export default function Inventario() {
               <input name="stockActual" type="number" min="0" required value={form.stockActual} onChange={handleChange} />
             </div>
             <div className="form-group">
-              <label>Stock Minimo</label>
+              <label>Stock mínimo</label>
               <input name="stockMinimo" type="number" min="0" required value={form.stockMinimo} onChange={handleChange} />
             </div>
           </div>

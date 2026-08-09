@@ -63,45 +63,50 @@ export function Badge({ tone = 'default', children }) {
 export function Modal({ open, title, onClose, children }) {
   const modalRef = useRef(null);
   const previousActiveElement = useRef(null);
+  const onCloseRef = useRef(onClose);
 
   useEffect(() => {
-    if (open) {
-      previousActiveElement.current = document.activeElement;
-      document.body.style.overflow = 'hidden';
-      // Focus the close button or first focusable element
-      setTimeout(() => {
-        const focusTarget = modalRef.current?.querySelector('button[aria-label="Cerrar"], [href], input, select, textarea, button, [tabindex]:not([tabindex="-1"])');
-        focusTarget?.focus();
-      }, 0);
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
-      const handleKeyDown = (e) => {
-        if (e.key === 'Escape') {
+  useEffect(() => {
+    if (!open) return;
+
+    previousActiveElement.current = document.activeElement;
+    document.body.style.overflow = 'hidden';
+    const focusTimer = setTimeout(() => {
+      const focusTarget = modalRef.current?.querySelector('[href], input, select, textarea, button, [tabindex]:not([tabindex="-1"])');
+      focusTarget?.focus();
+    }, 0);
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCloseRef.current?.();
+      }
+      if (e.key === 'Tab') {
+        const focusableElements = modalRef.current?.querySelectorAll('[href], input, select, textarea, button, [tabindex]:not([tabindex="-1"])');
+        if (!focusableElements || focusableElements.length === 0) return;
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+        if (e.shiftKey && document.activeElement === firstElement) {
           e.preventDefault();
-          onClose();
+          lastElement.focus();
+        } else if (!e.shiftKey && document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
         }
-        if (e.key === 'Tab') {
-          const focusableElements = modalRef.current?.querySelectorAll('button[aria-label="Cerrar"], [href], input, select, textarea, button, [tabindex]:not([tabindex="-1"])');
-          if (!focusableElements || focusableElements.length === 0) return;
-          const firstElement = focusableElements[0];
-          const lastElement = focusableElements[focusableElements.length - 1];
-          if (e.shiftKey && document.activeElement === firstElement) {
-            e.preventDefault();
-            lastElement.focus();
-          } else if (!e.shiftKey && document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement.focus();
-          }
-        }
-      };
+      }
+    };
 
-      document.addEventListener('keydown', handleKeyDown);
-      return () => {
-        document.removeEventListener('keydown', handleKeyDown);
-        document.body.style.overflow = '';
-        previousActiveElement.current?.focus?.();
-      };
-    }
-  }, [open, onClose]);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      clearTimeout(focusTimer);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+      previousActiveElement.current?.focus?.();
+    };
+  }, [open]);
 
   if (!open) return null;
   return (
