@@ -59,7 +59,6 @@ export default function Dashboard() {
 
   const { resumen, ventasPorDia, topProductos, productosBajoStock, rankingRentabilidad } = data.data;
   const productoUrgente = productosBajoStock[0];
-  const productoDestacado = topProductos[0];
   const oportunidad = rankingRentabilidad[0];
   const productosConConfianza = rankingRentabilidad.filter((item) => typeof item.nivelConfianza === 'number');
   const confianzaPromedio = productosConConfianza.length
@@ -68,8 +67,6 @@ export default function Dashboard() {
   const demandaPromedio = rankingRentabilidad.length
     ? rankingRentabilidad.reduce((sum, item) => sum + (Number(item.demandaPredicha) || 0), 0) / rankingRentabilidad.length
     : 0;
-
-  const nombreProducto = (producto) => producto?.nombre || producto?.producto?.nombre || 'Producto';
 
   const interpretarDemanda = (demanda) => {
     if (!demandaPromedio) return 'Revisar tendencia antes de comprar';
@@ -89,7 +86,7 @@ export default function Dashboard() {
         subtitle="Decisiones clave para tu negocio hoy."
       />
 
-      <section className="dashboard-decision-grid" aria-label="Decisiones principales">
+      <section className="dashboard-decision-grid dashboard-decision-grid-compact" aria-label="Decisiones principales">
         <div className={`dashboard-decision-card dashboard-decision-urgent${productoUrgente ? '' : ' dashboard-decision-ok'}`}>
           <span className="dashboard-decision-label">Reponer ahora</span>
           {productoUrgente ? (
@@ -126,23 +123,6 @@ export default function Dashboard() {
         </div>
 
         <div className="dashboard-decision-card">
-          <span className="dashboard-decision-label">Producto destacado</span>
-          {productoDestacado ? (
-            <>
-              <strong>{nombreProducto(productoDestacado)}</strong>
-              <small>Más vendido: {productoDestacado.unidades} unidades</small>
-              <small>Ingresos: {money(productoDestacado.ingresos)}</small>
-            </>
-          ) : (
-            <>
-              <strong>Sin ventas registradas</strong>
-              <small>Registra ventas para identificar el mejor producto.</small>
-              <Link to="/ventas" className="btn btn-outline">Registrar venta</Link>
-            </>
-          )}
-        </div>
-
-        <div className="dashboard-decision-card">
           <span className="dashboard-decision-label">Confianza de predicciones</span>
           <strong>{confianzaLabel}</strong>
           <small>
@@ -157,12 +137,6 @@ export default function Dashboard() {
         <StatCard label="Ingresos (histórico)" value={money(resumen.ingresos)} hint="Total vendido" />
         <StatCard label="Margen bruto" value={money(resumen.margenBruto)} hint="Utilidad estimada" tone="success" />
         <StatCard label="Unidades vendidas" value={resumen.unidadesVendidas} />
-        <StatCard
-          label="Alertas de stock"
-          value={resumen.alertasStock}
-          hint={resumen.alertasStock > 0 ? 'Productos por debajo del mínimo' : 'Inventario en orden'}
-          tone={resumen.alertasStock > 0 ? 'danger' : 'success'}
-        />
       </div>
 
       <div className="grid-2">

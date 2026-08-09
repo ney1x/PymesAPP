@@ -15,7 +15,7 @@ const get = async (user, { pymeId } = {}) => {
   const [productos, ventas, inventarios, predicciones] = await Promise.all([
     prisma.producto.findMany({
       where: { pyme: where.pyme },
-      select: { id: true },
+      select: { id: true, nombre: true },
     }),
     prisma.venta.findMany({
       where,
@@ -62,6 +62,7 @@ const get = async (user, { pymeId } = {}) => {
   const topProductos = productos
     .map((p) => ({
       id: p.id,
+      nombre: p.nombre,
       ...(ventasPorProducto[p.id] || { ingresos: 0, unidades: 0 }),
     }))
     .sort((a, b) => b.ingresos - a.ingresos)

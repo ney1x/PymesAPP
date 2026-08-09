@@ -261,6 +261,7 @@ async function tool_resumenDashboard({ user }) {
       ventasUltimos7Dias: dashboard.ventasPorDia,
       topProductos: dashboard.topProductos.map((p) => ({
         id: p.id,
+        nombre: p.nombre,
         ingresos: p.ingresos,
         unidades: p.unidades,
       })),
@@ -295,6 +296,35 @@ function detectarDiasPeriodo(mensaje) {
   return null;
 }
 
+function detectarResumenDashboard(mensaje) {
+  const normalized = normalizarTexto(mensaje);
+  return /\b(resumen|dashboard|panorama general)\b/.test(normalized) || /\bcomo va todo\b/.test(normalized);
+}
+
+function formatearResumenDashboard(result) {
+  if (!result?.success) return result?.mensaje || 'No pude obtener el resumen en este momento.';
+
+  const { resumen, alertasStock = [], topProductos = [], rankingRentabilidad = [] } = result.data;
+  const lines = [
+    `Resumen: ingresos $${resumen.ingresos}, margen bruto $${resumen.margenBruto} y ${resumen.unidadesVendidas} unidades vendidas.`,
+    `Productos registrados: ${resumen.numeroProductos}. Alertas de stock: ${resumen.alertasStock}.`,
+  ];
+
+  if (alertasStock.length > 0) {
+    lines.push(`Reponer ahora: ${alertasStock.slice(0, 3).map((item) => `${item.producto} (${item.stockActual}/${item.stockMinimo})`).join(', ')}.`);
+  }
+
+  if (topProductos.length > 0) {
+    lines.push(`Más vendido: ${topProductos[0].nombre || 'Producto'} con ${topProductos[0].unidades} unidades.`);
+  }
+
+  if (rankingRentabilidad.length > 0) {
+    lines.push(`Mejor oportunidad: ${rankingRentabilidad[0].nombre}.`);
+  }
+
+  return lines.join('\n');
+}
+
 function pareceNombreProducto(mensaje) {
   const normalized = normalizarTexto(mensaje).trim();
   if (!normalized || normalized.length > 80) return false;
@@ -310,7 +340,12 @@ function extraerProductoStock(mensaje) {
   const match = normalized.match(
     /(?:stock|inventario|existencias?|disponible|disponibles|tengo|hay|queda|quedan)\s+(?:de\s+|del\s+|la\s+|el\s+)?(.+)$/
   );
-  if (match?.[1]) return match[1].replace(/^unidades?\s+(?:de\s+)?/, '').trim();
+  if (match?.[1]) {
+    return match[1]
+      .replace(/^(?:tengo|hay|queda|quedan)\s+(?:de\s+)?/, '')
+      .replace(/^(?:unidades?\s+)?de\s+/, '')
+      .trim();
+  }
 
   const deMatch = normalized.match(/\bde\s+(.+)$/);
   if (deMatch?.[1]) return deMatch[1].trim();
@@ -502,6 +537,14 @@ class ChatService {
 
   async procesarMensaje(user, mensaje) {
     const history = this._getHistory(user.id);
+
+    if (detectarResumenDashboard(mensaje)) {
+      const result = await tool_resumenDashboard({ user });
+      const respuesta = formatearResumenDashboard(result);
+      this._addToHistory(user.id, 'user', mensaje);
+      this._addToHistory(user.id, 'assistant', respuesta);
+      return respuesta;
+    }
 
     const historicalSales = detectarConsultaVentasHistoricas(mensaje);
     if (historicalSales) {

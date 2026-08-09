@@ -46,6 +46,6 @@ export const reordenApi = {
 };
 
 export const chatApi = {
-  enviar: (mensaje) => client.post('/chat', { mensaje }),
+  enviar: (mensaje, config) => client.post('/chat', { mensaje }, config),
   limpiarHistorial: () => client.delete('/chat/historial'),
 };
