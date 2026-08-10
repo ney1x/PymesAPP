@@ -11,6 +11,8 @@ const {
   confianzaProducto,
   parsearClasificacion,
   extraerProductoPorRuido,
+  parseMessage,
+  validateParsedIntent,
 } = chatService.__testables;
 
 test('clasifica saludos y conversación sin buscar productos', () => {
@@ -32,7 +34,7 @@ test('clasifica decisiones de compra sin confundir más con un producto', () => 
   assert.equal(extraerProductoDecision('¿debería comprar más?'), null);
   assert.equal(extraerProductoAclaracion('de arroz'), 'arroz');
   assert.equal(extraerProductoAclaracion('más'), null);
-  assert.equal(detectarIntencion('¿qué debería comprar?'), 'purchase_decision');
+  assert.equal(detectarIntencion('¿qué debería comprar?'), 'reorder_alerts');
 });
 
 test('clasifica reposición y resumen', () => {
@@ -64,4 +66,14 @@ test('separa entidad de producto de palabras funcionales', () => {
   assert.equal(extraerProductoPorRuido('tengo gaseosa 1.5L?'), 'gaseosa 1.5l');
   assert.equal(extraerProductoPorRuido('stock'), null);
   assert.equal(extraerProductoPorRuido('más'), null);
+});
+
+test('parsea intención y entidad como campos independientes', () => {
+  assert.deepEqual(parseMessage('tengo gaseosa?'), {
+    intent: 'consultar_stock', productQuery: 'gaseosa', confidence: 0.95, usesContext: false,
+  });
+  assert.equal(parseMessage('¿qué debo reordenar?').intent, 'consultar_reorden');
+  assert.equal(parseMessage('¿qué debo reordenar?').productQuery, null);
+  assert.equal(parseMessage('¿debería comprar más?').productQuery, null);
+  assert.equal(validateParsedIntent({ intent: 'consultar_stock', productQuery: 'reordering product' }).productQuery, null);
 });

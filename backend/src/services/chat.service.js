@@ -366,13 +366,45 @@ function detectarIntencion(mensaje) {
   if (/\b(ayuda|que puedes hacer|como puedes ayudar|capacidades)\b/.test(normalized)) return 'help';
   if (detectarResumenDashboard(mensaje)) return 'dashboard_summary';
   if (/\b(producto|productos)\b.*\b(mas vendido|mejor vendido|top)\b|\b(mas vendido|mejor vendido)\b/.test(normalized)) return 'top_product';
-  if (/\b(productos?|articulos?)\b.*\b(reposicion|reponer|bajo|minimo|criticos?)\b|\b(alertas?|reponer|reposicion)\b/.test(normalized)) return 'reorder_alerts';
+  if (/\b(productos?|articulos?)\b.*\b(reposicion|reponer|reordenar|bajo|minimo|criticos?)\b|\b(alertas?|reponer|reordenar|reposicion)\b|\bque\s+(?:deberia|debo|conviene)\s+comprar\b/.test(normalized)) return 'reorder_alerts';
   if (esDecisionCompra(mensaje)) return 'purchase_decision';
   if (detectarConsultaVentasHistoricas(mensaje) || /\b(como estan|resumen de)\b.*\bventas?\b/.test(normalized) || /\b(cuanto|cuanta|cuantos|cuantas)\b.*\b(vendi|vendio|ventas?)\b/.test(normalized)) return 'sales_summary';
   if (detectarConsultaPrediccion(mensaje)) return 'prediction_query';
-  if (/\b(cuanto|cuanta|cuantos|cuantas)\b.*\b(stock|tengo|hay|queda|quedan)\b|\b(stock|inventario|existencias?)\b/.test(normalized)) return 'stock_query';
+  if (/\b(cuanto|cuanta|cuantos|cuantas)\b.*\b(stock|tengo|hay|queda|quedan)\b|\b(stock|inventario|existencias?)\b|\b(tengo|hay|queda|quedan)\b/.test(normalized)) return 'stock_query';
   if (/^(?:y\s+)?(?:el|la|los|las)\s+.+$/.test(normalized)) return 'stock_query';
   return 'unknown';
+}
+
+function parseMessage(mensaje) {
+  const detected = detectarIntencion(mensaje);
+  const intentMap = {
+    stock_query: 'consultar_stock',
+    sales_summary: 'consultar_ventas',
+    prediction_query: 'predecir_demanda',
+    purchase_decision: 'decidir_compra',
+    reorder_alerts: 'consultar_reorden',
+    dashboard_summary: 'resumen_inventario',
+    conversational: 'thanks',
+  };
+  const intent = intentMap[detected] || detected;
+  let productQuery = null;
+  if (intent === 'consultar_stock') productQuery = extraerProductoStock(mensaje) || extraerProductoPorRuido(mensaje);
+  if (intent === 'decidir_compra') productQuery = extraerProductoDecision(mensaje);
+  return { intent, productQuery, confidence: detected === 'unknown' ? 0 : 0.95, usesContext: false };
+}
+
+function validateParsedIntent(parsed) {
+  if (!parsed || typeof parsed !== 'object') return null;
+  const validIntents = new Set(['greeting', 'thanks', 'help', 'consultar_stock', 'consultar_ventas', 'predecir_demanda', 'decidir_compra', 'consultar_reorden', 'resumen_inventario', 'product_lookup', 'unknown']);
+  if (!validIntents.has(parsed.intent)) return null;
+  if (parsed.productQuery != null) {
+    const product = normalizarTexto(parsed.productQuery);
+    const invalid = !product || product.length > 80 || /\b(reordering product|consultar stock|stock query|purchase decision|product lookup|respuesta|response)\b/.test(product);
+    if (invalid || /\b(tengo|cuanto|cuanta|cuantos|cuantas|hay|quiero|saber|deberia|debo|comprar|reponer|stock)\b/.test(product) && product.split(/\s+/).length > 2) {
+      parsed.productQuery = null;
+    }
+  }
+  return parsed;
 }
 
 function extraerProductoDecision(mensaje) {
@@ -680,6 +712,15 @@ function formatearResultadoTool(toolName, result, params = {}) {
     return `En los ultimos ${data.periodoDias} dias se vendieron ${data.totalUnidades} unidades de ${data.producto}, por un total de $${data.totalIngresos}. Promedio diario: ${data.promedioDiario} unidades.`;
   }
 
+  if (toolName === 'sugerir_reorden') {
+    const items = result.data || [];
+    if (items.length === 0) return result.mensaje || 'No hay productos que necesiten reposición en este momento.';
+    return items
+      .slice(0, 10)
+      .map((item) => `${item.producto}: stock ${item.stockActual}, ${item.stockMinimo != null ? `mínimo ${item.stockMinimo}, ` : ''}cantidad sugerida ${item.cantidadSugerida}.`)
+      .join('\n');
+  }
+
   return null;
 }
 
@@ -758,6 +799,8 @@ class ChatService {
     const history = this._getHistory(user.id);
     const intentStartedAt = Date.now();
     let intent = detectarIntencion(mensaje);
+    const parsedMessage = validateParsedIntent(parseMessage(mensaje));
+    const parsedProduct = parsedMessage?.productQuery || null;
     console.log(`[CHAT] intent: ${Date.now() - intentStartedAt}ms (${intent})`);
     let clarificationProduct = null;
     const pendingIntent = this.pendingIntents.get(user.id);
@@ -797,8 +840,17 @@ class ChatService {
       return respuesta;
     }
 
+    if (intent === 'reorder_alerts') {
+      const toolStartedAt = Date.now();
+      const result = await tool_sugerirReorden({ user, diasForecast: 30 });
+      const respuesta = formatearResultadoTool('sugerir_reorden', result);
+      this._saveDirectExchange(user.id, mensaje, respuesta);
+      console.log(`[CHAT] tool: ${Date.now() - toolStartedAt}ms (sugerir_reorden) | ollama: 0ms | total: ${Date.now() - requestStartedAt}ms`);
+      return respuesta;
+    }
+
     if (intent === 'purchase_decision') {
-      const producto = clarificationProduct || extraerProductoDecision(mensaje) || this._lastProduct(user.id);
+      const producto = clarificationProduct || parsedProduct || extraerProductoDecision(mensaje) || this._lastProduct(user.id);
       if (!producto) {
         const respuesta = '¿De qué producto quieres saber si conviene comprar más?';
         this._setPendingIntent(user.id, 'purchase_decision');
@@ -848,7 +900,7 @@ class ChatService {
 
     const stockQuery = detectarConsultaStock(mensaje, history);
     if (intent === 'stock_query') {
-      const resolvedStockQuery = stockQuery || (this._lastProduct(user.id) ? { producto: this._lastProduct(user.id) } : null);
+      const resolvedStockQuery = (parsedProduct ? { producto: parsedProduct } : null) || stockQuery || (this._lastProduct(user.id) ? { producto: this._lastProduct(user.id) } : null);
       if (!resolvedStockQuery) {
         const respuesta = '¿De qué producto quieres consultar el stock?';
         this._saveDirectExchange(user.id, mensaje, respuesta);
@@ -997,4 +1049,6 @@ module.exports.__testables = {
   confianzaProducto,
   parsearClasificacion,
   extraerProductoPorRuido,
+  parseMessage,
+  validateParsedIntent,
 };
