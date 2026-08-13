@@ -8,20 +8,20 @@ export default function About() {
       <div className="card" style={{ maxWidth: 700 }}>
         <p>
           Somos un equipo de 4 estudiantes de ingeniería de la Universidad Simón Bolívar
-          de Barranquilla. Desarrollamos una plataforma web con herramientas y conocimientos
-          vistos en la materia Proyecto Integrador I. El objetivo es ayudar a las pymes
+          de Barranquilla. Desarrollamos una plataforma con herramientas y conocimientos
+          con el objetivo de ayudar a las pymes
           locales a controlar su inventario, disminuir pérdidas por sobrestock y optimizar
-          los ingresos. Les permitimos tomar mejores decisiones de inventario.
+          los ingresos. Les permitimos tomar mejores decisiones de inventario gracias a la prediccion de stock.
         </p>
 
         <h3 style={{ marginTop: 24 }}>Participantes</h3>
-        <p style={{ margin: '4px 0' }}>Antonio Arrieta, Pablo Arrieta, Santiago Perez, May salazar</p>
+        <p style={{ margin: '4px 0' }}>Adriano Aragon, Pablo Arrieta, Santiago Perez, Ney salazar</p>
 
         <h3 style={{ marginTop: 24 }}>Institución</h3>
         <p style={{ margin: '4px 0' }}>Universidad Simón Bolívar, Facultad de ingeniería</p>
 
         <h3 style={{ marginTop: 24 }}>Docente</h3>
-        <p style={{ margin: '4px 0' }}>Universidad Simón Bolívar, Facultad de ingeniería</p>
+        <p style={{ margin: '4px 0' }}>NATASHA ISABEL MADERA SAMPER</p>
       </div>
     </div>
   );

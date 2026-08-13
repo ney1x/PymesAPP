@@ -365,13 +365,12 @@ function detectarIntencion(mensaje) {
   if (/^(gracias|muchas gracias|te agradezco)([!, .].*)?$/.test(normalized)) return 'conversational';
   if (/\b(ayuda|que puedes hacer|como puedes ayudar|capacidades)\b/.test(normalized)) return 'help';
   if (detectarResumenDashboard(mensaje)) return 'dashboard_summary';
-  if (/\b(producto|productos)\b.*\b(mas vendido|mejor vendido|top)\b|\b(mas vendido|mejor vendido)\b/.test(normalized)) return 'top_product';
-  if (/\b(productos?|articulos?)\b.*\b(reposicion|reponer|reordenar|bajo|minimo|criticos?)\b|\b(alertas?|reponer|reordenar|reposicion)\b|\bque\s+(?:deberia|debo|conviene)\s+comprar\b/.test(normalized)) return 'reorder_alerts';
+  if (/\b(producto|productos)\b.*\b(mas vendido|mejor vendido|top|vendido mas)\b|\b(mas vendido|mejor vendido|vendido mas)\b/.test(normalized)) return 'top_product';
+  if (/\b(productos?|articulos?)\b.*\b(reposicion|reponer|reordenar|bajo|minimo|criticos?)\b|\b(alertas?|reponer|reordenar|reposicion)\b|\bque\s+(?:deberia|debo|conviene)\s+comprar\b|\bque\s+productos?\s+(?:necesito|debo|deberia|conviene)\s+comprar\b/.test(normalized)) return 'reorder_alerts';
   if (esDecisionCompra(mensaje)) return 'purchase_decision';
   if (detectarConsultaVentasHistoricas(mensaje) || /\b(como estan|resumen de)\b.*\bventas?\b/.test(normalized) || /\b(cuanto|cuanta|cuantos|cuantas)\b.*\b(vendi|vendio|ventas?)\b/.test(normalized)) return 'sales_summary';
   if (detectarConsultaPrediccion(mensaje)) return 'prediction_query';
   if (/\b(cuanto|cuanta|cuantos|cuantas)\b.*\b(stock|tengo|hay|queda|quedan)\b|\b(stock|inventario|existencias?)\b|\b(tengo|hay|queda|quedan)\b/.test(normalized)) return 'stock_query';
-  if (/^(?:y\s+)?(?:el|la|los|las)\s+.+$/.test(normalized)) return 'stock_query';
   return 'unknown';
 }
 
@@ -506,8 +505,181 @@ const STOPWORDS_PRODUCTO = new Set([
   'existencias', 'disponible', 'disponibles', 'quiero', 'saber', 'dime', 'me',
   'queda', 'quedan', 'queda', 'de', 'del', 'la', 'el', 'los', 'las', 'un', 'una',
   'mi', 'mis', 'y', 'que', 'cual', 'cuales', 'mas', 'menos', 'ahora', 'por',
-  'favor', 'unidades', 'unidad', 'me', 'queda', 'quedan',
+  'favor', 'unidades', 'unidad', 'me', 'queda', 'quedan', 'he', 'ha', 'han',
+  'vendido', 'vendi', 'vendio', 'vendieron', 'ventas', 'venta', 'deberia',
+  'debo', 'conviene', 'necesito', 'comprar', 'reponer', 'reordenar', 'productos',
+  'producto', 'necesitan', 'necesito', 'como', 'estan', 'mis', 'nuevo', 'nueva',
+  'repetir', 'otra', 'otro', 'vez',
 ]);
+
+const INVALID_PRODUCT_QUERIES = new Set([
+  'reordering product',
+  'reorder product',
+  'sales product',
+  'stock product',
+  'greeting',
+  'stock',
+  'sales',
+  'reorder',
+  'summary',
+  'prediction',
+  'product_info',
+  'help',
+  'unknown',
+  'consultar stock',
+  'consultar ventas',
+  'decidir compra',
+  'consultar reorden',
+  'resumen inventario',
+  'sugerir reorden',
+  'consultar_ventas_producto',
+  'consultar_stock',
+  'sugerir_reorden',
+]);
+
+const TOOL_BY_INTENT = {
+  STOCK: 'consultar_stock',
+  SALES: 'consultar_ventas_producto',
+  REORDER: 'sugerir_reorden',
+  PREDICTION: 'predecir_demanda',
+  SUMMARY: 'resumen_dashboard',
+  PRODUCT_INFO: 'info_producto',
+};
+
+function limpiarProducto(producto) {
+  const normalized = normalizarTexto(producto || '')
+    .replace(/[?.!,;:]+$/g, '')
+    .replace(/^(?:de|del|para|el|la|los|las|y)\s+/, '')
+    .trim();
+  if (!normalized || normalized.length > 80) return null;
+  if (INVALID_PRODUCT_QUERIES.has(normalized)) return null;
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  if (tokens.length > 0 && tokens.every((token) => STOPWORDS_PRODUCTO.has(token))) return null;
+  if (/^(mas|menos|algo|productos?|articulos?|reorden|reordenamiento|comprar|stock|ventas?)$/.test(normalized)) return null;
+  return normalized;
+}
+
+function detectarIntencionActual(mensaje) {
+  const detected = detectarIntencion(mensaje);
+  const normalized = normalizarTexto(mensaje);
+  if (detected === 'sales_summary' && /\bcomo estan\b.*\bventas?\b/.test(normalized)) {
+    return { intent: 'SUMMARY', confidence: 0.9, detected };
+  }
+  const map = {
+    greeting: 'GREETING',
+    conversational: 'HELP',
+    help: 'HELP',
+    stock_query: 'STOCK',
+    sales_summary: 'SALES',
+    purchase_decision: 'REORDER',
+    reorder_alerts: 'REORDER',
+    dashboard_summary: 'SUMMARY',
+    prediction_query: 'PREDICTION',
+    top_product: 'SUMMARY',
+  };
+  return {
+    intent: map[detected] || 'UNKNOWN',
+    confidence: detected === 'unknown' ? 0 : 0.95,
+    detected,
+  };
+}
+
+function extraerProductoVentas(mensaje) {
+  const normalized = normalizarTexto(mensaje)
+    .replace(/[?.!,;:]+$/g, '')
+    .trim();
+  const match = normalized.match(/\b(?:ventas?|vendido|vendida|vendidos|vendidas|vendi|vendio|vendieron)\s+(?:de\s+)?(.+)$/);
+  if (!match?.[1]) return null;
+  const producto = match[1]
+    .replace(/\s+(?:en|durante|del|de)?\s*(?:el|la)?\s*(?:ultimo|ultima|pasado|pasada|mes|semana|ayer).*$/i, '')
+    .trim();
+  return limpiarProducto(producto);
+}
+
+function extraerProductoExplicito(mensaje, intent) {
+  if (intent === 'STOCK') return limpiarProducto(extraerProductoStock(mensaje) || extraerProductoPorRuido(mensaje));
+  if (intent === 'SALES') return limpiarProducto(
+    extraerProductoVentas(mensaje)
+      || extraerProductoVentasHistoricas(mensaje)
+      || extraerProductoPorRuido(mensaje)
+  );
+  if (intent === 'REORDER') return limpiarProducto(extraerProductoDecision(mensaje));
+  if (intent === 'PREDICTION') return limpiarProducto(detectarConsultaPrediccion(mensaje)?.producto);
+  if (intent === 'PRODUCT_INFO') return limpiarProducto(extraerProductoPorRuido(mensaje));
+
+  const directProductMatch = normalizarTexto(mensaje).match(/^(?:y\s+)?(?:el|la|los|las)\s+(.+)$/);
+  if (directProductMatch?.[1]) return limpiarProducto(directProductMatch[1]);
+
+  if (intent === 'UNKNOWN' && esConsultaProductoSimple(mensaje)) {
+    return limpiarProducto(extraerProductoPorRuido(mensaje) || mensaje);
+  }
+
+  return null;
+}
+
+function detectarContinuacion(mensaje) {
+  const normalized = normalizarTexto(mensaje).trim();
+  return /^(?:y|tambien|tambien dime|ademas|de nuevo|otra vez)\b/.test(normalized)
+    || /^(?:de|del|para)\s+\S/.test(normalized);
+}
+
+function interpretarMensaje(mensaje, context = {}) {
+  const startedAt = Date.now();
+  const intentStartedAt = Date.now();
+  const current = detectarIntencionActual(mensaje);
+  const intentMs = Date.now() - intentStartedAt;
+  const continuation = detectarContinuacion(mensaje);
+  const productStartedAt = Date.now();
+  const explicitProduct = extraerProductoExplicito(mensaje, current.intent)
+    || (current.intent === 'UNKNOWN' ? limpiarProducto(extraerProductoPorRuido(mensaje)) : null);
+  const productExtractionMs = Date.now() - productStartedAt;
+  const lastIntent = {
+    stock_query: 'STOCK',
+    sales_summary: 'SALES',
+    purchase_decision: 'REORDER',
+    reorder_alerts: 'REORDER',
+    prediction_query: 'PREDICTION',
+    dashboard_summary: 'SUMMARY',
+  }[context.intent] || context.intent || null;
+  const lastProduct = context.nombre || context.productName || null;
+  const inheritsIntent = Boolean(current.intent === 'UNKNOWN' && continuation && lastIntent);
+  const intent = inheritsIntent ? lastIntent : current.intent;
+  const canUseContextProduct = ['STOCK', 'SALES', 'PREDICTION', 'PRODUCT_INFO'].includes(intent)
+    || (intent === 'REORDER' && (current.detected === 'purchase_decision' || inheritsIntent));
+  const contextualProduct = !explicitProduct && canUseContextProduct
+    ? lastProduct
+    : null;
+  const productName = explicitProduct || contextualProduct || null;
+  const productSource = explicitProduct ? 'explicit' : (contextualProduct ? 'context' : null);
+  const needsProduct = ['STOCK', 'SALES', 'PREDICTION', 'PRODUCT_INFO'].includes(intent)
+    || (intent === 'REORDER' && current.detected === 'purchase_decision');
+
+  return {
+    intent,
+    productId: null,
+    productName,
+    productSource,
+    intentSource: inheritsIntent ? 'context' : 'explicit',
+    continuation,
+    productExtraction: explicitProduct || null,
+    scope: intent === 'REORDER' && productName ? 'PRODUCT' : (intent === 'REORDER' ? 'GLOBAL' : null),
+    confidence: inheritsIntent ? 0.8 : current.confidence,
+    intentConfidence: inheritsIntent ? 0.8 : current.confidence,
+    productConfidence: productName ? (productSource === 'explicit' ? 0.9 : 0.75) : 0,
+    needsClarification: needsProduct && !productName,
+    contextUsed: productSource === 'context' || inheritsIntent,
+    tool: intent === 'REORDER' && (current.detected === 'purchase_decision' || Boolean(productName))
+      ? 'decidir_compra'
+      : TOOL_BY_INTENT[intent] || null,
+    detected: current.detected,
+    timings: {
+      intentMs,
+      productExtractionMs,
+      contextResolutionMs: Date.now() - productStartedAt - productExtractionMs,
+      totalMs: Date.now() - startedAt,
+    },
+  };
+}
 
 function extraerProductoPorRuido(mensaje) {
   const normalized = normalizarTexto(mensaje)
@@ -798,13 +970,16 @@ class ChatService {
     const requestStartedAt = Date.now();
     const history = this._getHistory(user.id);
     const intentStartedAt = Date.now();
-    let intent = detectarIntencion(mensaje);
-    const parsedMessage = validateParsedIntent(parseMessage(mensaje));
-    const parsedProduct = parsedMessage?.productQuery || null;
-    console.log(`[CHAT] intent: ${Date.now() - intentStartedAt}ms (${intent})`);
+    const previousContext = this.productContext.get(user.id) || {};
+    const interpretation = interpretarMensaje(mensaje, previousContext);
+    const interpretationMs = Date.now() - intentStartedAt;
+    let intent = interpretation.detected;
+    console.log(`[CHAT] intent=${interpretation.intent} intentSource=${interpretation.intentSource} continuation=${interpretation.continuation} confidence=${interpretation.confidence.toFixed(2)} ms=${interpretation.timings.intentMs || interpretationMs}`);
+    console.log(`[CHAT] productExtraction=${interpretation.productExtraction || 'none'} productMatching=${interpretation.productName || 'none'} productSource=${interpretation.productSource || 'none'} productConfidence=${interpretation.productConfidence.toFixed(2)} ms=${interpretation.timings.productExtractionMs}`);
+    console.log(`[CHAT] contextUsed=${interpretation.contextUsed} previousIntent=${previousContext.intent || 'none'} previousProduct=${previousContext.nombre || 'none'} tool=${interpretation.tool || 'none'} ollama=0ms total=${Date.now() - requestStartedAt}ms`);
     let clarificationProduct = null;
     const pendingIntent = this.pendingIntents.get(user.id);
-    if (pendingIntent && intent === 'unknown') {
+    if (pendingIntent && interpretation.intent === 'UNKNOWN') {
       clarificationProduct = extraerProductoAclaracion(mensaje);
       if (clarificationProduct) {
         intent = pendingIntent.intent;
@@ -812,7 +987,7 @@ class ChatService {
       }
     }
 
-    if (intent === 'greeting') {
+    if (interpretation.intent === 'GREETING') {
       const respuesta = '¡Hola! ¿En qué puedo ayudarte con tu inventario?';
       this._saveDirectExchange(user.id, mensaje, respuesta);
       return respuesta;
@@ -824,13 +999,13 @@ class ChatService {
       return respuesta;
     }
 
-    if (intent === 'help') {
+    if (interpretation.intent === 'HELP') {
       const respuesta = 'Puedo consultar stock, ventas, predicciones, alertas, reordenes y resúmenes de tu inventario.';
       this._saveDirectExchange(user.id, mensaje, respuesta);
       return respuesta;
     }
 
-    if (intent === 'dashboard_summary') {
+    if (interpretation.intent === 'SUMMARY') {
       const toolStartedAt = Date.now();
       const result = await tool_resumenDashboard({ user });
       console.log(`[CHAT] tool: ${Date.now() - toolStartedAt}ms (resumen_dashboard)`);
@@ -840,7 +1015,7 @@ class ChatService {
       return respuesta;
     }
 
-    if (intent === 'reorder_alerts') {
+    if (interpretation.intent === 'REORDER' && !interpretation.productName && intent !== 'purchase_decision') {
       const toolStartedAt = Date.now();
       const result = await tool_sugerirReorden({ user, diasForecast: 30 });
       const respuesta = formatearResultadoTool('sugerir_reorden', result);
@@ -849,8 +1024,8 @@ class ChatService {
       return respuesta;
     }
 
-    if (intent === 'purchase_decision') {
-      const producto = clarificationProduct || parsedProduct || extraerProductoDecision(mensaje) || this._lastProduct(user.id);
+    if (interpretation.intent === 'REORDER' || intent === 'purchase_decision') {
+      const producto = limpiarProducto(clarificationProduct) || interpretation.productName;
       if (!producto) {
         const respuesta = '¿De qué producto quieres saber si conviene comprar más?';
         this._setPendingIntent(user.id, 'purchase_decision');
@@ -863,18 +1038,17 @@ class ChatService {
       const result = await tool_decidirCompra({ user, ...purchaseDecision });
       console.log(`[CHAT] tool: ${Date.now() - toolStartedAt}ms (decidir_compra)`);
       const respuesta = formatearDecisionCompra(result, purchaseDecision);
-      this._rememberProduct(user.id, result.data?.producto || producto, 'purchase_decision', 'decidir_compra');
+      this._rememberProduct(user.id, result.data?.producto || producto, 'REORDER', 'decidir_compra');
       this._saveDirectExchange(user.id, mensaje, respuesta);
       console.log(`[CHAT] ollama: 0ms | total: ${Date.now() - requestStartedAt}ms`);
       return respuesta;
     }
 
-    const historicalSales = detectarConsultaVentasHistoricas(mensaje);
-    if (intent === 'sales_summary') {
-      const salesQuery = historicalSales || (this._lastProduct(user.id) ? {
-        producto: this._lastProduct(user.id),
+    if (interpretation.intent === 'SALES') {
+      const salesQuery = interpretation.productName ? {
+        producto: interpretation.productName,
         dias: detectarDiasPeriodo(mensaje) || 30,
-      } : null);
+      } : null;
       if (!salesQuery) {
         const respuesta = '¿De qué producto quieres consultar las ventas?';
         this._saveDirectExchange(user.id, mensaje, respuesta);
@@ -884,23 +1058,31 @@ class ChatService {
       const result = await tool_consultarVentasProducto({ user, ...salesQuery });
       console.log(`[CHAT] tool: ${Date.now() - toolStartedAt}ms (consultar_ventas_producto)`);
       const respuesta = formatearResultadoTool('consultar_ventas_producto', result, salesQuery);
-      this._rememberProduct(user.id, result.data, 'sales_summary', 'consultar_ventas_producto');
+      this._rememberProduct(user.id, result.data || salesQuery.producto, 'SALES', 'consultar_ventas_producto');
       this._saveDirectExchange(user.id, mensaje, respuesta);
+      console.log(`[CHAT] ollama: 0ms | total: ${Date.now() - requestStartedAt}ms`);
       return respuesta;
     }
 
-    const directPrediction = detectarConsultaPrediccion(mensaje);
-    if (directPrediction) {
-      const result = await tool_predecirDemanda({ user, ...directPrediction });
-      const respuesta = formatearResultadoTool('predecir_demanda', result, directPrediction);
-      this._rememberProduct(user.id, result.data, 'prediction_query', 'predecir_demanda');
+    if (interpretation.intent === 'PREDICTION') {
+      if (!interpretation.productName) {
+        const respuesta = 'Â¿De quÃ© producto quieres predecir la demanda?';
+        this._saveDirectExchange(user.id, mensaje, respuesta);
+        return respuesta;
+      }
+      const predictionQuery = { producto: interpretation.productName, dias: detectarDiasPeriodo(mensaje) || 7 };
+      const toolStartedAt = Date.now();
+      const result = await tool_predecirDemanda({ user, ...predictionQuery });
+      console.log(`[CHAT] tool: ${Date.now() - toolStartedAt}ms (predecir_demanda)`);
+      const respuesta = formatearResultadoTool('predecir_demanda', result, predictionQuery);
+      this._rememberProduct(user.id, result.data || predictionQuery.producto, 'PREDICTION', 'predecir_demanda');
       this._saveDirectExchange(user.id, mensaje, respuesta);
+      console.log(`[CHAT] ollama: 0ms | total: ${Date.now() - requestStartedAt}ms`);
       return respuesta;
     }
 
-    const stockQuery = detectarConsultaStock(mensaje, history);
-    if (intent === 'stock_query') {
-      const resolvedStockQuery = (parsedProduct ? { producto: parsedProduct } : null) || stockQuery || (this._lastProduct(user.id) ? { producto: this._lastProduct(user.id) } : null);
+    if (interpretation.intent === 'STOCK') {
+      const resolvedStockQuery = interpretation.productName ? { producto: interpretation.productName } : null;
       if (!resolvedStockQuery) {
         const respuesta = '¿De qué producto quieres consultar el stock?';
         this._saveDirectExchange(user.id, mensaje, respuesta);
@@ -910,7 +1092,7 @@ class ChatService {
       const result = await tool_consultarStock({ user, ...resolvedStockQuery });
       const respuesta = formatearResultadoTool('consultar_stock', result, resolvedStockQuery);
       console.log(`[CHAT] tool: ${Date.now() - toolStartedAt}ms (consultar_stock)`);
-      this._rememberProduct(user.id, result.data?.[0] || resolvedStockQuery.producto, 'stock_query', 'consultar_stock');
+      this._rememberProduct(user.id, result.data?.[0] || resolvedStockQuery.producto, 'STOCK', 'consultar_stock');
       this._saveDirectExchange(user.id, mensaje, respuesta);
       console.log(`[CHAT] ollama: 0ms | total: ${Date.now() - requestStartedAt}ms`);
       return respuesta;
@@ -1049,6 +1231,9 @@ module.exports.__testables = {
   confianzaProducto,
   parsearClasificacion,
   extraerProductoPorRuido,
+  extraerProductoVentas,
+  limpiarProducto,
+  interpretarMensaje,
   parseMessage,
   validateParsedIntent,
 };
