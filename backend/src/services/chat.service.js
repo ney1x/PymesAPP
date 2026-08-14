@@ -108,6 +108,36 @@ const TOOL_DEFINITIONS = [
       parameters: { type: 'object', properties: {}, required: [] },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'producto_mas_vendido',
+      description: 'Consulta GLOBAL (no de un producto específico) que responde "cuál es el producto más vendido". Rankea todos los productos por unidades vendidas. Usa cuando el usuario pregunta por el producto más vendido, top de ventas, mejor vendido, ranking de ventas. NO necesitas pymeId ni nombre de producto: esta herramienta encuentra el producto, no lo recibe como parámetro. LLAMA A ESTA HERRAMIENTA INMEDIATAMENTE.',
+      parameters: {
+        type: 'object',
+        properties: {
+          categoria: { type: 'string', description: 'Filtra el ranking a una categoría de producto (opcional, solo si el usuario la menciona explícitamente)' },
+          dias: { type: 'integer', description: 'Limita el ranking a los últimos N días (opcional, por defecto considera todo el histórico)', minimum: 1, maximum: 365 },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'producto_menos_vendido',
+      description: 'Consulta GLOBAL (no de un producto específico) que responde "cuál es el producto menos vendido". Rankea todos los productos por unidades vendidas y devuelve el que menos vendió. Usa cuando el usuario pregunta por el producto menos vendido, peor vendido, bottom de ventas. NO necesitas pymeId ni nombre de producto: esta herramienta encuentra el producto, no lo recibe como parámetro. LLAMA A ESTA HERRAMIENTA INMEDIATAMENTE.',
+      parameters: {
+        type: 'object',
+        properties: {
+          categoria: { type: 'string', description: 'Filtra el ranking a una categoría de producto (opcional, solo si el usuario la menciona explícitamente)' },
+          dias: { type: 'integer', description: 'Limita el ranking a los últimos N días (opcional, por defecto considera todo el histórico)', minimum: 1, maximum: 365 },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 async function tool_consultarStock({ user, producto }) {
@@ -278,6 +308,44 @@ async function tool_consultarVentasProducto({ user, producto, dias = 30 }) {
   };
 }
 
+async function tool_productoMasVendido({ user, categoria, dias }) {
+  const ranking = await ventasService.masVendido(user, { categoria, dias });
+
+  if (ranking.length === 0) {
+    const alcance = categoria ? ` en la categoria "${categoria}"` : '';
+    return { success: false, mensaje: `No hay ventas registradas${alcance} todavia.` };
+  }
+
+  return {
+    success: true,
+    data: {
+      top: ranking[0],
+      ranking: ranking.slice(0, 5),
+      categoria: categoria || null,
+      dias: dias || null,
+    },
+  };
+}
+
+async function tool_productoMenosVendido({ user, categoria, dias }) {
+  const ranking = await ventasService.menosVendido(user, { categoria, dias });
+
+  if (ranking.length === 0) {
+    const alcance = categoria ? ` en la categoria "${categoria}"` : '';
+    return { success: false, mensaje: `No hay ventas registradas${alcance} todavia.` };
+  }
+
+  return {
+    success: true,
+    data: {
+      bottom: ranking[0],
+      ranking: ranking.slice(0, 5),
+      categoria: categoria || null,
+      dias: dias || null,
+    },
+  };
+}
+
 async function tool_resumenDashboard({ user }) {
   const dashboard = await dashboardService.get(user, {});
 
@@ -306,6 +374,8 @@ const TOOL_MAP = {
   info_producto: tool_infoProducto,
   consultar_ventas_producto: tool_consultarVentasProducto,
   resumen_dashboard: tool_resumenDashboard,
+  producto_mas_vendido: tool_productoMasVendido,
+  producto_menos_vendido: tool_productoMenosVendido,
 };
 
 function normalizarTexto(texto) {
@@ -358,6 +428,35 @@ function parsearClasificacion(texto) {
   }
 }
 
+/**
+ * Direccion de un ranking (MAX/MIN) via las dos palabras comparativas
+ * genericas del espanol ("mas"/"menos" — mismo tipo de señal lexica que ya
+ * usa detectarContinuacion() para "y/tambien/de" o esDecisionCompra() para
+ * "deberia/debo/conviene"). NO es una regex por frase: una sola vez, dos
+ * palabras, reutilizada tanto para clasificar mensajes nuevos como para
+ * "voltear" un intent de ranking heredado en una continuacion (ver
+ * interpretarMensaje). "mejor/peor/top/bottom" tambien cuentan como senal de
+ * direccion cuando aparecen junto al tema de ventas (esConsultaRankingVentas).
+ */
+function direccionRanking(normalized) {
+  if (/\b(menos|peor|bottom)\b/.test(normalized)) return 'MIN';
+  if (/\b(mas|mejor|top)\b/.test(normalized)) return 'MAX';
+  return null;
+}
+
+/**
+ * Detecta si el mensaje es una consulta de RANKING GLOBAL de ventas
+ * ("producto mas/menos vendido", "que producto vende menos", "el mejor
+ * vendido", etc.) en vez de una consulta sobre un producto puntual del
+ * catalogo. Generaliza el mismo par de señales (tema de ventas + direccion
+ * comparativa) que antes solo cubria "mas vendido"; ahora cubre ambas
+ * direcciones sin listar frases especificas.
+ */
+function esConsultaRankingVentas(normalized) {
+  const tieneTemaVentas = /\b(vendido|vendidos|vendida|vendidas|vendi|vendio|vendieron|vende|vender|venden|ventas?)\b/.test(normalized);
+  return tieneTemaVentas && direccionRanking(normalized) !== null;
+}
+
 function detectarIntencion(mensaje) {
   const normalized = normalizarTexto(mensaje).trim();
 
@@ -365,7 +464,7 @@ function detectarIntencion(mensaje) {
   if (/^(gracias|muchas gracias|te agradezco)([!, .].*)?$/.test(normalized)) return 'conversational';
   if (/\b(ayuda|que puedes hacer|como puedes ayudar|capacidades)\b/.test(normalized)) return 'help';
   if (detectarResumenDashboard(mensaje)) return 'dashboard_summary';
-  if (/\b(producto|productos)\b.*\b(mas vendido|mejor vendido|top|vendido mas)\b|\b(mas vendido|mejor vendido|vendido mas)\b/.test(normalized)) return 'top_product';
+  if (esConsultaRankingVentas(normalized)) return direccionRanking(normalized) === 'MIN' ? 'bottom_product' : 'top_product';
   if (/\b(productos?|articulos?)\b.*\b(reposicion|reponer|reordenar|bajo|minimo|criticos?)\b|\b(alertas?|reponer|reordenar|reposicion)\b|\bque\s+(?:deberia|debo|conviene)\s+comprar\b|\bque\s+productos?\s+(?:necesito|debo|deberia|conviene)\s+comprar\b/.test(normalized)) return 'reorder_alerts';
   if (esDecisionCompra(mensaje)) return 'purchase_decision';
   if (detectarConsultaVentasHistoricas(mensaje) || /\b(como estan|resumen de)\b.*\bventas?\b/.test(normalized) || /\b(cuanto|cuanta|cuantos|cuantas)\b.*\b(vendi|vendio|ventas?)\b/.test(normalized)) return 'sales_summary';
@@ -544,7 +643,13 @@ const TOOL_BY_INTENT = {
   PREDICTION: 'predecir_demanda',
   SUMMARY: 'resumen_dashboard',
   PRODUCT_INFO: 'info_producto',
+  TOP_PRODUCT: 'producto_mas_vendido',
+  BOTTOM_PRODUCT: 'producto_menos_vendido',
 };
+
+// Intents de ranking GLOBAL (nunca product-scoped, nunca hacen matching de
+// producto). "el menos"/"el mas" en una continuacion voltea entre estos dos.
+const RANKING_INTENTS = new Set(['TOP_PRODUCT', 'BOTTOM_PRODUCT']);
 
 function limpiarProducto(producto) {
   const normalized = normalizarTexto(producto || '')
@@ -575,7 +680,8 @@ function detectarIntencionActual(mensaje) {
     reorder_alerts: 'REORDER',
     dashboard_summary: 'SUMMARY',
     prediction_query: 'PREDICTION',
-    top_product: 'SUMMARY',
+    top_product: 'TOP_PRODUCT',
+    bottom_product: 'BOTTOM_PRODUCT',
   };
   return {
     intent: map[detected] || 'UNKNOWN',
@@ -633,7 +739,7 @@ function interpretarMensaje(mensaje, context = {}) {
   const explicitProduct = extraerProductoExplicito(mensaje, current.intent)
     || (current.intent === 'UNKNOWN' ? limpiarProducto(extraerProductoPorRuido(mensaje)) : null);
   const productExtractionMs = Date.now() - productStartedAt;
-  const lastIntent = {
+  let lastIntent = {
     stock_query: 'STOCK',
     sales_summary: 'SALES',
     purchase_decision: 'REORDER',
@@ -641,6 +747,14 @@ function interpretarMensaje(mensaje, context = {}) {
     prediction_query: 'PREDICTION',
     dashboard_summary: 'SUMMARY',
   }[context.intent] || context.intent || null;
+  // "¿Y el menos?" tras TOP_PRODUCT (o "¿Y el mas?" tras BOTTOM_PRODUCT): se
+  // hereda el TEMA (ranking de ventas) pero la DIRECCION puede cambiar en
+  // este mismo mensaje. Reutiliza direccionRanking() — la misma señal
+  // lexica generica de arriba, sin regex nueva por frase.
+  if (RANKING_INTENTS.has(lastIntent)) {
+    const direccionMensaje = direccionRanking(normalizarTexto(mensaje));
+    if (direccionMensaje) lastIntent = direccionMensaje === 'MIN' ? 'BOTTOM_PRODUCT' : 'TOP_PRODUCT';
+  }
   const lastProduct = context.nombre || context.productName || null;
   const inheritsIntent = Boolean(current.intent === 'UNKNOWN' && continuation && lastIntent);
   const intent = inheritsIntent ? lastIntent : current.intent;
@@ -662,7 +776,8 @@ function interpretarMensaje(mensaje, context = {}) {
     intentSource: inheritsIntent ? 'context' : 'explicit',
     continuation,
     productExtraction: explicitProduct || null,
-    scope: intent === 'REORDER' && productName ? 'PRODUCT' : (intent === 'REORDER' ? 'GLOBAL' : null),
+    scope: intent === 'REORDER' ? (productName ? 'PRODUCT' : 'GLOBAL')
+      : (RANKING_INTENTS.has(intent) ? 'GLOBAL' : null),
     confidence: inheritsIntent ? 0.8 : current.confidence,
     intentConfidence: inheritsIntent ? 0.8 : current.confidence,
     productConfidence: productName ? (productSource === 'explicit' ? 0.9 : 0.75) : 0,
@@ -679,6 +794,41 @@ function interpretarMensaje(mensaje, context = {}) {
       totalMs: Date.now() - startedAt,
     },
   };
+}
+
+/**
+ * Detecta ambiguedad de intencion heredada. NO es un clasificador nuevo:
+ * reutiliza campos que interpretarMensaje() ya calcula con el regex
+ * existente (intentSource, productSource, intent, productName).
+ *
+ * Caso que resuelve (bug reportado): "cuanto tengo de gaseosa?" -> "y
+ * debería comprar más?" -> "y de arroz?". El tercer mensaje no trae NINGUNA
+ * intencion propia (intentSource='context', se heredo REORDER del turno
+ * anterior) pero SI nombra un producto nuevo explicito (productSource=
+ * 'explicit', "arroz"). Regla 1 del pedido: producto explicito + intencion
+ * insuficiente en el mensaje => no asumir automaticamente la intencion
+ * anterior. Se marca como ambigua entre STOCK y REORDER (las dos lecturas
+ * razonables de nombrar un producto suelto sin verbo) y no se ejecuta tool.
+ *
+ * Si el mensaje SI trae su propia intencion explicita (current.intent no fue
+ * 'unknown', intentSource='explicit'), nunca es ambiguo: ver regla 6.
+ * Si no hay producto nuevo (solo continuacion pura, ej. "y cuanto queda?"),
+ * tampoco es ambiguo: ver regla 7, eso sigue resolviendolo
+ * _resolverContinuacionStock sin pasar por aqui.
+ */
+const INTENTS_AMBIGUOS_POR_HERENCIA = new Set(['STOCK', 'REORDER']);
+
+function detectarAmbiguedadIntencion(interpretation, previousContext) {
+  if (
+    interpretation.intentSource === 'context'
+    && interpretation.productSource === 'explicit'
+    && interpretation.productName
+    && INTENTS_AMBIGUOS_POR_HERENCIA.has(interpretation.intent)
+    && previousContext?.nombre
+  ) {
+    return { producto: interpretation.productName, intentHeredado: interpretation.intent };
+  }
+  return null;
 }
 
 function extraerProductoPorRuido(mensaje) {
@@ -884,6 +1034,28 @@ function formatearResultadoTool(toolName, result, params = {}) {
     return `En los ultimos ${data.periodoDias} dias se vendieron ${data.totalUnidades} unidades de ${data.producto}, por un total de $${data.totalIngresos}. Promedio diario: ${data.promedioDiario} unidades.`;
   }
 
+  if (toolName === 'producto_mas_vendido') {
+    const { top, ranking, categoria, dias } = result.data;
+    const alcance = categoria ? ` en la categoria "${categoria}"` : '';
+    const periodo = dias ? ` en los ultimos ${dias} dias` : '';
+    const resto = ranking.slice(1, 3)
+      .map((item) => `${item.nombre} (${item.unidades})`)
+      .join(', ');
+    const siguientes = resto ? ` Le siguen: ${resto}.` : '';
+    return `El producto mas vendido${alcance}${periodo} es ${top.nombre}, con ${top.unidades} unidades vendidas ($${top.ingresos} en ingresos).${siguientes}`;
+  }
+
+  if (toolName === 'producto_menos_vendido') {
+    const { bottom, ranking, categoria, dias } = result.data;
+    const alcance = categoria ? ` en la categoria "${categoria}"` : '';
+    const periodo = dias ? ` en los ultimos ${dias} dias` : '';
+    const resto = ranking.slice(1, 3)
+      .map((item) => `${item.nombre} (${item.unidades})`)
+      .join(', ');
+    const siguientes = resto ? ` Le siguen: ${resto}.` : '';
+    return `El producto menos vendido${alcance}${periodo} es ${bottom.nombre}, con ${bottom.unidades} unidades vendidas ($${bottom.ingresos} en ingresos).${siguientes}`;
+  }
+
   if (toolName === 'sugerir_reorden') {
     const items = result.data || [];
     if (items.length === 0) return result.mensaje || 'No hay productos que necesiten reposición en este momento.';
@@ -966,6 +1138,128 @@ class ChatService {
     this._addToHistory(userId, 'assistant', respuesta);
   }
 
+  /**
+   * PILOTO Fase 2 — STOCK unicamente.
+   * Ollama + function calling es el interprete principal: decide intent, scope
+   * y productName. El regex/interpretarMensaje NO participa en esta ruta.
+   * Contexto reducido (validado por A/B test: subio tool-call rate de 33% a 83%
+   * frente a pasar el historial completo, que ademas produjo respuestas
+   * inventadas sin llamar ninguna tool): en vez del historial de conversacion,
+   * se pasa solo el mensaje actual + una linea de sistema con el ultimo
+   * producto mencionado (misma memoria que ya usa el flujo regex).
+   * Si Ollama no llama a consultar_stock (otro intent, error de red, etc.),
+   * devuelve null y el llamador cede al pipeline determinista existente.
+   */
+  /**
+   * Resolver determinista de continuaciones contextuales, SOLO STOCK.
+   * No es un clasificador nuevo: reutiliza `interpretation.productSource`,
+   * ya calculado por interpretarMensaje() (regex existente, sin cambios).
+   * `productSource === 'context'` significa que NINGUNA extraccion explicita
+   * (regex de producto) encontro nada en el mensaje — el unico motivo por el
+   * que sabemos el producto es lastProduct/lastIntent ya guardados. Eso es
+   * justamente lo inequivoco: si el mensaje mencionara un producto o intent
+   * distinto de forma explicita, productSource seria 'explicit' y este
+   * resolver no se activa, cede a Ollama (ver _intentarStockConOllama).
+   * Costo: cero llamadas a Ollama (ollama_ms=0).
+   */
+  async _resolverContinuacionStock(user, mensaje, interpretation) {
+    if (interpretation.intent !== 'STOCK' || interpretation.productSource !== 'context' || !interpretation.productName) {
+      return null;
+    }
+
+    const matchStartedAt = Date.now();
+    const result = await tool_consultarStock({ user, producto: interpretation.productName });
+    const matchMs = Date.now() - matchStartedAt;
+    const matchedName = result.data?.[0]?.producto || null;
+    console.log(`[CHAT][STOCK_CONTEXT_RESOLVER] ollama_ms=0 productName="${interpretation.productName}" matching=${matchMs}ms matched=${matchedName ? `"${matchedName}"` : 'ninguno'}`);
+
+    const respuesta = formatearResultadoTool('consultar_stock', result, { producto: interpretation.productName });
+    if (result.success) this._rememberProduct(user.id, result.data[0], 'STOCK', 'consultar_stock');
+    return respuesta;
+  }
+
+  /**
+   * Resuelve un estado 'AMBIGUOUS_INTENT' pendiente (guardado en el mismo
+   * Map pendingIntents que ya existia para la aclaracion de purchase_decision,
+   * solo con un valor distinto de `intent` como discriminador).
+   *
+   * Usa interpretation.detected — la etiqueta CRUDA que detectarIntencion()
+   * ya calculo para ESTE mensaje de respuesta, sin regex nueva — para saber
+   * cual de las dos lecturas ofrecidas eligio el usuario. El producto viene
+   * de pendingIntent.producto (el turno ambiguo), no del contexto general,
+   * que sigue apuntando al producto anterior a la ambiguedad.
+   * Si el mensaje no aclara nada reconocible, devuelve null: el llamador
+   * descarta el pendiente y sigue el flujo normal para este mensaje.
+   */
+  async _resolverAmbiguedadPendiente(user, pendingIntent, interpretation) {
+    const producto = pendingIntent.producto;
+
+    if (interpretation.detected === 'stock_query') {
+      const result = await tool_consultarStock({ user, producto });
+      const respuesta = formatearResultadoTool('consultar_stock', result, { producto });
+      if (result.success) this._rememberProduct(user.id, result.data[0], 'STOCK', 'consultar_stock');
+      this.pendingIntents.delete(user.id);
+      console.log(`[CHAT][AMBIGUOUS_INTENT] resuelto=STOCK producto="${producto}" ollama_ms=0`);
+      return respuesta;
+    }
+
+    if (interpretation.detected === 'purchase_decision') {
+      const purchaseDecision = { producto, diasForecast: 30 };
+      const result = await tool_decidirCompra({ user, ...purchaseDecision });
+      const respuesta = formatearDecisionCompra(result, purchaseDecision);
+      this._rememberProduct(user.id, result.data?.producto || producto, 'REORDER', 'decidir_compra');
+      this.pendingIntents.delete(user.id);
+      console.log(`[CHAT][AMBIGUOUS_INTENT] resuelto=REORDER producto="${producto}" ollama_ms=0`);
+      return respuesta;
+    }
+
+    return null;
+  }
+
+  async _intentarStockConOllama(user, mensaje) {
+    const ollamaStartedAt = Date.now();
+    const lastProduct = this._lastProduct(user.id);
+    const messages = [{ role: 'system', content: SYSTEM_PROMPT }];
+    if (lastProduct) {
+      messages.push({ role: 'system', content: `Contexto: el ultimo producto que el usuario consulto fue "${lastProduct}".` });
+    }
+    messages.push({ role: 'user', content: mensaje });
+
+    let response;
+    try {
+      response = await this._getLLM().chat(messages, TOOL_DEFINITIONS);
+    } catch (err) {
+      console.error(`[CHAT][STOCK_PILOT] ollama_error=${Date.now() - ollamaStartedAt}ms msg=${err.message}`);
+      return null;
+    }
+    const ollamaMs = Date.now() - ollamaStartedAt;
+
+    const toolCall = response.toolCalls?.[0];
+    if (!toolCall || toolCall.function.name !== 'consultar_stock') {
+      console.log(`[CHAT][STOCK_PILOT] ollama=${ollamaMs}ms tool=${toolCall?.function.name || 'ninguna'} -> no es STOCK, cede al flujo determinista`);
+      return null;
+    }
+
+    const args = this._parseToolArguments(toolCall);
+    const productName = (args.producto || '').trim() || null;
+    console.log(`[CHAT][STOCK_PILOT] ollama=${ollamaMs}ms intent=STOCK scope=PRODUCT productName=${productName ? `"${productName}"` : 'null'}`);
+
+    if (!productName) {
+      return '¿De qué producto quieres consultar el stock?';
+    }
+
+    const matchStartedAt = Date.now();
+    const result = await tool_consultarStock({ user, producto: productName });
+    const matchMs = Date.now() - matchStartedAt;
+    const matchedName = result.data?.[0]?.producto || null;
+    console.log(`[CHAT][STOCK_PILOT] matching=${matchMs}ms candidatos=${result.data?.length || 0} matched=${matchedName ? `"${matchedName}"` : 'ninguno'}`);
+    console.log(`[CHAT][STOCK_PILOT] total=${ollamaMs + matchMs}ms (ollama=${ollamaMs}ms + matching=${matchMs}ms)`);
+
+    const respuesta = formatearResultadoTool('consultar_stock', result, { producto: productName });
+    if (result.success) this._rememberProduct(user.id, result.data[0], 'STOCK', 'consultar_stock');
+    return respuesta;
+  }
+
   async procesarMensaje(user, mensaje) {
     const requestStartedAt = Date.now();
     const history = this._getHistory(user.id);
@@ -979,7 +1273,18 @@ class ChatService {
     console.log(`[CHAT] contextUsed=${interpretation.contextUsed} previousIntent=${previousContext.intent || 'none'} previousProduct=${previousContext.nombre || 'none'} tool=${interpretation.tool || 'none'} ollama=0ms total=${Date.now() - requestStartedAt}ms`);
     let clarificationProduct = null;
     const pendingIntent = this.pendingIntents.get(user.id);
-    if (pendingIntent && interpretation.intent === 'UNKNOWN') {
+
+    if (pendingIntent?.intent === 'AMBIGUOUS_INTENT') {
+      const resueltoAmbiguo = await this._resolverAmbiguedadPendiente(user, pendingIntent, interpretation);
+      if (resueltoAmbiguo) {
+        this._saveDirectExchange(user.id, mensaje, resueltoAmbiguo);
+        console.log(`[CHAT] total=${Date.now() - requestStartedAt}ms (via AMBIGUOUS_INTENT_RESOLVER, ollama_ms=0)`);
+        return resueltoAmbiguo;
+      }
+      this.pendingIntents.delete(user.id);
+    }
+
+    if (pendingIntent && pendingIntent.intent !== 'AMBIGUOUS_INTENT' && interpretation.intent === 'UNKNOWN') {
       clarificationProduct = extraerProductoAclaracion(mensaje);
       if (clarificationProduct) {
         intent = pendingIntent.intent;
@@ -1003,6 +1308,50 @@ class ChatService {
       const respuesta = 'Puedo consultar stock, ventas, predicciones, alertas, reordenes y resúmenes de tu inventario.';
       this._saveDirectExchange(user.id, mensaje, respuesta);
       return respuesta;
+    }
+
+    const ambiguedad = detectarAmbiguedadIntencion(interpretation, previousContext);
+    if (ambiguedad) {
+      const respuesta = `¿Quieres saber cuánto stock tienes de ${ambiguedad.producto} o si deberías comprar más?`;
+      this.pendingIntents.set(user.id, { intent: 'AMBIGUOUS_INTENT', producto: ambiguedad.producto });
+      this._saveDirectExchange(user.id, mensaje, respuesta);
+      console.log(`[CHAT][AMBIGUOUS_INTENT] producto="${ambiguedad.producto}" heredaria=${ambiguedad.intentHeredado} -> pidiendo aclaracion, ollama_ms=0, total=${Date.now() - requestStartedAt}ms`);
+      return respuesta;
+    }
+
+    const contextoStock = await this._resolverContinuacionStock(user, mensaje, interpretation);
+    if (contextoStock) {
+      this._saveDirectExchange(user.id, mensaje, contextoStock);
+      console.log(`[CHAT] total=${Date.now() - requestStartedAt}ms (via STOCK_CONTEXT_RESOLVER, ollama_ms=0)`);
+      return contextoStock;
+    }
+
+    // TOP_PRODUCT / BOTTOM_PRODUCT: siempre scope GLOBAL, jamas necesitan
+    // nombre de producto ni matching contra catalogo (regla 2). Resuelto
+    // ANTES del piloto de Ollama porque el regex + el flip de direccion en
+    // interpretarMensaje ya son inequivocos para ambos casos, fresh y
+    // continuacion ("¿y el menos?") — igual principio que STOCK_CONTEXT_RESOLVER.
+    if (RANKING_INTENTS.has(interpretation.intent)) {
+      const esBottom = interpretation.intent === 'BOTTOM_PRODUCT';
+      const toolName = esBottom ? 'producto_menos_vendido' : 'producto_mas_vendido';
+      const toolStartedAt = Date.now();
+      const result = esBottom ? await tool_productoMenosVendido({ user }) : await tool_productoMasVendido({ user });
+      console.log(`[CHAT][RANKING] ollama_ms=0 tool=${Date.now() - toolStartedAt}ms (${toolName})`);
+      const respuesta = formatearResultadoTool(toolName, result, {});
+      if (result.success) {
+        this._rememberProduct(user.id, esBottom ? result.data.bottom : result.data.top, interpretation.intent, toolName);
+      }
+      this._saveDirectExchange(user.id, mensaje, respuesta);
+      console.log(`[CHAT] total=${Date.now() - requestStartedAt}ms (via RANKING, ollama_ms=0)`);
+      return respuesta;
+    }
+
+    console.log(`[CHAT] regex_guess=${interpretation.intent} (comparacion diagnostica, no se usa para STOCK)`);
+    const stockPiloto = await this._intentarStockConOllama(user, mensaje);
+    if (stockPiloto) {
+      this._saveDirectExchange(user.id, mensaje, stockPiloto);
+      console.log(`[CHAT] total=${Date.now() - requestStartedAt}ms (via STOCK_PILOT)`);
+      return stockPiloto;
     }
 
     if (interpretation.intent === 'SUMMARY') {
@@ -1236,4 +1585,12 @@ module.exports.__testables = {
   interpretarMensaje,
   parseMessage,
   validateParsedIntent,
+  TOOL_DEFINITIONS,
+  tool_consultarStock,
+  SYSTEM_PROMPT,
+  detectarAmbiguedadIntencion,
+  direccionRanking,
+  esConsultaRankingVentas,
+  tool_productoMasVendido,
+  tool_productoMenosVendido,
 };

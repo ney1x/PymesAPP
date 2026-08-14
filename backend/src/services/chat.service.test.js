@@ -16,6 +16,9 @@ const {
   interpretarMensaje,
   parseMessage,
   validateParsedIntent,
+  detectarAmbiguedadIntencion,
+  direccionRanking,
+  esConsultaRankingVentas,
 } = chatService.__testables;
 
 test('clasifica saludos y conversacion sin buscar productos', () => {
@@ -146,6 +149,124 @@ test('continuacion sin producto conserva solo contexto faltante', () => {
   assert.equal(parsed.contextUsed, true);
 });
 
+test('elegibilidad del resolver deterministico de STOCK: solo productSource=context habilita bypass de Ollama', () => {
+  const stockContext = { intent: 'STOCK', nombre: 'Arroz 1kg' };
+
+  // Continuaciones inequivocas: sin producto explicito en el mensaje, deben
+  // resolver con productSource='context' -> el resolver deterministico las
+  // atiende sin llamar a Ollama (ollama_ms=0).
+  const continuacionesInequivocas = ['y cuanto queda?', 'cuanto queda?', 'y cuanto hay?', 'y cuanto?'];
+  for (const mensaje of continuacionesInequivocas) {
+    const parsed = interpretarMensaje(mensaje, stockContext);
+    assert.equal(parsed.intent, 'STOCK', mensaje);
+    assert.equal(parsed.productSource, 'context', mensaje);
+    assert.equal(parsed.productName, 'Arroz 1kg', mensaje);
+  }
+
+  // Cambio explicito de producto: NO debe calificar para el resolver
+  // deterministico (productSource='explicit'), debe seguir yendo a Ollama.
+  const cambiosExplicitos = ['y de gaseosa?', 'cuanto tengo de gaseosa?', 'stock de gaseosa'];
+  for (const mensaje of cambiosExplicitos) {
+    const parsed = interpretarMensaje(mensaje, stockContext);
+    assert.equal(parsed.intent, 'STOCK', mensaje);
+    assert.equal(parsed.productSource, 'explicit', mensaje);
+    assert.notEqual(parsed.productName, 'Arroz 1kg', mensaje);
+  }
+
+  // Cambio explicito de intencion (REORDER): no es STOCK, tampoco califica.
+  const cambioIntencion = interpretarMensaje('deberia comprar mas?', stockContext);
+  assert.equal(cambioIntencion.intent, 'REORDER');
+});
+
+test('detecta ambiguedad de intencion heredada: producto explicito nuevo + intencion no explicita', () => {
+  const gaseosaStock = { intent: 'STOCK', nombre: 'Gaseosa 1.5L' };
+  const gaseosaReorder = { intent: 'REORDER', nombre: 'Gaseosa 1.5L' };
+
+  // Bug reproducible: "y de arroz?" no trae ningun verbo/intencion propia,
+  // solo un producto nuevo. Sea cual sea la intencion heredada (STOCK o
+  // REORDER), debe marcarse ambiguo, no ejecutarse automaticamente.
+  const casoStock = interpretarMensaje('y de arroz?', gaseosaStock);
+  assert.deepEqual(detectarAmbiguedadIntencion(casoStock, gaseosaStock), { producto: 'arroz', intentHeredado: 'STOCK' });
+
+  const casoReorder = interpretarMensaje('y de arroz?', gaseosaReorder);
+  assert.deepEqual(detectarAmbiguedadIntencion(casoReorder, gaseosaReorder), { producto: 'arroz', intentHeredado: 'REORDER' });
+
+  // Continuacion pura sin producto nuevo: NO es ambigua (la resuelve
+  // _resolverContinuacionStock via productSource='context').
+  const continuacionPura = interpretarMensaje('y cuanto queda?', gaseosaStock);
+  assert.equal(detectarAmbiguedadIntencion(continuacionPura, gaseosaStock), null);
+
+  // Intencion explicita en el propio mensaje: NO es ambigua (regla 6,
+  // la intencion explicita del mensaje prevalece sobre la heredada).
+  const intencionExplicita = interpretarMensaje('cuanto stock tengo de arroz?', gaseosaReorder);
+  assert.equal(detectarAmbiguedadIntencion(intencionExplicita, gaseosaReorder), null);
+
+  // Sin contexto previo: nada de que ser ambiguo.
+  const sinContexto = interpretarMensaje('y de arroz?', {});
+  assert.equal(detectarAmbiguedadIntencion(sinContexto, {}), null);
+});
+
+test('TOP_PRODUCT / BOTTOM_PRODUCT: siempre GLOBAL, nunca intentan matching de producto', () => {
+  // Caso A
+  const a = interpretarMensaje('¿Cuál es el producto más vendido?', {});
+  assert.equal(a.intent, 'TOP_PRODUCT');
+  assert.equal(a.scope, 'GLOBAL');
+  assert.equal(a.productName, null);
+
+  // Caso B: continuacion tras TOP_PRODUCT voltea a BOTTOM_PRODUCT sin producto
+  const b = interpretarMensaje('¿Y el menos?', { intent: 'TOP_PRODUCT', nombre: 'Panela' });
+  assert.equal(b.intent, 'BOTTOM_PRODUCT');
+  assert.equal(b.scope, 'GLOBAL');
+  assert.equal(b.productName, null);
+
+  // Caso C, D, E: variantes de "menos vendido" desde cero, nunca product matching
+  for (const m of ['¿Cuál es el producto menos vendido?', 'producto menos vendido', '¿Qué producto vende menos?', '¿Cuál tiene menos ventas?', '¿Cuál es el que menos se vende?']) {
+    const parsed = interpretarMensaje(m, {});
+    assert.equal(parsed.intent, 'BOTTOM_PRODUCT', m);
+    assert.equal(parsed.scope, 'GLOBAL', m);
+    assert.equal(parsed.productName, null, m);
+  }
+
+  // Caso F: TOP -> BOTTOM -> TOP
+  const f1 = interpretarMensaje('¿Cuál es el producto más vendido?', {});
+  assert.equal(f1.intent, 'TOP_PRODUCT');
+  const f2 = interpretarMensaje('¿Y el menos?', { intent: f1.intent, nombre: 'Panela' });
+  assert.equal(f2.intent, 'BOTTOM_PRODUCT');
+  const f3 = interpretarMensaje('¿Y el más?', { intent: f2.intent, nombre: 'Aceite' });
+  assert.equal(f3.intent, 'TOP_PRODUCT');
+
+  // Caso G: BOTTOM -> TOP
+  const g1 = interpretarMensaje('¿Cuál es el producto menos vendido?', {});
+  assert.equal(g1.intent, 'BOTTOM_PRODUCT');
+  const g2 = interpretarMensaje('¿Y el más?', { intent: g1.intent, nombre: 'Aceite' });
+  assert.equal(g2.intent, 'TOP_PRODUCT');
+
+  // Caso H: una consulta de producto real sigue igual, no la toca el ranking
+  const h = interpretarMensaje('¿Cuánto stock tengo de arroz?', {});
+  assert.equal(h.intent, 'STOCK');
+  assert.equal(h.productName, 'arroz');
+  assert.equal(h.scope, null);
+
+  // Ventas de un producto puntual con "vendido" NO deben clasificarse como
+  // ranking solo por tener la palabra "vendido" (falta la señal de direccion).
+  const ventaProducto = interpretarMensaje('cuanto he vendido de gaseosa?', {});
+  assert.equal(ventaProducto.intent, 'SALES');
+  assert.equal(ventaProducto.productName, 'gaseosa');
+});
+
+test('direccionRanking / esConsultaRankingVentas: señales genericas, no listas por frase', () => {
+  assert.equal(direccionRanking('el producto mas vendido'), 'MAX');
+  assert.equal(direccionRanking('el producto menos vendido'), 'MIN');
+  assert.equal(direccionRanking('y el mas'), 'MAX');
+  assert.equal(direccionRanking('y el menos'), 'MIN');
+  assert.equal(direccionRanking('cuanto stock tengo'), null);
+
+  assert.equal(esConsultaRankingVentas('producto mas vendido'), true);
+  assert.equal(esConsultaRankingVentas('producto menos vendido'), true);
+  assert.equal(esConsultaRankingVentas('deberia comprar mas arroz'), false, 'sin tema de ventas no es ranking');
+  assert.equal(esConsultaRankingVentas('cuanto he vendido de gaseosa'), false, 'sin palabra comparativa no es ranking');
+});
+
 test('no convierte labels internos en productos', () => {
   assert.equal(limpiarProducto('reordering product'), null);
   assert.equal(limpiarProducto('sales product'), null);
@@ -170,7 +291,7 @@ test('interpreta regresiones minimas solicitadas', () => {
     ['cuanto he vendido de gasesosa?', 'SALES', 'gasesosa'],
     ['deberia comprar mas gasesosa?', 'REORDER', 'gasesosa'],
     ['y la gaseosa?', 'SALES', 'gaseosa'],
-    ['que producto he vendido mas?', 'SUMMARY', null],
+    ['que producto he vendido mas?', 'TOP_PRODUCT', null],
     ['como estan mis ventas?', 'SUMMARY', null],
   ];
 

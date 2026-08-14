@@ -99,4 +99,52 @@ const historialProducto = async (productoId, dias = 30) => {
   });
 };
 
-module.exports = { list, create, historialProducto };
+/**
+ * Ranking de productos por unidades vendidas. Base compartida por masVendido
+ * (orden DESC, "mas vendido") y menosVendido (orden ASC, "menos vendido") —
+ * misma agregacion real contra la tabla venta, cada una es una operacion
+ * explicita propia, no una inversion del formatter de la otra.
+ *
+ * Alcance: solo productos con al menos una venta registrada en el periodo
+ * (igual que masVendido ya hacia). "Menos vendido" se interpreta como "el que
+ * menos vendio de los que vendieron algo", no incluye productos sin ventas —
+ * esa seria una pregunta distinta (inventario sin movimiento).
+ */
+const rankingVentas = async (user, { pymeId, categoria, dias, orden = 'DESC' } = {}) => {
+  const wherePyme = user.rol === 'ADMIN' ? {} : { userId: user.id };
+  const desde = dias ? new Date(Date.now() - dias * 24 * 60 * 60 * 1000) : null;
+
+  const ventas = await prisma.venta.findMany({
+    where: {
+      pyme: wherePyme,
+      ...(pymeId ? { pymeId: Number(pymeId) } : {}),
+      ...(desde ? { fecha: { gte: desde } } : {}),
+      ...(categoria ? { producto: { categoria } } : {}),
+    },
+    select: { productoId: true, cantidad: true, total: true, producto: { select: { id: true, nombre: true, categoria: true } } },
+  });
+
+  const porProducto = new Map();
+  for (const v of ventas) {
+    const entry = porProducto.get(v.productoId) || {
+      id: v.producto.id,
+      nombre: v.producto.nombre,
+      categoria: v.producto.categoria,
+      unidades: 0,
+      ingresos: 0,
+    };
+    entry.unidades += v.cantidad;
+    entry.ingresos += v.total;
+    porProducto.set(v.productoId, entry);
+  }
+
+  const ranking = Array.from(porProducto.values());
+  return orden === 'ASC'
+    ? ranking.sort((a, b) => a.unidades - b.unidades)
+    : ranking.sort((a, b) => b.unidades - a.unidades);
+};
+
+const masVendido = (user, opts = {}) => rankingVentas(user, { ...opts, orden: 'DESC' });
+const menosVendido = (user, opts = {}) => rankingVentas(user, { ...opts, orden: 'ASC' });
+
+module.exports = { list, create, historialProducto, masVendido, menosVendido };
