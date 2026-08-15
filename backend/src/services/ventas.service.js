@@ -147,4 +147,61 @@ const rankingVentas = async (user, { pymeId, categoria, dias, orden = 'DESC' } =
 const masVendido = (user, opts = {}) => rankingVentas(user, { ...opts, orden: 'DESC' });
 const menosVendido = (user, opts = {}) => rankingVentas(user, { ...opts, orden: 'ASC' });
 
-module.exports = { list, create, historialProducto, masVendido, menosVendido };
+/**
+ * Ranking de productos por RENTABILIDAD real (margen = (precioUnitario -
+ * costoUnitario) * cantidad, sumado sobre las ventas del periodo). Eje
+ * distinto al de unidades vendidas (rankingVentas) — un producto puede
+ * vender pocas unidades y ser el mas rentable, o vender mucho con margen
+ * bajo. Usa datos reales de la tabla venta, no la prediccion del motor de IA
+ * (eso es otro dato, calculado por predicciones.service para otro proposito).
+ */
+const rankingRentabilidad = async (user, { pymeId, categoria, dias, orden = 'DESC' } = {}) => {
+  const wherePyme = user.rol === 'ADMIN' ? {} : { userId: user.id };
+  const desde = dias ? new Date(Date.now() - dias * 24 * 60 * 60 * 1000) : null;
+
+  const ventas = await prisma.venta.findMany({
+    where: {
+      pyme: wherePyme,
+      ...(pymeId ? { pymeId: Number(pymeId) } : {}),
+      ...(desde ? { fecha: { gte: desde } } : {}),
+      ...(categoria ? { producto: { categoria } } : {}),
+    },
+    select: {
+      productoId: true,
+      cantidad: true,
+      total: true,
+      precioUnitario: true,
+      costoUnitario: true,
+      producto: { select: { id: true, nombre: true, categoria: true } },
+    },
+  });
+
+  const porProducto = new Map();
+  for (const v of ventas) {
+    const entry = porProducto.get(v.productoId) || {
+      id: v.producto.id,
+      nombre: v.producto.nombre,
+      categoria: v.producto.categoria,
+      unidades: 0,
+      ingresos: 0,
+      margen: 0,
+    };
+    entry.unidades += v.cantidad;
+    entry.ingresos += v.total;
+    entry.margen += (v.precioUnitario - v.costoUnitario) * v.cantidad;
+    porProducto.set(v.productoId, entry);
+  }
+
+  const ranking = Array.from(porProducto.values()).map((p) => ({
+    ...p,
+    margenPorcentual: p.ingresos > 0 ? Number(((p.margen / p.ingresos) * 100).toFixed(1)) : 0,
+  }));
+
+  return orden === 'ASC'
+    ? ranking.sort((a, b) => a.margen - b.margen)
+    : ranking.sort((a, b) => b.margen - a.margen);
+};
+
+const masRentable = (user, opts = {}) => rankingRentabilidad(user, { ...opts, orden: 'DESC' });
+
+module.exports = { list, create, historialProducto, masVendido, menosVendido, masRentable };

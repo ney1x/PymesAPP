@@ -9,7 +9,6 @@ const {
   normalizarTexto,
   esConsultaProductoSimple,
   confianzaProducto,
-  parsearClasificacion,
   extraerProductoPorRuido,
   extraerProductoVentas,
   limpiarProducto,
@@ -19,6 +18,13 @@ const {
   detectarAmbiguedadIntencion,
   direccionRanking,
   esConsultaRankingVentas,
+  esConversacionalMinimo,
+  despojarMuletillaInicial,
+  esConsultaRankingRentabilidad,
+  resolverConfirmacionContinuar,
+  productoDesdeResultado,
+  INTENT_BY_TOOL,
+  formatearResultadoTool,
 } = chatService.__testables;
 
 test('clasifica saludos y conversacion sin buscar productos', () => {
@@ -57,13 +63,6 @@ test('normaliza variantes y prepara matching fuzzy de productos', () => {
   assert.equal(esConsultaProductoSimple('gasesosa'), true);
   assert.equal(esConsultaProductoSimple('deberia comprar arroz?'), false);
   assert.ok(confianzaProducto('gasesosa', 'Gaseosa 1.5L') >= 0.78);
-});
-
-test('valida salida estructurada del clasificador semantico', () => {
-  assert.deepEqual(parsearClasificacion('{"intent":"stock","product_query":"arroz","confidence":0.96}'), {
-    intent: 'stock', product_query: 'arroz', confidence: 0.96,
-  });
-  assert.equal(parsearClasificacion('respuesta no JSON').intent, 'unknown');
 });
 
 test('separa entidad de producto de palabras funcionales', () => {
@@ -265,6 +264,170 @@ test('direccionRanking / esConsultaRankingVentas: señales genericas, no listas 
   assert.equal(esConsultaRankingVentas('producto menos vendido'), true);
   assert.equal(esConsultaRankingVentas('deberia comprar mas arroz'), false, 'sin tema de ventas no es ranking');
   assert.equal(esConsultaRankingVentas('cuanto he vendido de gaseosa'), false, 'sin palabra comparativa no es ranking');
+});
+
+test('palabras conversacionales ("ok", "vale", ...) nunca se convierten en productName', () => {
+  for (const palabra of ['ok', 'vale', 'listo', 'dale', 'bueno', 'perfecto', 'si', 'no']) {
+    assert.equal(esConsultaProductoSimple(palabra), false, palabra);
+    assert.equal(limpiarProducto(palabra), null, palabra);
+
+    const trasStock = interpretarMensaje(palabra, { intent: 'STOCK', nombre: 'Arroz 1kg' });
+    assert.equal(trasStock.productName, null, `${palabra} tras STOCK`);
+
+    const trasRanking = interpretarMensaje(palabra, { intent: 'TOP_PRODUCT', nombre: 'Panela' });
+    assert.equal(trasRanking.productName, null, `${palabra} tras TOP_PRODUCT`);
+    assert.notEqual(trasRanking.intent, 'BOTTOM_PRODUCT', `${palabra} no debe voltear el ranking (no es señal de direccion)`);
+  }
+
+  // Un nombre de producto real parecido no debe verse afectado.
+  assert.equal(esConsultaProductoSimple('gasesosa'), true);
+  assert.equal(limpiarProducto('gasesosa'), 'gasesosa');
+});
+
+test('esConversacionalMinimo: gate unico para acuses de recibo (ok, vale, gracias, entendido...)', () => {
+  for (const m of ['ok', 'okey', 'okay', 'vale', 'bien', 'perfecto', 'gracias', 'entendido', 'listo', 'dale', 'claro', 'muchas gracias', 'te agradezco']) {
+    assert.equal(esConversacionalMinimo(m), true, m);
+    assert.equal(esConversacionalMinimo(`${m}!`), true, `${m}! (con puntuacion)`);
+  }
+
+  // No debe atrapar mensajes reales que solo contienen alguna de estas
+  // palabras como parte de una consulta real.
+  for (const m of ['ok pero cuanto stock tengo de arroz?', 'gracias, cuanto vendi de gaseosa?', 'bien, y el producto mas vendido?']) {
+    assert.equal(esConversacionalMinimo(m), false, m);
+  }
+});
+
+test('despojarMuletillaInicial: quita un prefijo conversacional, deja intacto el resto', () => {
+  assert.equal(despojarMuletillaInicial('ok y el menos?'), 'y el menos?');
+  assert.equal(despojarMuletillaInicial('vale, y el mas?'), 'y el mas?');
+  assert.equal(despojarMuletillaInicial('bien y de arroz?'), 'y de arroz?');
+  assert.equal(despojarMuletillaInicial('gracias y cuanto vendi?'), 'y cuanto vendi?');
+  // 'si'/'no' no se despojan como prefijo: cargan significado real.
+  assert.equal(despojarMuletillaInicial('no tengo arroz'), 'no tengo arroz');
+  // Mensaje puramente conversacional, sin nada despues: no aplica (lo cubre esConversacionalMinimo).
+  assert.equal(despojarMuletillaInicial('ok'), 'ok');
+  // Primera palabra real (no muletilla): sin cambios.
+  assert.equal(despojarMuletillaInicial('cuanto tengo de arroz?'), 'cuanto tengo de arroz?');
+});
+
+test('caso reportado: "ok y el menos?" en un solo mensaje resuelve BOTTOM_PRODUCT/GLOBAL, no busca "ok" como producto', () => {
+  const ctxTop = { intent: 'TOP_PRODUCT', nombre: 'Panela' };
+  const p1 = interpretarMensaje('ok y el menos?', ctxTop);
+  assert.equal(p1.intent, 'BOTTOM_PRODUCT');
+  assert.equal(p1.scope, 'GLOBAL');
+  assert.equal(p1.productName, null);
+
+  const ctxBottom = { intent: 'BOTTOM_PRODUCT', nombre: 'Galletas' };
+  const p2 = interpretarMensaje('vale, y el mas?', ctxBottom);
+  assert.equal(p2.intent, 'TOP_PRODUCT');
+  assert.equal(p2.scope, 'GLOBAL');
+  assert.equal(p2.productName, null);
+
+  const p3 = interpretarMensaje('bien y de arroz?', { intent: 'STOCK', nombre: 'Gaseosa 1.5L' });
+  assert.equal(p3.intent, 'STOCK');
+  assert.equal(p3.productName, 'arroz');
+});
+
+test('TOP_PROFIT_PRODUCT: "producto mas rentable" es GLOBAL, nunca extrae "es rentable" como producto', () => {
+  for (const m of ['¿Cuál es el producto más rentable?', 'producto mas rentable', '¿Qué producto tiene mejor margen?', '¿Cuál da más ganancia?', '¿Cuál tiene más utilidad?']) {
+    const parsed = interpretarMensaje(m, {});
+    assert.equal(parsed.intent, 'TOP_PROFIT_PRODUCT', m);
+    assert.equal(parsed.scope, 'GLOBAL', m);
+    assert.equal(parsed.productName, null, m);
+  }
+
+  assert.equal(esConsultaRankingRentabilidad('cual es el producto mas rentable'), true);
+  // Direccion MIN no implementada: no debe activar el intent (evita
+  // responder MAX a una pregunta MIN).
+  assert.equal(esConsultaRankingRentabilidad('cual es el producto menos rentable'), false);
+  // Sin tema de rentabilidad: no se confunde con el eje de unidades vendidas.
+  assert.equal(esConsultaRankingRentabilidad('cual es el producto mas vendido'), false);
+
+  // No debe interferir con TOP_PRODUCT (eje de unidades) ni con una consulta real.
+  assert.equal(interpretarMensaje('¿Cuál es el producto más vendido?', {}).intent, 'TOP_PRODUCT');
+  assert.equal(interpretarMensaje('¿Cuánto stock tengo de arroz?', {}).intent, 'STOCK');
+});
+
+test('resolverConfirmacionContinuar: "si"/"no" resuelven por contexto, no como acuse de recibo generico', () => {
+  assert.equal(resolverConfirmacionContinuar('si'), '¡Genial! ¿Qué necesitas?');
+  assert.equal(resolverConfirmacionContinuar('sí'), '¡Genial! ¿Qué necesitas?');
+  assert.equal(resolverConfirmacionContinuar('Sí!'), '¡Genial! ¿Qué necesitas?');
+  assert.equal(resolverConfirmacionContinuar('no'), '¡Perfecto! Que tengas un buen día.');
+  assert.equal(resolverConfirmacionContinuar('No.'), '¡Perfecto! Que tengas un buen día.');
+  // Cualquier otra cosa: no resuelve, cede al flujo normal.
+  assert.equal(resolverConfirmacionContinuar('tal vez'), null);
+  assert.equal(resolverConfirmacionContinuar('cuanto stock tengo de arroz?'), null);
+});
+
+test('INTENT_BY_TOOL es el inverso exacto de TOOL_BY_INTENT (derivado, no duplicado)', () => {
+  assert.equal(INTENT_BY_TOOL.consultar_stock, 'STOCK');
+  assert.equal(INTENT_BY_TOOL.consultar_ventas_producto, 'SALES');
+  assert.equal(INTENT_BY_TOOL.sugerir_reorden, 'REORDER');
+  assert.equal(INTENT_BY_TOOL.predecir_demanda, 'PREDICTION');
+  assert.equal(INTENT_BY_TOOL.resumen_dashboard, 'SUMMARY');
+  assert.equal(INTENT_BY_TOOL.producto_mas_vendido, 'TOP_PRODUCT');
+  assert.equal(INTENT_BY_TOOL.producto_menos_vendido, 'BOTTOM_PRODUCT');
+  assert.equal(INTENT_BY_TOOL.producto_mas_rentable, 'TOP_PROFIT_PRODUCT');
+});
+
+test('productoDesdeResultado: extrae el producto a recordar segun la forma de cada tool', () => {
+  assert.deepEqual(
+    productoDesdeResultado('consultar_stock', { success: true, data: [{ producto: 'Arroz 1kg' }] }),
+    { producto: 'Arroz 1kg' } // data es array: cae en la rama Array.isArray -> data[0]
+  );
+  assert.deepEqual(
+    productoDesdeResultado('consultar_ventas_producto', { success: true, data: { producto: 'Gaseosa 1.5L' } }),
+    { producto: 'Gaseosa 1.5L' }
+  );
+  assert.deepEqual(
+    productoDesdeResultado('producto_mas_vendido', { success: true, data: { top: { nombre: 'Panela' } } }),
+    { nombre: 'Panela' }
+  );
+  assert.deepEqual(
+    productoDesdeResultado('producto_menos_vendido', { success: true, data: { bottom: { nombre: 'Galletas' } } }),
+    { nombre: 'Galletas' }
+  );
+  assert.deepEqual(
+    productoDesdeResultado('producto_mas_rentable', { success: true, data: { top: { nombre: 'Panela' } } }),
+    { nombre: 'Panela' }
+  );
+  // Tools de lista/agregado: nunca hay UN producto que recordar.
+  assert.equal(productoDesdeResultado('resumen_dashboard', { success: true, data: {} }), null);
+  assert.equal(productoDesdeResultado('alertas_stock', { success: true, data: [{ producto: 'x' }] }), null);
+  assert.equal(productoDesdeResultado('sugerir_reorden', { success: true, data: [{ producto: 'x' }] }), null);
+  // Resultado fallido: nunca recordar nada.
+  assert.equal(productoDesdeResultado('consultar_stock', { success: false }), null);
+});
+
+test('formatearResultadoTool cubre resumen_dashboard/alertas_stock/info_producto (antes requerian una 2a llamada a Ollama)', () => {
+  const resumen = formatearResultadoTool('resumen_dashboard', {
+    success: true,
+    data: {
+      resumen: { ingresos: 1505800, margenBruto: 358900, unidadesVendidas: 169, numeroProductos: 5, alertasStock: 1 },
+      alertasStock: [],
+      topProductos: [{ nombre: 'Panela', unidades: 76 }],
+      rankingRentabilidad: [],
+    },
+  }, {});
+  assert.match(resumen, /ingresos \$1505800/);
+  assert.match(resumen, /margen bruto \$358900/);
+
+  const alertas = formatearResultadoTool('alertas_stock', {
+    success: true,
+    data: [{ producto: 'Aceite Vegetal 1L', stockActual: 6, stockMinimo: 12, deficit: 6 }],
+  }, {});
+  assert.match(alertas, /Aceite Vegetal 1L/);
+  assert.match(alertas, /faltan 6/);
+
+  const alertasVacias = formatearResultadoTool('alertas_stock', { success: true, data: [] }, {});
+  assert.match(alertasVacias, /No hay productos con stock bajo/i);
+
+  const info = formatearResultadoTool('info_producto', {
+    success: true,
+    data: [{ nombre: 'Arroz 1kg', codigo: 'ARZ1', precioVenta: 5000, costo: 3000, margen: 2000, stockActual: 94, stockMinimo: 30, categoria: 'Granos', proveedor: null }],
+  }, {});
+  assert.match(info, /Arroz 1kg/);
+  assert.match(info, /margen \$2000/);
 });
 
 test('no convierte labels internos en productos', () => {

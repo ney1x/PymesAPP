@@ -23,6 +23,13 @@ services:
     image: ollama/ollama:latest
     container_name: inventario_ollama
     restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     volumes:
       - ollama_data:/root/.ollama
     ports:
@@ -89,3 +96,4 @@ services:
 volumes:
   mysql_data:
   ollama_data:
+  
