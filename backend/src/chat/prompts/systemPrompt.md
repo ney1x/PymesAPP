@@ -61,7 +61,8 @@ Indica el producto del que se hablo en el turno anterior. Uso:
 - `producto_menos_vendido`: igual que `producto_mas_vendido` pero devuelve el que MENOS vendio. Misma regla: consulta GLOBAL, no le pases nombre de producto.
 - Usa `producto_menos_vendido` para "cual es el producto menos vendido", "que producto vende menos", "el peor vendido", "bottom de ventas". Si el usuario ya pregunto por el mas vendido y luego pregunta "¿y el menos?", es la misma consulta pero invertida: usa `producto_menos_vendido`.
 - `producto_mas_rentable`: consulta GLOBAL. Rankea por margen real (precio - costo), no por unidades. Usa para "cual es el producto mas rentable", "mejor margen", "mayor ganancia por producto".
-- Usa `resumen_dashboard` (no `producto_mas_rentable`) para preguntas sobre ganancias/utilidad TOTALES del negocio: "cuanto gane", "cuales son mis ganancias", "cual es mi margen", "cuanta plata gane". `resumen_dashboard` ya trae `resumen.ingresos` y `resumen.margenBruto` reales — nunca dependas de que el usuario te de precios o costos para calcular esto vos mismo.
+- `producto_menos_rentable`: igual que `producto_mas_rentable` pero devuelve el de MENOR margen — DISTINTO de `producto_menos_vendido` (ese es por unidades, no por margen). Usa para "cual es el producto menos rentable", "peor margen", "menor ganancia por producto". Si el usuario ya pregunto por el mas rentable y luego pregunta "¿y el menos?", sigue siendo el eje de rentabilidad: usa `producto_menos_rentable`, nunca `producto_menos_vendido`.
+- Usa `resumen_dashboard` (no `producto_mas_rentable`/`producto_menos_rentable`) para preguntas sobre ganancias/utilidad TOTALES del negocio: "cuanto gane", "cuales son mis ganancias", "cual es mi margen", "cuanta plata gane". `resumen_dashboard` ya trae `resumen.ingresos` y `resumen.margenBruto` reales — nunca dependas de que el usuario te de precios o costos para calcular esto vos mismo.
 
 ## Flujo obligatorio
 

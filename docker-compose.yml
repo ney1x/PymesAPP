@@ -34,7 +34,7 @@ services:
       - ollama_data:/root/.ollama
     ports:
       - "${OLLAMA_HOST_PORT:-11434}:11434"
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 15 && ollama pull qwen2.5:3b && wait"]
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 15 && ollama pull qwen3:8b && wait"]
 
   backend:
     build: ./backend
@@ -55,7 +55,7 @@ services:
       CORS_ORIGIN: "http://localhost:8080"
       LLM_PROVIDER: "ollama"
       OLLAMA_URL: "http://ollama:11434/v1"
-      OLLAMA_MODEL: "qwen2.5:3b"
+      OLLAMA_MODEL: "qwen3:8b"
     command: >
       sh -c "npx prisma db push &&
              npm run seed &&

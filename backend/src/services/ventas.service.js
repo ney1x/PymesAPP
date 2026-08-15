@@ -203,5 +203,6 @@ const rankingRentabilidad = async (user, { pymeId, categoria, dias, orden = 'DES
 };
 
 const masRentable = (user, opts = {}) => rankingRentabilidad(user, { ...opts, orden: 'DESC' });
+const menosRentable = (user, opts = {}) => rankingRentabilidad(user, { ...opts, orden: 'ASC' });
 
-module.exports = { list, create, historialProducto, masVendido, menosVendido, masRentable };
+module.exports = { list, create, historialProducto, masVendido, menosVendido, masRentable, menosRentable };

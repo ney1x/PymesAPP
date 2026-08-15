@@ -147,6 +147,21 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'producto_menos_rentable',
+      description: 'Consulta GLOBAL (no de un producto específico) que responde "cuál es el producto menos rentable". Rankea todos los productos por margen real de ventas (precio - costo), NO por unidades vendidas, y devuelve el de menor margen — DISTINTO de "producto menos vendido" (ese es por unidades). Usa cuando el usuario pregunta por el producto menos rentable, peor margen, menor ganancia/utilidad. NO necesitas pymeId ni nombre de producto: esta herramienta encuentra el producto, no lo recibe como parámetro. LLAMA A ESTA HERRAMIENTA INMEDIATAMENTE.',
+      parameters: {
+        type: 'object',
+        properties: {
+          categoria: { type: 'string', description: 'Filtra el ranking a una categoría de producto (opcional, solo si el usuario la menciona explícitamente)' },
+          dias: { type: 'integer', description: 'Limita el ranking a los últimos N días (opcional, por defecto considera todo el histórico)', minimum: 1, maximum: 365 },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 async function tool_consultarStock({ user, producto }) {
@@ -381,6 +396,25 @@ async function tool_productoMasRentable({ user, categoria, dias }) {
   };
 }
 
+async function tool_productoMenosRentable({ user, categoria, dias }) {
+  const ranking = await ventasService.menosRentable(user, { categoria, dias });
+
+  if (ranking.length === 0) {
+    const alcance = categoria ? ` en la categoria "${categoria}"` : '';
+    return { success: false, mensaje: `No hay ventas registradas${alcance} todavia.` };
+  }
+
+  return {
+    success: true,
+    data: {
+      bottom: ranking[0],
+      ranking: ranking.slice(0, 5),
+      categoria: categoria || null,
+      dias: dias || null,
+    },
+  };
+}
+
 async function tool_resumenDashboard({ user }) {
   const dashboard = await dashboardService.get(user, {});
 
@@ -412,6 +446,7 @@ const TOOL_MAP = {
   producto_mas_vendido: tool_productoMasVendido,
   producto_menos_vendido: tool_productoMenosVendido,
   producto_mas_rentable: tool_productoMasRentable,
+  producto_menos_rentable: tool_productoMenosRentable,
 };
 
 function normalizarTexto(texto) {
@@ -481,14 +516,13 @@ function esConsultaRankingVentas(normalized) {
 /**
  * Eje de RENTABILIDAD (margen), distinto del eje de unidades vendidas
  * (esConsultaRankingVentas). Mismo patron: tema + direccion comparativa,
- * reutilizando direccionRanking() — no una regex nueva por frase. Solo se
- * activa en direccion MAX ("mas rentable"): "menos rentable" no esta
- * implementado todavia, mejor dejarlo caer al flujo generico que dar una
- * respuesta MAX incorrecta para una pregunta MIN.
+ * reutilizando direccionRanking() — no una regex nueva por frase. Cubre
+ * ambas direcciones (MAX="mas rentable" / MIN="menos rentable"), igual que
+ * esConsultaRankingVentas cubre ambas para el eje de unidades.
  */
 function esConsultaRankingRentabilidad(normalized) {
   const tieneTemaRentabilidad = /\b(rentable|rentables|rentabilidad|margen|margenes|ganancia|ganancias|utilidad|utilidades)\b/.test(normalized);
-  return tieneTemaRentabilidad && direccionRanking(normalized) === 'MAX';
+  return tieneTemaRentabilidad && direccionRanking(normalized) !== null;
 }
 
 function detectarIntencion(mensaje) {
@@ -499,7 +533,7 @@ function detectarIntencion(mensaje) {
   if (/\b(ayuda|que puedes hacer|como puedes ayudar|capacidades)\b/.test(normalized)) return 'help';
   if (detectarResumenDashboard(mensaje)) return 'dashboard_summary';
   if (esConsultaRankingVentas(normalized)) return direccionRanking(normalized) === 'MIN' ? 'bottom_product' : 'top_product';
-  if (esConsultaRankingRentabilidad(normalized)) return 'top_profit_product';
+  if (esConsultaRankingRentabilidad(normalized)) return direccionRanking(normalized) === 'MIN' ? 'bottom_profit_product' : 'top_profit_product';
   if (/\b(productos?|articulos?)\b.*\b(reposicion|reponer|reordenar|bajo|minimo|criticos?)\b|\b(alertas?|reponer|reordenar|reposicion)\b|\bque\s+(?:deberia|debo|conviene)\s+comprar\b|\bque\s+productos?\s+(?:necesito|debo|deberia|conviene)\s+comprar\b/.test(normalized)) return 'reorder_alerts';
   if (esDecisionCompra(mensaje)) return 'purchase_decision';
   if (detectarConsultaVentasHistoricas(mensaje) || /\b(como estan|resumen de)\b.*\bventas?\b/.test(normalized) || /\b(cuanto|cuanta|cuantos|cuantas)\b.*\b(vendi|vendio|ventas?)\b/.test(normalized)) return 'sales_summary';
@@ -753,6 +787,7 @@ const TOOL_BY_INTENT = {
   TOP_PRODUCT: 'producto_mas_vendido',
   BOTTOM_PRODUCT: 'producto_menos_vendido',
   TOP_PROFIT_PRODUCT: 'producto_mas_rentable',
+  BOTTOM_PROFIT_PRODUCT: 'producto_menos_rentable',
 };
 
 // Intents de ranking GLOBAL por UNIDADES vendidas (nunca product-scoped,
@@ -760,12 +795,14 @@ const TOOL_BY_INTENT = {
 // voltea entre estos dos.
 const RANKING_INTENTS = new Set(['TOP_PRODUCT', 'BOTTOM_PRODUCT']);
 
-// TOP_PROFIT_PRODUCT es un eje GLOBAL distinto (rentabilidad/margen, no
-// unidades) — a proposito NO esta en RANKING_INTENTS: si estuviera, una
-// continuacion tipo "¿y el menos?" tras preguntar por rentabilidad
-// voltearia incorrectamente hacia el eje de unidades vendidas. Mismo
-// principio de scope GLOBAL, mecanismo de continuacion separado.
-const PROFIT_INTENTS = new Set(['TOP_PROFIT_PRODUCT']);
+// TOP_PROFIT_PRODUCT/BOTTOM_PROFIT_PRODUCT son el eje GLOBAL de
+// rentabilidad/margen, distinto del eje de unidades (RANKING_INTENTS) — a
+// proposito es un Set separado: si un intent de rentabilidad estuviera
+// mezclado con RANKING_INTENTS, una continuacion tipo "¿y el menos?" tras
+// preguntar por rentabilidad voltearia incorrectamente hacia el eje de
+// unidades vendidas en vez de quedarse en rentabilidad. Mismo principio de
+// scope GLOBAL, mecanismo de continuacion separado (ver interpretarMensaje).
+const PROFIT_INTENTS = new Set(['TOP_PROFIT_PRODUCT', 'BOTTOM_PROFIT_PRODUCT']);
 
 // Inverso de TOOL_BY_INTENT: cuando el resolver unico de Ollama ejecuta una
 // tool, necesitamos saber que "intent" recordar en productContext para que
@@ -788,7 +825,7 @@ const TOOLS_SIN_PRODUCTO_UNICO = new Set(['resumen_dashboard', 'alertas_stock', 
  */
 function productoDesdeResultado(toolName, result) {
   if (!result?.success || TOOLS_SIN_PRODUCTO_UNICO.has(toolName)) return null;
-  if (toolName === 'producto_menos_vendido') return result.data.bottom;
+  if (toolName === 'producto_menos_vendido' || toolName === 'producto_menos_rentable') return result.data.bottom;
   if (toolName === 'producto_mas_vendido' || toolName === 'producto_mas_rentable') return result.data.top;
   if (Array.isArray(result.data)) return result.data[0] || null;
   return result.data || null;
@@ -827,6 +864,7 @@ function detectarIntencionActual(mensaje) {
     top_product: 'TOP_PRODUCT',
     bottom_product: 'BOTTOM_PRODUCT',
     top_profit_product: 'TOP_PROFIT_PRODUCT',
+    bottom_profit_product: 'BOTTOM_PROFIT_PRODUCT',
   };
   return {
     intent: map[detected] || 'UNKNOWN',
@@ -898,12 +936,19 @@ function interpretarMensaje(mensajeOriginal, context = {}) {
     dashboard_summary: 'SUMMARY',
   }[context.intent] || context.intent || null;
   // "¿Y el menos?" tras TOP_PRODUCT (o "¿Y el mas?" tras BOTTOM_PRODUCT): se
-  // hereda el TEMA (ranking de ventas) pero la DIRECCION puede cambiar en
-  // este mismo mensaje. Reutiliza direccionRanking() — la misma señal
-  // lexica generica de arriba, sin regex nueva por frase.
-  if (RANKING_INTENTS.has(lastIntent)) {
+  // hereda el TEMA (ranking de ventas O de rentabilidad) pero la DIRECCION
+  // puede cambiar en este mismo mensaje. Reutiliza direccionRanking() — la
+  // misma señal lexica generica de arriba, sin regex nueva por frase. El eje
+  // (ventas vs rentabilidad) se preserva siempre: solo se voltea la
+  // direccion dentro del mismo eje heredado, nunca salta de uno a otro.
+  if (RANKING_INTENTS.has(lastIntent) || PROFIT_INTENTS.has(lastIntent)) {
     const direccionMensaje = direccionRanking(normalizarTexto(mensaje));
-    if (direccionMensaje) lastIntent = direccionMensaje === 'MIN' ? 'BOTTOM_PRODUCT' : 'TOP_PRODUCT';
+    if (direccionMensaje) {
+      const esEjeRentabilidad = PROFIT_INTENTS.has(lastIntent);
+      lastIntent = direccionMensaje === 'MIN'
+        ? (esEjeRentabilidad ? 'BOTTOM_PROFIT_PRODUCT' : 'BOTTOM_PRODUCT')
+        : (esEjeRentabilidad ? 'TOP_PROFIT_PRODUCT' : 'TOP_PRODUCT');
+    }
   }
   const lastProduct = context.nombre || context.productName || null;
   const inheritsIntent = Boolean(current.intent === 'UNKNOWN' && continuation && lastIntent);
@@ -1215,6 +1260,17 @@ function formatearResultadoTool(toolName, result, params = {}) {
       .join(', ');
     const siguientes = resto ? ` Le siguen: ${resto}.` : '';
     return `El producto mas rentable${alcance}${periodo} es ${top.nombre}, con un margen de $${top.margen} (${top.margenPorcentual}% sobre ${top.unidades} unidades vendidas).${siguientes}`;
+  }
+
+  if (toolName === 'producto_menos_rentable') {
+    const { bottom, ranking, categoria, dias } = result.data;
+    const alcance = categoria ? ` en la categoria "${categoria}"` : '';
+    const periodo = dias ? ` en los ultimos ${dias} dias` : '';
+    const resto = ranking.slice(1, 3)
+      .map((item) => `${item.nombre} ($${item.margen})`)
+      .join(', ');
+    const siguientes = resto ? ` Le siguen: ${resto}.` : '';
+    return `El producto menos rentable${alcance}${periodo} es ${bottom.nombre}, con un margen de $${bottom.margen} (${bottom.margenPorcentual}% sobre ${bottom.unidades} unidades vendidas).${siguientes}`;
   }
 
   if (toolName === 'sugerir_reorden') {
@@ -1574,16 +1630,19 @@ class ChatService {
       return respuesta;
     }
 
-    // TOP_PROFIT_PRODUCT: mismo principio, eje distinto (margen, no
-    // unidades). Separado de RANKING_INTENTS a proposito (ver comentario en
-    // PROFIT_INTENTS) para que no se mezcle con el flip TOP/BOTTOM_PRODUCT.
+    // TOP_PROFIT_PRODUCT / BOTTOM_PROFIT_PRODUCT: mismo principio que
+    // RANKING_INTENTS, eje distinto (margen, no unidades). Separado de
+    // RANKING_INTENTS a proposito (ver comentario en PROFIT_INTENTS) para
+    // que el flip de direccion nunca se mezcle con el eje de unidades.
     if (PROFIT_INTENTS.has(interpretation.intent)) {
+      const esBottom = interpretation.intent === 'BOTTOM_PROFIT_PRODUCT';
+      const toolName = esBottom ? 'producto_menos_rentable' : 'producto_mas_rentable';
       const toolStartedAt = Date.now();
-      const result = await tool_productoMasRentable({ user });
-      console.log(`[CHAT][RANKING] ollama_ms=0 tool=${Date.now() - toolStartedAt}ms (producto_mas_rentable)`);
-      const respuesta = formatearResultadoTool('producto_mas_rentable', result, {});
+      const result = esBottom ? await tool_productoMenosRentable({ user }) : await tool_productoMasRentable({ user });
+      console.log(`[CHAT][RANKING] ollama_ms=0 tool=${Date.now() - toolStartedAt}ms (${toolName})`);
+      const respuesta = formatearResultadoTool(toolName, result, {});
       if (result.success) {
-        this._rememberProduct(user.id, result.data.top, interpretation.intent, 'producto_mas_rentable');
+        this._rememberProduct(user.id, esBottom ? result.data.bottom : result.data.top, interpretation.intent, toolName);
       }
       this._saveDirectExchange(user.id, mensaje, respuesta);
       console.log(`[CHAT] total=${Date.now() - requestStartedAt}ms (via RANKING, ollama_ms=0)`);
@@ -1767,10 +1826,12 @@ module.exports.__testables = {
   esConsultaRankingRentabilidad,
   resolverConfirmacionContinuar,
   tool_productoMasRentable,
+  tool_productoMenosRentable,
   tool_productoMasVendido,
   tool_productoMenosVendido,
   productoDesdeResultado,
   INTENT_BY_TOOL,
+  TOOL_BY_INTENT,
   formatearResultadoTool,
   tool_resumenDashboard,
 };

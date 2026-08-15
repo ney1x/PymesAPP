@@ -24,6 +24,7 @@ const {
   resolverConfirmacionContinuar,
   productoDesdeResultado,
   INTENT_BY_TOOL,
+  TOOL_BY_INTENT,
   formatearResultadoTool,
 } = chatService.__testables;
 
@@ -337,15 +338,90 @@ test('TOP_PROFIT_PRODUCT: "producto mas rentable" es GLOBAL, nunca extrae "es re
   }
 
   assert.equal(esConsultaRankingRentabilidad('cual es el producto mas rentable'), true);
-  // Direccion MIN no implementada: no debe activar el intent (evita
-  // responder MAX a una pregunta MIN).
-  assert.equal(esConsultaRankingRentabilidad('cual es el producto menos rentable'), false);
   // Sin tema de rentabilidad: no se confunde con el eje de unidades vendidas.
   assert.equal(esConsultaRankingRentabilidad('cual es el producto mas vendido'), false);
 
   // No debe interferir con TOP_PRODUCT (eje de unidades) ni con una consulta real.
   assert.equal(interpretarMensaje('¿Cuál es el producto más vendido?', {}).intent, 'TOP_PRODUCT');
   assert.equal(interpretarMensaje('¿Cuánto stock tengo de arroz?', {}).intent, 'STOCK');
+});
+
+test('BOTTOM_PROFIT_PRODUCT: "producto menos rentable" es el eje de MARGEN, no el de unidades vendidas', () => {
+  // Bug reportado: "cual es el producto menos rentable" caia a UNKNOWN y de
+  // ahi terminaba resuelto (via el LLM) como producto_menos_vendido, porque
+  // no existia ninguna tool/intent para "menos rentable". Debe rankear por
+  // margen (rentabilidad), igual que TOP_PROFIT_PRODUCT pero direccion ASC.
+  for (const m of ['¿Cuál es el producto menos rentable?', 'producto menos rentable', '¿Qué producto tiene peor margen?', '¿Cuál da menos ganancia?', '¿Cuál tiene menos utilidad?']) {
+    const parsed = interpretarMensaje(m, {});
+    assert.equal(parsed.intent, 'BOTTOM_PROFIT_PRODUCT', m);
+    assert.equal(parsed.scope, 'GLOBAL', m);
+    assert.equal(parsed.productName, null, m);
+  }
+
+  assert.equal(esConsultaRankingRentabilidad('cual es el producto menos rentable'), true);
+  assert.equal(direccionRanking('cual es el producto menos rentable'), 'MIN');
+
+  // No debe confundirse con BOTTOM_PRODUCT (eje de unidades vendidas): son
+  // ejes distintos, cada uno con su propia tool.
+  assert.equal(TOOL_BY_INTENT.BOTTOM_PROFIT_PRODUCT, 'producto_menos_rentable');
+  assert.notEqual(TOOL_BY_INTENT.BOTTOM_PROFIT_PRODUCT, TOOL_BY_INTENT.BOTTOM_PRODUCT);
+});
+
+test('continuacion de rentabilidad preserva el EJE (margen) y solo voltea la DIRECCION', () => {
+  // "¿Cuál es mi producto más rentable?" -> "¿Y el menos?" debe pasar a
+  // BOTTOM_PROFIT_PRODUCT (rentabilidad + asc), NUNCA a BOTTOM_PRODUCT
+  // (ventas + asc) — ese era el riesgo si PROFIT_INTENTS compartiera el
+  // mismo flip que RANKING_INTENTS.
+  const top = interpretarMensaje('¿Cuál es mi producto más rentable?', {});
+  assert.equal(top.intent, 'TOP_PROFIT_PRODUCT');
+
+  const bottom = interpretarMensaje('¿Y el menos?', { intent: top.intent, nombre: 'Panela' });
+  assert.equal(bottom.intent, 'BOTTOM_PROFIT_PRODUCT');
+  assert.equal(bottom.scope, 'GLOBAL');
+  assert.equal(bottom.productName, null);
+
+  // Y de vuelta: BOTTOM_PROFIT_PRODUCT -> "¿y el mas?" -> TOP_PROFIT_PRODUCT,
+  // sigue sin cruzar al eje de unidades vendidas.
+  const topDeNuevo = interpretarMensaje('¿Y el más?', { intent: bottom.intent, nombre: 'Galletas' });
+  assert.equal(topDeNuevo.intent, 'TOP_PROFIT_PRODUCT');
+
+  // Contraste: el mismo flip sobre el eje de VENTAS nunca debe terminar en
+  // un intent de rentabilidad.
+  const topVentas = interpretarMensaje('¿Cuál es el producto más vendido?', {});
+  const bottomVentas = interpretarMensaje('¿Y el menos?', { intent: topVentas.intent, nombre: 'Panela' });
+  assert.equal(bottomVentas.intent, 'BOTTOM_PRODUCT');
+  assert.notEqual(bottomVentas.intent, 'BOTTOM_PROFIT_PRODUCT');
+});
+
+test('formatearResultadoTool: producto_menos_rentable reporta margen, no unidades vendidas', () => {
+  const resultado = {
+    success: true,
+    data: {
+      bottom: { nombre: 'Galletas', margen: 120, margenPorcentual: 8.5, unidades: 340 },
+      ranking: [
+        { nombre: 'Galletas', margen: 120, margenPorcentual: 8.5, unidades: 340 },
+        { nombre: 'Aceite', margen: 300, margenPorcentual: 12, unidades: 90 },
+      ],
+      categoria: null,
+      dias: null,
+    },
+  };
+  const texto = formatearResultadoTool('producto_menos_rentable', resultado, {});
+  assert.match(texto, /menos rentable/i);
+  assert.match(texto, /Galletas/);
+  assert.match(texto, /margen de \$120/);
+  assert.doesNotMatch(texto, /vendido/i);
+});
+
+test('productoDesdeResultado: producto_menos_rentable extrae bottom, igual que producto_menos_vendido', () => {
+  assert.deepEqual(
+    productoDesdeResultado('producto_menos_rentable', { success: true, data: { bottom: { nombre: 'Galletas' } } }),
+    { nombre: 'Galletas' }
+  );
+});
+
+test('INTENT_BY_TOOL cubre producto_menos_rentable', () => {
+  assert.equal(INTENT_BY_TOOL.producto_menos_rentable, 'BOTTOM_PROFIT_PRODUCT');
 });
 
 test('resolverConfirmacionContinuar: "si"/"no" resuelven por contexto, no como acuse de recibo generico', () => {

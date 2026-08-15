@@ -574,6 +574,161 @@ test('"¿Cuál es el producto más rentable?" resuelve TOP_PROFIT_PRODUCT real, 
   }
 });
 
+test('"¿Cuál es el producto menos rentable?" resuelve BOTTOM_PROFIT_PRODUCT real, distinto de producto_menos_vendido, sin Ollama', async () => {
+  const mockLLM = makeMockLLM({});
+  const originalLLM = chatService.llm;
+  chatService.llm = mockLLM;
+  chatService.limpiarHistorial(TEST_USER.id);
+
+  try {
+    const r = await chatService.procesarMensaje(TEST_USER, '¿Cuál es el producto menos rentable?');
+    assert.match(r, /^El producto menos rentable/i);
+    assert.doesNotMatch(r, /menos vendido/i, 'no debe confundirse con el eje de unidades vendidas');
+    assert.equal(mockLLM.callCount, 0, 'BOTTOM_PROFIT_PRODUCT es inequivoco por regex, no debe tocar Ollama');
+  } finally {
+    chatService.llm = originalLLM;
+    chatService.limpiarHistorial(TEST_USER.id);
+  }
+});
+
+/**
+ * Bug reportado: "¿Cuál es mi mejor producto?" (frase vaga, sin la palabra
+ * "rentable") no clasifica por regex -> pasa por _resolverConLLM, que elige
+ * la tool `producto_mas_rentable`. El bug era que la continuacion "¿Y el
+ * menos?" volvia a devolver el MISMO resultado top en vez de voltear a
+ * BOTTOM_PROFIT_PRODUCT: PROFIT_INTENTS solo contenia TOP_PROFIT_PRODUCT y
+ * el flip de interpretarMensaje no lo cubria, asi que la herencia de
+ * contexto dejaba el intent fijo en TOP_PROFIT_PRODUCT sin voltear nunca.
+ *
+ * Traza esperada:
+ * 1. Turno 1 (LLM): intent=UNKNOWN -> Ollama elige producto_mas_rentable ->
+ *    productContext queda {intent: 'TOP_PROFIT_PRODUCT', tool:
+ *    'producto_mas_rentable', nombre: <top real>}.
+ * 2. Turno 2 "¿Y el menos?": interpretarMensaje ve current.intent=UNKNOWN +
+ *    continuation=true + lastIntent='TOP_PROFIT_PRODUCT' (heredado) ->
+ *    direccionRanking('y el menos')='MIN' -> como PROFIT_INTENTS.has(lastIntent)
+ *    es true, voltea a 'BOTTOM_PROFIT_PRODUCT' (nunca a BOTTOM_PRODUCT).
+ * 3. El dispatch determinista PROFIT_INTENTS ejecuta producto_menos_rentable
+ *    de NUEVO contra la DB (no reusa el resultado del turno 1) y NO llama a
+ *    Ollama por segunda vez.
+ */
+test('BUG: "¿Cuál es mi mejor producto?" (vago, via LLM) -> "¿Y el menos?" debe voltear a BOTTOM_PROFIT_PRODUCT, no repetir el top', async () => {
+  const mockLLM = makeMockLLM({
+    '¿Cuál es mi mejor producto?': toolCall('producto_mas_rentable', {}),
+  });
+  const originalLLM = chatService.llm;
+  chatService.llm = mockLLM;
+  chatService.limpiarHistorial(TEST_USER.id);
+
+  try {
+    // Turno 1: frase vaga, sin señal lexica de rentabilidad -> pasa por Ollama.
+    const r1 = await chatService.procesarMensaje(TEST_USER, '¿Cuál es mi mejor producto?');
+    assert.match(r1, /^El producto mas rentable/i);
+    assert.equal(mockLLM.callCount, 1, 'turno 1 (frase vaga) SI debe llamar a Ollama');
+
+    const ctxTurno1 = chatService.productContext.get(TEST_USER.id);
+    assert.equal(ctxTurno1.intent, 'TOP_PROFIT_PRODUCT', 'el resolver de Ollama debe guardar el eje correcto en el contexto');
+    assert.equal(ctxTurno1.tool, 'producto_mas_rentable');
+
+    // Turno 2: continuacion generica ("el menos") sobre contexto heredado.
+    const r2 = await chatService.procesarMensaje(TEST_USER, '¿Y el menos?');
+    assert.match(r2, /^El producto menos rentable/i, 'debe voltear al eje de rentabilidad, direccion MIN');
+    assert.doesNotMatch(r2, /menos vendido/i, 'NUNCA debe cruzar al eje de unidades vendidas');
+    assert.notEqual(r1, r2, 'debe ejecutar el ranking inverso, no repetir el resultado del turno anterior');
+    assert.equal(mockLLM.callCount, 1, 'la continuacion es inequivoca por contexto: NO debe volver a llamar a Ollama');
+
+    const ctxTurno2 = chatService.productContext.get(TEST_USER.id);
+    assert.equal(ctxTurno2.intent, 'BOTTOM_PROFIT_PRODUCT');
+    assert.equal(ctxTurno2.tool, 'producto_menos_rentable');
+  } finally {
+    chatService.llm = originalLLM;
+    chatService.limpiarHistorial(TEST_USER.id);
+  }
+});
+
+/**
+ * Caso reportado: con la FRASE EXPLICITA ("más rentable", no la vaga "mejor
+ * producto" del test anterior) la continuacion "¿Y el menos?" debia voltear
+ * TOP_PROFIT_PRODUCT -> BOTTOM_PROFIT_PRODUCT igual que ya funciona
+ * TOP_PRODUCT -> BOTTOM_PRODUCT (ver "Caso F" mas abajo para el eje ventas).
+ * Espejo exacto de "Caso F", eje rentabilidad en vez de ventas. mockLLM
+ * vacio: si algo llamara a Ollama, el test falla ruidosamente (toda la
+ * cadena es determinista por regex + interpretarMensaje).
+ */
+test('Caso rentabilidad F: TOP_PROFIT_PRODUCT -> BOTTOM_PROFIT_PRODUCT -> TOP_PROFIT_PRODUCT (frase explicita, sin Ollama)', async () => {
+  const mockLLM = makeMockLLM({});
+  const originalLLM = chatService.llm;
+  chatService.llm = mockLLM;
+  chatService.limpiarHistorial(TEST_USER.id);
+
+  try {
+    const r1 = await chatService.procesarMensaje(TEST_USER, '¿Cuál es el producto más rentable?');
+    assert.match(r1, /^El producto mas rentable/i);
+
+    const r2 = await chatService.procesarMensaje(TEST_USER, '¿Y el menos?');
+    assert.match(r2, /^El producto menos rentable/i, 'debe voltear a BOTTOM_PROFIT_PRODUCT, no repetir el top');
+    assert.doesNotMatch(r2, /vendido/i, 'nunca debe cruzar al eje de unidades vendidas');
+    assert.notEqual(r1, r2);
+
+    const r3 = await chatService.procesarMensaje(TEST_USER, '¿Y el más?');
+    assert.match(r3, /^El producto mas rentable/i);
+    assert.doesNotMatch(r3, /vendido/i);
+
+    assert.equal(mockLLM.callCount, 0, 'toda la cadena TOP->BOTTOM->TOP de rentabilidad debe resolverse sin Ollama');
+  } finally {
+    chatService.llm = originalLLM;
+    chatService.limpiarHistorial(TEST_USER.id);
+  }
+});
+
+test('Caso rentabilidad G: BOTTOM_PROFIT_PRODUCT -> TOP_PROFIT_PRODUCT (espejo de "Caso G" del eje ventas)', async () => {
+  const mockLLM = makeMockLLM({});
+  const originalLLM = chatService.llm;
+  chatService.llm = mockLLM;
+  chatService.limpiarHistorial(TEST_USER.id);
+
+  try {
+    const r1 = await chatService.procesarMensaje(TEST_USER, '¿Cuál es el producto menos rentable?');
+    assert.match(r1, /^El producto menos rentable/i);
+
+    const r2 = await chatService.procesarMensaje(TEST_USER, '¿Y el más?');
+    assert.match(r2, /^El producto mas rentable/i);
+    assert.doesNotMatch(r2, /vendido/i);
+
+    assert.equal(mockLLM.callCount, 0, 'la cadena BOTTOM->TOP de rentabilidad debe resolverse sin Ollama');
+  } finally {
+    chatService.llm = originalLLM;
+    chatService.limpiarHistorial(TEST_USER.id);
+  }
+});
+
+test('los ejes ventas y rentabilidad nunca se cruzan en la continuacion generica "¿Y el menos?"', async () => {
+  const mockLLM = makeMockLLM({});
+  const originalLLM = chatService.llm;
+  chatService.llm = mockLLM;
+
+  try {
+    // Eje ventas: TOP_PRODUCT -> "¿Y el menos?" debe seguir en ventas, nunca mencionar rentabilidad/margen.
+    chatService.limpiarHistorial(TEST_USER.id);
+    await chatService.procesarMensaje(TEST_USER, '¿Cuál es el producto más vendido?');
+    const ventasMenos = await chatService.procesarMensaje(TEST_USER, '¿Y el menos?');
+    assert.match(ventasMenos, /^El producto menos vendido/i);
+    assert.doesNotMatch(ventasMenos, /rentable|margen/i, 'la continuacion sobre ventas no debe cruzar al eje de rentabilidad');
+
+    // Eje rentabilidad: TOP_PROFIT_PRODUCT -> "¿Y el menos?" debe seguir en rentabilidad, nunca mencionar "vendido".
+    chatService.limpiarHistorial(TEST_USER.id);
+    await chatService.procesarMensaje(TEST_USER, '¿Cuál es el producto más rentable?');
+    const rentableMenos = await chatService.procesarMensaje(TEST_USER, '¿Y el menos?');
+    assert.match(rentableMenos, /^El producto menos rentable/i);
+    assert.doesNotMatch(rentableMenos, /vendido/i, 'la continuacion sobre rentabilidad no debe cruzar al eje de ventas');
+
+    assert.equal(mockLLM.callCount, 0, 'ambos ejes son deterministas por regex, ninguno debe tocar Ollama');
+  } finally {
+    chatService.llm = originalLLM;
+    chatService.limpiarHistorial(TEST_USER.id);
+  }
+});
+
 /**
  * Bug 2: "si"/"no" tras "¿Necesitas algo más?" se resuelven por contexto
  * (CONFIRM_CONTINUE pendiente), no repiten el mismo acuse de recibo.
