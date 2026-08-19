@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ErrorBox } from '../components/ui';
-import { IconStore } from '../components/Icons';
 
 export default function Login() {
   const { login } = useAuth();
@@ -33,7 +32,7 @@ export default function Login() {
   return (
     <div className="auth-shell">
       <div className="auth-side">
-        <span className="brand-logo"><IconStore size={26} /></span>
+        <span className="brand-logo">IN</span>
         <strong>Inventario</strong>
         <p>Predicción de demanda e inteligencia de inventario para PYMES.</p>
       </div>

@@ -115,11 +115,11 @@ export default function Predicciones() {
             <div className="card-title">Gráfica</div>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#dfe4e7" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#dde1e6" />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
-                <Bar dataKey="demanda" name="Demanda" fill="#0d5c63" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="demanda" name="Demanda" fill="#122a47" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -150,11 +150,11 @@ export default function Dashboard() {
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={ventasPorDia}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#dfe4e7" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#dde1e6" />
                 <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => money(v)} labelStyle={{ color: '#16232c' }} />
-                <Bar dataKey="ingresos" name="Ingresos" fill="#0d5c63" radius={[4, 4, 0, 0]} />
+                <Tooltip formatter={(v) => money(v)} labelStyle={{ color: '#151e2c' }} />
+                <Bar dataKey="ingresos" name="Ingresos" fill="#122a47" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}

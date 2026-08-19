@@ -57,107 +57,116 @@ export default function Layout() {
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, []);
 
+  const iniciales = (user?.nombre || 'Comerciante')
+    .split(' ')
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
   return (
     <div className="app-shell">
       <a href="#main-content" className="skip-link">Saltar al contenido principal</a>
-      <header className="topbar">
-        <div className="topbar-brand" onClick={() => navigate('/dashboard')}>
-          <span className="brand-logo"><IconStore size={17} /></span>
+      <nav className="rail" aria-label="Navegación principal">
+        <button type="button" className="rail-brand" onClick={() => navigate('/dashboard')}>
+          <span className="brand-logo">IN</span>
           <strong>Inventario</strong>
-        </div>
+        </button>
 
-        <nav className="topbar-nav" role="navigation" aria-label="Navegación principal">
+        <div className="rail-nav">
           {NAV_LEFT.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              className={({ isActive }) => `topbar-icon${isActive ? ' active' : ''}`}
+              className={({ isActive }) => `rail-item${isActive ? ' active' : ''}`}
               title={item.label}
             >
               <item.icon size={16} aria-hidden="true" />
               <span>{item.label}</span>
             </NavLink>
           ))}
-        </nav>
+        </div>
 
-        <nav className="topbar-nav topbar-nav-right" role="navigation" aria-label="Navegación secundaria">
+        <div className="rail-nav rail-nav-secondary">
           {NAV_RIGHT.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              className={({ isActive }) => `topbar-icon${isActive ? ' active' : ''}`}
+              className={({ isActive }) => `rail-item${isActive ? ' active' : ''}`}
               title={item.label}
             >
               <item.icon size={16} aria-hidden="true" />
               <span>{item.label}</span>
             </NavLink>
           ))}
-          <div className="topbar-profile" ref={profileMenuRef}>
-            <button
-              className="topbar-icon"
-              type="button"
-              title="Perfil"
-              aria-haspopup="menu"
-              aria-expanded={profileOpen}
-              onClick={() => setProfileOpen((open) => !open)}
-            >
-              <IconUser size={16} aria-hidden="true" />
-              <span>Perfil</span>
-              <span aria-hidden="true">&#9662;</span>
-            </button>
-            {profileOpen && (
-              <div className="topbar-dropdown" role="menu">
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="topbar-dropdown-item"
-                  onClick={() => {
-                    setProfileOpen(false);
-                    navigate('/perfil');
-                  }}
-                >
-                  <IconUser size={16} aria-hidden="true" />
-                  <span>Perfil</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="topbar-dropdown-item"
-                  onClick={handleLogout}
-                >
-                  <IconLogout size={16} aria-hidden="true" />
-                  <span>Salir</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </nav>
-      </header>
-
-      <main className="main" id="main-content" role="main">
-        <Outlet />
-      </main>
-
-      <footer className="footer">
-        <div className="footer-left">
-          <div className="footer-col">
-            <strong>Contactos</strong>
-            <span>Whatsapp</span>
-            <span>Correo</span>
-            <span>Chat</span>
-            <span>Ayuda</span>
-          </div>
-          <div className="footer-col">
-            <strong>Acerca de</strong>
-            <span onClick={() => navigate('/about')} style={{ cursor: 'pointer' }}>
-              Términos de uso
-            </span>
-          </div>
         </div>
-        <div className="footer-brand">
-          <IconStore size={16} aria-hidden="true" />
+
+        <div className="rail-profile" ref={profileMenuRef}>
+          <button
+            className="rail-profile-trigger"
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={profileOpen}
+            onClick={() => setProfileOpen((open) => !open)}
+          >
+            <span className="rail-avatar">{iniciales}</span>
+            <span className="rail-profile-name">{user?.nombre || 'Comerciante'}</span>
+            <IconUser size={14} aria-hidden="true" />
+          </button>
+          {profileOpen && (
+            <div className="rail-dropdown" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                className="rail-dropdown-item"
+                onClick={() => {
+                  setProfileOpen(false);
+                  navigate('/perfil');
+                }}
+              >
+                <IconUser size={16} aria-hidden="true" />
+                <span>Perfil</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="rail-dropdown-item"
+                onClick={handleLogout}
+              >
+                <IconLogout size={16} aria-hidden="true" />
+                <span>Salir</span>
+              </button>
+            </div>
+          )}
         </div>
-      </footer>
+      </nav>
+
+      <div className="content-col">
+        <main className="main" id="main-content" role="main">
+          <Outlet />
+        </main>
+
+        <footer className="footer">
+          <div className="footer-left">
+            <div className="footer-col">
+              <strong>Contactos</strong>
+              <span>Whatsapp</span>
+              <span>Correo</span>
+              <span>Chat</span>
+              <span>Ayuda</span>
+            </div>
+            <div className="footer-col">
+              <strong>Acerca de</strong>
+              <span onClick={() => navigate('/about')} style={{ cursor: 'pointer' }}>
+                Términos de uso
+              </span>
+            </div>
+          </div>
+          <div className="footer-brand">
+            <IconStore size={16} aria-hidden="true" />
+          </div>
+        </footer>
+      </div>
 
       <ChatWidget />
     </div>
