@@ -249,7 +249,7 @@ export default function Inventario() {
           {tienePymes ? (
             <>
               <Button variant="outline" onClick={openCreate}><IconPlus size={15} /> Añadir producto</Button>{' '}
-              <Button variant="outline" onClick={() => setImportOpen(true)}>Importar Excel/CSV</Button>
+              <Button variant="outline" onClick={() => setImportOpen(true)}>Importar / Exportar</Button>
             </>
           ) : (
             <Link to="/pymes" className="btn btn-outline">
