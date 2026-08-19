@@ -2,13 +2,11 @@ const ApiError = require('../utils/ApiError');
 const { verifyToken } = require('../utils/jwt');
 
 const authenticate = (req, _res, next) => {
-  const header = req.headers.authorization || '';
+  const token = req.cookies?.token;
 
-  if (!header.startsWith('Bearer ')) {
+  if (!token) {
     return next(new ApiError(401, 'No autorizado: token no proporcionado'));
   }
-
-  const token = header.split(' ')[1];
 
   try {
     const payload = verifyToken(token);

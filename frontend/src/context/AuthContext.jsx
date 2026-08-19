@@ -15,8 +15,9 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(readUser);
   const [loading, setLoading] = useState(false);
 
-  const persist = useCallback(({ token, user: u }) => {
-    localStorage.setItem('token', token);
+  const persist = useCallback(({ user: u }) => {
+    // El token va en cookie httpOnly (la puso el backend en la respuesta),
+    // aca solo guardamos el usuario para UI — no es material de sesion.
     localStorage.setItem('user', JSON.stringify(u));
     setUser(u);
   }, []);
@@ -50,7 +51,7 @@ export function AuthProvider({ children }) {
   );
 
   const logout = useCallback(() => {
-    localStorage.removeItem('token');
+    authApi.logout().catch(() => {});
     localStorage.removeItem('user');
     setUser(null);
   }, []);

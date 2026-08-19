@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const { corsOrigin } = require('./config/env');
 const routes = require('./routes');
 const { notFound, errorHandler } = require('./middlewares/error.middleware');
@@ -9,6 +10,7 @@ const app = express();
 
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json());
+app.use(cookieParser());
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'inventario-pymes-backend', uptime: process.uptime() });
