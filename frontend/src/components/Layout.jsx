@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { IconBox, IconChart, IconUser, IconLogout, IconStore, IconTrendUp, IconGrid, IconAlert } from './Icons';
+import { IconBox, IconChart, IconUser, IconLogout, IconStore, IconTrendUp, IconGrid, IconAlert, IconInfo } from './Icons';
 import { ChatWidget } from './ChatWidget';
 
 const NAV_LEFT = [
@@ -131,6 +131,18 @@ export default function Layout() {
                 type="button"
                 role="menuitem"
                 className="rail-dropdown-item"
+                onClick={() => {
+                  setProfileOpen(false);
+                  navigate('/about');
+                }}
+              >
+                <IconInfo size={16} aria-hidden="true" />
+                <span>Términos de uso</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="rail-dropdown-item"
                 onClick={handleLogout}
               >
                 <IconLogout size={16} aria-hidden="true" />
@@ -145,27 +157,6 @@ export default function Layout() {
         <main className="main" id="main-content" role="main">
           <Outlet />
         </main>
-
-        <footer className="footer">
-          <div className="footer-left">
-            <div className="footer-col">
-              <strong>Contactos</strong>
-              <span>Whatsapp</span>
-              <span>Correo</span>
-              <span>Chat</span>
-              <span>Ayuda</span>
-            </div>
-            <div className="footer-col">
-              <strong>Acerca de</strong>
-              <span onClick={() => navigate('/about')} style={{ cursor: 'pointer' }}>
-                Términos de uso
-              </span>
-            </div>
-          </div>
-          <div className="footer-brand">
-            <IconStore size={16} aria-hidden="true" />
-          </div>
-        </footer>
       </div>
 
       <ChatWidget />

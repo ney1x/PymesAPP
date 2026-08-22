@@ -171,7 +171,7 @@ export default function Dashboard() {
               message="Genera predicciones para saber qué productos convienen más."
             />
           ) : (
-            <ul className="list-card">
+            <ul className="list-card list-card-preview">
               {rankingRentabilidad.slice(0, 5).map((item, i) => (
                 <li className="rank-item animate-slide-in-right" style={{ animationDelay: `${i * 60}ms`, backgroundColor: focusedRowIndex === i && focusedList.current === 'list' ? 'var(--primary-soft)' : undefined }} tabIndex={0} onClick={() => { focusedList.current = 'list'; setFocusedRowIndex(i); }} onKeyDown={(e) => {
                   if (e.key === 'Enter') {
