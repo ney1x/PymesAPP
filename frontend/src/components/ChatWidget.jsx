@@ -1,19 +1,46 @@
 import { useState, useRef, useEffect } from 'react';
 import { useChat } from '../hooks/useChat';
+import { usePymeFilter } from '../context/PymeFilterContext';
+import { productosApi } from '../api';
 import { IconSend as Send, IconX as X, IconMessageSquare as MessageSquare, IconLoader2 as Loader2, IconTrash2 as Trash2 } from './Icons';
 
-const SUGERENCIAS = [
-  '¿Cuánto stock tengo de arroz?',
+// Fallback generico: solo se usa si todavia no hay productos cargados o la
+// PYME no tiene productos registrados aun (cuenta nueva).
+const SUGERENCIAS_GENERICAS = [
   '¿Qué productos están bajos?',
-  '¿Cuánto voy a vender de leche la próxima semana?',
   '¿Qué debo reordenar?',
   'Dame un resumen del inventario',
-  '¿Cuánto se vendió de pan en el último mes?',
+  '¿Cuál es mi producto más rentable?',
 ];
+
+// Arma las preguntas sugeridas con nombres reales de productos de la(s)
+// PYME(s) del usuario, en vez de ejemplos genericos ("arroz", "leche", "pan")
+// que podian no existir en su inventario real.
+function construirSugerencias(productos) {
+  if (!productos || productos.length === 0) return SUGERENCIAS_GENERICAS;
+
+  const ordenadosPorStock = [...productos].sort(
+    (a, b) => (a.inventario?.stockActual ?? 0) - (b.inventario?.stockActual ?? 0)
+  );
+  const productoBajo = ordenadosPorStock[0];
+  const productoAlto = ordenadosPorStock[ordenadosPorStock.length - 1];
+  const productoMedio = ordenadosPorStock[Math.floor(ordenadosPorStock.length / 2)];
+
+  return [
+    `¿Cuánto stock tengo de ${productoBajo.nombre}?`,
+    '¿Qué productos están bajos?',
+    `¿Cuánto voy a vender de ${productoAlto.nombre} la próxima semana?`,
+    '¿Qué debo reordenar?',
+    'Dame un resumen del inventario',
+    `¿Cuánto se vendió de ${productoMedio.nombre} en el último mes?`,
+  ];
+}
 
 export function ChatWidget() {
   const [abierto, setAbierto] = useState(false);
   const [input, setInput] = useState('');
+  const [productos, setProductos] = useState(null);
+  const { pymeSeleccionada } = usePymeFilter();
   const { mensajes, cargando, error, enviar, limpiar, cancelar } = useChat();
   const mensajesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -23,6 +50,18 @@ export function ChatWidget() {
   useEffect(() => {
     mensajesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [mensajes]);
+
+  // Se recargan al abrir el chat y cada vez que cambia la PYME seleccionada
+  // (ej. filtro del Dashboard), asi las sugerencias siempre reflejan la PYME
+  // que el usuario esta viendo en ese momento.
+  useEffect(() => {
+    if (!abierto) return;
+    productosApi.list(pymeSeleccionada ? { pymeId: pymeSeleccionada } : {})
+      .then((res) => setProductos(res.productos || []))
+      .catch(() => setProductos([]));
+  }, [abierto, pymeSeleccionada]);
+
+  const sugerencias = construirSugerencias(productos);
 
   useEffect(() => {
     if (abierto) {
@@ -133,7 +172,7 @@ export function ChatWidget() {
               Pregúntame sobre tu inventario, stock, predicciones o reórdenes.
             </p>
             <div className="chat-sugerencias">
-              {SUGERENCIAS.map((s, i) => (
+              {sugerencias.map((s, i) => (
                 <button
                   key={i}
                   className="sugerencia-btn"

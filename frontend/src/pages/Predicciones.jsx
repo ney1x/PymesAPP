@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { prediccionesApi } from '../api';
+import React, { useState, useRef, useEffect } from 'react';
+import { prediccionesApi, pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
+import { usePymeFilter } from '../context/PymeFilterContext';
 import { Spinner, ErrorBox, PageHeader, Badge, Button, EmptyState, money } from '../components/ui';
 import { IconSearch } from '../components/Icons';
 import {
@@ -14,6 +15,7 @@ const HORIZONTES = [
 ];
 
 export default function Predicciones() {
+  const { pymeSeleccionada: filtroPymeId, setPymeSeleccionada: setFiltroPymeId } = usePymeFilter();
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState(null);
   const [ranking, setRanking] = useState(null);
@@ -21,14 +23,30 @@ export default function Predicciones() {
   const [horizonte, setHorizonte] = useState(7);
   const formRef = useRef(null);
 
-  const historico = useAsync(() => prediccionesApi.list());
+  const pymes = useAsync(() => pymesApi.list());
+  const historico = useAsync(
+    () => prediccionesApi.list(filtroPymeId ? { pymeId: filtroPymeId } : {}),
+    [filtroPymeId]
+  );
+
+  // Un ranking recien generado queda "pegado" en memoria hasta la proxima
+  // generacion (mostrar usa `ranking || historico...`) — si el usuario
+  // cambia de PYME despues de generar, hay que soltarlo o seguiria
+  // mostrando el resultado de la PYME anterior en vez del historico de la
+  // nueva.
+  useEffect(() => {
+    setRanking(null);
+  }, [filtroPymeId]);
 
   const generar = async () => {
     if (generating) return; // prevent double submit
     setGenerating(true);
     setGenError(null);
     try {
-      const res = await prediccionesApi.generarTodo({ horizonteDias: horizonte });
+      const res = await prediccionesApi.generarTodo({
+        horizonteDias: horizonte,
+        ...(filtroPymeId ? { pymeId: filtroPymeId } : {}),
+      });
       setRanking(res.ranking);
     } catch (err) {
       setGenError(err.message);
@@ -71,6 +89,18 @@ export default function Predicciones() {
         subtitle="El modelo analiza tu histórico de ventas y predice la demanda futura."
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {(pymes.data?.pymes?.length ?? 0) > 0 && (
+              <select
+                value={filtroPymeId}
+                onChange={(e) => setFiltroPymeId(e.target.value)}
+                disabled={generating}
+              >
+                <option value="">Todas mis PYMES</option>
+                {pymes.data?.pymes?.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+            )}
             <select
               value={horizonte}
               onChange={(e) => setHorizonte(Number(e.target.value))}

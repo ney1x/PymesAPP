@@ -530,6 +530,33 @@ tbody tr:focus-visible { outline: 2px solid var(--petrol); outline-offset: -2px;
   align-items: start;
 }
 
+/* Dashboard: columnas independientes (no filas de grid apiladas). Con
+   grid-2 + align-items:start, dos secciones de grid-2 seguidas igual
+   generan un hueco cuando la card corta de la fila 1 no coincide en
+   altura con su vecina — la fila 2 arranca donde termina la card MAS
+   ALTA de la fila 1, sin importar la columna. Cada .dashboard-column es
+   su propio flujo vertical (flex), asi que su altura depende solo de
+   sus propias 2 cards, nunca de la columna vecina. */
+.dashboard-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.dashboard-column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+/* El gap del flex ya separa las cards; sin esto, el margin-bottom propio
+   de .card se sumaria al gap y quedaria doble espacio entre ellas. */
+.dashboard-column > .card {
+  margin-bottom: 0;
+}
+
 /* ======================== LISTAS / RANKING ======================== */
 
 .list-card { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -1334,6 +1361,7 @@ a {
   .auth-shell { grid-template-columns: 1fr; }
   .auth-side { display: none; }
   .grid-2 { grid-template-columns: 1fr; }
+  .dashboard-columns { grid-template-columns: 1fr; }
   .dashboard-decision-grid { grid-template-columns: 1fr; }
   .dashboard-decision-grid-compact { grid-template-columns: 1fr; }
   .dashboard-alert-item { flex-direction: column; }

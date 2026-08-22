@@ -112,12 +112,15 @@ const generarTodo = async (user, { pymeId, horizonteDias } = {}) => {
   return ranking;
 };
 
-const list = async (user, { productoId } = {}) => {
+const list = async (user, { productoId, pymeId } = {}) => {
   const wherePyme = user.rol === 'ADMIN' ? {} : { userId: user.id };
 
   return prisma.prediccion.findMany({
     where: {
-      producto: { pyme: wherePyme },
+      producto: {
+        pyme: wherePyme,
+        ...(pymeId ? { pymeId: Number(pymeId) } : {}),
+      },
       ...(productoId ? { productoId: Number(productoId) } : {}),
     },
     include: { producto: true },

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardApi } from '../api';
+import { dashboardApi, pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { useAuth } from '../context/AuthContext';
+import { usePymeFilter } from '../context/PymeFilterContext';
 import { Spinner, ErrorBox, StatCard, PageHeader, EmptyState, money } from '../components/ui';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -10,7 +11,12 @@ import {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { data, loading, error } = useAsync(() => dashboardApi.get(), []);
+  const { pymeSeleccionada: filtroPymeId, setPymeSeleccionada: setFiltroPymeId } = usePymeFilter();
+  const pymes = useAsync(() => pymesApi.list());
+  const { data, loading, error } = useAsync(
+    () => dashboardApi.get(filtroPymeId ? { pymeId: filtroPymeId } : {}),
+    [filtroPymeId]
+  );
   const [focusedRowIndex, setFocusedRowIndex] = useState(-1);
   const focusedList = useRef('table');
 
@@ -84,6 +90,16 @@ export default function Dashboard() {
       <PageHeader
         title={`Hola, ${user?.nombre?.split(' ')[0] || 'comerciante'}`}
         subtitle="Decisiones clave para tu negocio hoy."
+        actions={
+          (pymes.data?.pymes?.length ?? 0) > 0 && (
+            <select value={filtroPymeId} onChange={(e) => setFiltroPymeId(e.target.value)}>
+              <option value="">Todas mis PYMES</option>
+              {pymes.data?.pymes?.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
+              ))}
+            </select>
+          )
+        }
       />
 
       <section className="dashboard-decision-grid dashboard-decision-grid-compact" aria-label="Decisiones principales">
@@ -139,129 +155,131 @@ export default function Dashboard() {
         <StatCard label="Unidades vendidas" value={resumen.unidadesVendidas} />
       </div>
 
-      <div className="grid-2">
-        <div className="card animate-fade-in-up delay-1">
-          <div className="card-title">Ventas de los últimos 7 días</div>
-          {ventasPorDia.length === 0 ? (
-            <EmptyState
-              title="Sin ventas recientes"
-              message="Registra ventas para ver la tendencia de ingresos."
-            />
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={ventasPorDia}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#dde1e6" />
-                <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => money(v)} labelStyle={{ color: '#151e2c' }} />
-                <Bar dataKey="ingresos" name="Ingresos" fill="#122a47" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        <div className="card animate-fade-in-up delay-2">
-          <div className="card-title">
-            Predicciones para decidir stock
-            <Link to="/predicciones" className="btn btn-outline">Ver todo</Link>
+      <div className="dashboard-columns">
+        <div className="dashboard-column">
+          <div className="card animate-fade-in-up delay-1">
+            <div className="card-title">Ventas de los últimos 7 días</div>
+            {ventasPorDia.length === 0 ? (
+              <EmptyState
+                title="Sin ventas recientes"
+                message="Registra ventas para ver la tendencia de ingresos."
+              />
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={ventasPorDia}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#dde1e6" />
+                  <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v) => money(v)} labelStyle={{ color: '#151e2c' }} />
+                  <Bar dataKey="ingresos" name="Ingresos" fill="#122a47" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
-          {rankingRentabilidad.length === 0 ? (
-            <EmptyState
-              title="Aún no hay predicciones"
-              message="Genera predicciones para saber qué productos convienen más."
-            />
-          ) : (
-            <ul className="list-card list-card-preview">
-              {rankingRentabilidad.slice(0, 5).map((item, i) => (
-                <li className="rank-item animate-slide-in-right" style={{ animationDelay: `${i * 60}ms`, backgroundColor: focusedRowIndex === i && focusedList.current === 'list' ? 'var(--primary-soft)' : undefined }} tabIndex={0} onClick={() => { focusedList.current = 'list'; setFocusedRowIndex(i); }} onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                  }
-                }} key={item.id}>
-                  <span className="rank-pos">{i + 1}</span>
-                  <div className="rank-info">
-                    <strong>{item.nombre}</strong>
-                    <small>Demanda estimada: {item.demandaPredicha} uds</small>
-                    <small>{interpretarDemanda(Number(item.demandaPredicha) || 0)}</small>
-                  </div>
-                  <div className="dashboard-rank-metric">
-                    <strong>{money(item.rentabilidadPredicha)}</strong>
-                    {typeof item.nivelConfianza === 'number' && (
-                      <small>Confianza {(item.nivelConfianza * 100).toFixed(0)}%</small>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
 
-      <div className="grid-2">
-        <div className="card animate-fade-in-up delay-3">
-          <div className="card-title">
-            Productos destacados
-            <Link to="/productos" className="btn btn-outline">Gestionar</Link>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr><th>Mejor producto / Más vendido</th><th>Unidades vendidas</th><th>Ingresos</th></tr>
-              </thead>
-              <tbody>
-                {topProductos.length === 0 ? (
-                  <tr>
-                    <td colSpan="3">
-                      <EmptyState
-                        title="Sin ventas registradas"
-                        message="Registra ventas para identificar productos destacados."
-                      />
-                    </td>
-                  </tr>
-                ) : (
-                  topProductos.map((p, i) => (
-                    <tr key={p.id} className="animate-fade-in" style={{ animationDelay: `${i * 50}ms`, backgroundColor: focusedRowIndex === i && focusedList.current === 'table' ? 'var(--primary-soft)' : undefined }} tabIndex={0} onClick={() => { focusedList.current = 'table'; setFocusedRowIndex(i); }} onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                      }
-                    }}>
-                      <td>{p.nombre}</td>
-                      <td>{p.unidades}</td>
-                      <td>{money(p.ingresos)}</td>
+          <div className="card animate-fade-in-up delay-3">
+            <div className="card-title">
+              Productos destacados
+              <Link to="/productos" className="btn btn-outline">Gestionar</Link>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Mejor producto / Más vendido</th><th>Unidades vendidas</th><th>Ingresos</th></tr>
+                </thead>
+                <tbody>
+                  {topProductos.length === 0 ? (
+                    <tr>
+                      <td colSpan="3">
+                        <EmptyState
+                          title="Sin ventas registradas"
+                          message="Registra ventas para identificar productos destacados."
+                        />
+                      </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    topProductos.map((p, i) => (
+                      <tr key={p.id} className="animate-fade-in" style={{ animationDelay: `${i * 50}ms`, backgroundColor: focusedRowIndex === i && focusedList.current === 'table' ? 'var(--primary-soft)' : undefined }} tabIndex={0} onClick={() => { focusedList.current = 'table'; setFocusedRowIndex(i); }} onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                        }
+                      }}>
+                        <td>{p.nombre}</td>
+                        <td>{p.unidades}</td>
+                        <td>{money(p.ingresos)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        <div className="card dashboard-alert-card animate-fade-in-up delay-4">
-          <div className="card-title">
-            Alertas de inventario
-            <Link to="/inventario" className="btn btn-outline">Revisar</Link>
+        <div className="dashboard-column">
+          <div className="card animate-fade-in-up delay-2">
+            <div className="card-title">
+              Predicciones para decidir stock
+              <Link to="/predicciones" className="btn btn-outline">Ver todo</Link>
+            </div>
+            {rankingRentabilidad.length === 0 ? (
+              <EmptyState
+                title="Aún no hay predicciones"
+                message="Genera predicciones para saber qué productos convienen más."
+              />
+            ) : (
+              <ul className="list-card list-card-preview">
+                {rankingRentabilidad.slice(0, 5).map((item, i) => (
+                  <li className="rank-item animate-slide-in-right" style={{ animationDelay: `${i * 60}ms`, backgroundColor: focusedRowIndex === i && focusedList.current === 'list' ? 'var(--primary-soft)' : undefined }} tabIndex={0} onClick={() => { focusedList.current = 'list'; setFocusedRowIndex(i); }} onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                    }
+                  }} key={item.id}>
+                    <span className="rank-pos">{i + 1}</span>
+                    <div className="rank-info">
+                      <strong>{item.nombre}</strong>
+                      <small>Demanda estimada: {item.demandaPredicha} uds</small>
+                      <small>{interpretarDemanda(Number(item.demandaPredicha) || 0)}</small>
+                    </div>
+                    <div className="dashboard-rank-metric">
+                      <strong>{money(item.rentabilidadPredicha)}</strong>
+                      {typeof item.nivelConfianza === 'number' && (
+                        <small>Confianza {(item.nivelConfianza * 100).toFixed(0)}%</small>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          {productosBajoStock.length === 0 ? (
-            <EmptyState title="Todo bajo control" message="No hay productos por debajo del stock mínimo." />
-          ) : (
-            <ul className="list-card">
-              {productosBajoStock.map((p, i) => (
-                <li className="rank-item dashboard-alert-item animate-slide-in-right" style={{ animationDelay: `${i * 60}ms`, backgroundColor: focusedRowIndex === i && focusedList.current === 'list' ? 'var(--primary-soft)' : undefined }} tabIndex={0} onClick={() => { focusedList.current = 'list'; setFocusedRowIndex(i); }} onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                  }
-                }} key={p.id}>
-                  <div className="rank-info">
-                    <strong>{p.nombre}</strong>
-                    <small>Reponer ahora</small>
-                    <small>Actual: {p.stockActual} · Mínimo: {p.stockMinimo}</small>
-                    {p.cantidadSugerida && <small>Sugerido: {p.cantidadSugerida} uds</small>}
-                  </div>
-                  <Link to="/inventario" className="btn btn-outline">Revisar inventario</Link>
-                </li>
-              ))}
-            </ul>
-          )}
+
+          <div className="card dashboard-alert-card animate-fade-in-up delay-4">
+            <div className="card-title">
+              Alertas de inventario
+              <Link to="/inventario" className="btn btn-outline">Revisar</Link>
+            </div>
+            {productosBajoStock.length === 0 ? (
+              <EmptyState title="Todo bajo control" message="No hay productos por debajo del stock mínimo." />
+            ) : (
+              <ul className="list-card">
+                {productosBajoStock.map((p, i) => (
+                  <li className="rank-item dashboard-alert-item animate-slide-in-right" style={{ animationDelay: `${i * 60}ms`, backgroundColor: focusedRowIndex === i && focusedList.current === 'list' ? 'var(--primary-soft)' : undefined }} tabIndex={0} onClick={() => { focusedList.current = 'list'; setFocusedRowIndex(i); }} onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                    }
+                  }} key={p.id}>
+                    <div className="rank-info">
+                      <strong>{p.nombre}</strong>
+                      <small>Reponer ahora</small>
+                      <small>Actual: {p.stockActual} · Mínimo: {p.stockMinimo}</small>
+                      {p.cantidadSugerida && <small>Sugerido: {p.cantidadSugerida} uds</small>}
+                    </div>
+                    <Link to="/inventario" className="btn btn-outline">Revisar inventario</Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
     </div>
