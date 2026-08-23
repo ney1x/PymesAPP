@@ -12,11 +12,21 @@ import {
 export default function Dashboard() {
   const { user } = useAuth();
   const { pymeSeleccionada: filtroPymeId, setPymeSeleccionada: setFiltroPymeId } = usePymeFilter();
+  const [filtroSedeId, setFiltroSedeId] = useState('');
   const pymes = useAsync(() => pymesApi.list());
-  const { data, loading, error } = useAsync(
-    () => dashboardApi.get(filtroPymeId ? { pymeId: filtroPymeId } : {}),
+  const sedes = useAsync(
+    () => (filtroPymeId ? pymesApi.sedes.list(filtroPymeId) : Promise.resolve({ sedes: [] })),
     [filtroPymeId]
   );
+  const { data, loading, error } = useAsync(
+    () => dashboardApi.get({ ...(filtroPymeId ? { pymeId: filtroPymeId } : {}), ...(filtroSedeId ? { sedeId: filtroSedeId } : {}) }),
+    [filtroPymeId, filtroSedeId]
+  );
+
+  const handleFiltroPyme = (value) => {
+    setFiltroPymeId(value);
+    setFiltroSedeId('');
+  };
   const [focusedRowIndex, setFocusedRowIndex] = useState(-1);
   const focusedList = useRef('table');
 
@@ -63,7 +73,7 @@ export default function Dashboard() {
   if (error) return <ErrorBox error={error} />;
   if (!data?.data) return null;
 
-  const { resumen, ventasPorDia, topProductos, productosBajoStock, rankingRentabilidad } = data.data;
+  const { resumen, ventasPorDia, topProductos, productosBajoStock, rankingRentabilidad, comparativaSedes = [] } = data.data;
   const productoUrgente = productosBajoStock[0];
   const oportunidad = rankingRentabilidad[0];
   const productosConConfianza = rankingRentabilidad.filter((item) => typeof item.nivelConfianza === 'number');
@@ -92,12 +102,22 @@ export default function Dashboard() {
         subtitle="Decisiones clave para tu negocio hoy."
         actions={
           (pymes.data?.pymes?.length ?? 0) > 0 && (
-            <select value={filtroPymeId} onChange={(e) => setFiltroPymeId(e.target.value)}>
-              <option value="">Todas mis PYMES</option>
-              {pymes.data?.pymes?.map((p) => (
-                <option key={p.id} value={p.id}>{p.nombre}</option>
-              ))}
-            </select>
+            <>
+              <select value={filtroPymeId} onChange={(e) => handleFiltroPyme(e.target.value)}>
+                <option value="">Todas mis PYMES</option>
+                {pymes.data?.pymes?.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+              {filtroPymeId && (sedes.data?.sedes?.length ?? 0) > 1 && (
+                <select value={filtroSedeId} onChange={(e) => setFiltroSedeId(e.target.value)}>
+                  <option value="">Todas las sedes</option>
+                  {sedes.data.sedes.map((s) => (
+                    <option key={s.id} value={s.id}>{s.nombre}</option>
+                  ))}
+                </select>
+              )}
+            </>
           )
         }
       />
@@ -176,6 +196,32 @@ export default function Dashboard() {
               </ResponsiveContainer>
             )}
           </div>
+
+          {filtroPymeId && comparativaSedes.length > 1 && (
+            <div className="card animate-fade-in-up delay-2">
+              <div className="card-title">Comparativa entre sedes</div>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Sede</th><th>Unidades</th><th>Ingresos</th><th>Día más fuerte</th></tr>
+                  </thead>
+                  <tbody>
+                    {comparativaSedes.map((s) => {
+                      const diaFuerte = s.porDiaSemana.reduce((a, b) => (b.unidades > a.unidades ? b : a), s.porDiaSemana[0]);
+                      return (
+                        <tr key={s.sedeId ?? 'sin-sede'}>
+                          <td><strong>{s.nombre}</strong></td>
+                          <td>{s.unidades}</td>
+                          <td>{money(s.ingresos)}</td>
+                          <td>{diaFuerte.unidades > 0 ? diaFuerte.dia : '—'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div className="card animate-fade-in-up delay-3">
             <div className="card-title">

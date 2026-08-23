@@ -10,7 +10,10 @@ router.use(authenticate);
 
 router.get(
   '/',
-  validate([query('productoId').optional().isInt()]),
+  validate([
+    query('productoId').optional().isInt(),
+    query('pymeId').optional().isInt(),
+  ]),
   asyncHandler(async (req, res) => {
     const predicciones = await prediccionesService.list(req.user, req.query);
     res.json({ ok: true, predicciones });

@@ -12,6 +12,18 @@ export const pymesApi = {
   create: (data) => client.post('/pymes', data),
   update: (id, data) => client.put(`/pymes/${id}`, data),
   remove: (id) => client.delete(`/pymes/${id}`),
+  miembros: {
+    list: (pymeId) => client.get(`/pymes/${pymeId}/miembros`),
+    invite: (pymeId, data) => client.post(`/pymes/${pymeId}/miembros`, data),
+    update: (pymeId, miembroId, data) => client.patch(`/pymes/${pymeId}/miembros/${miembroId}`, data),
+    remove: (pymeId, miembroId) => client.delete(`/pymes/${pymeId}/miembros/${miembroId}`),
+  },
+  sedes: {
+    list: (pymeId) => client.get(`/pymes/${pymeId}/sedes`),
+    create: (pymeId, data) => client.post(`/pymes/${pymeId}/sedes`, data),
+    update: (pymeId, sedeId, data) => client.put(`/pymes/${pymeId}/sedes/${sedeId}`, data),
+    remove: (pymeId, sedeId) => client.delete(`/pymes/${pymeId}/sedes/${sedeId}`),
+  },
 };
 
 export const productosApi = {

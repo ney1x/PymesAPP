@@ -10,7 +10,7 @@ router.use(authenticate);
 
 router.get(
   '/',
-  validate([query('pymeId').optional().isInt()]),
+  validate([query('pymeId').optional().isInt(), query('sedeId').optional().isInt()]),
   asyncHandler(async (req, res) => {
     const data = await dashboardService.get(req.user, req.query);
     res.json({ ok: true, data });

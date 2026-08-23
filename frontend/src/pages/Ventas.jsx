@@ -5,6 +5,7 @@ import { Spinner, ErrorBox, PageHeader, Button, EmptyState, money, date } from '
 
 export default function Ventas() {
   const [filtroPymeId, setFiltroPymeId] = useState('');
+  const [filtroSedeId, setFiltroSedeId] = useState('');
   const [form, setForm] = useState({ productoId: '', cantidad: 1, precioUnitario: '' });
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState(null);
@@ -12,17 +13,22 @@ export default function Ventas() {
   const formRef = useRef(null);
 
   const pymes = useAsync(() => pymesApi.list());
-  const productos = useAsync(
-    () => productosApi.list(filtroPymeId ? { pymeId: filtroPymeId } : {}),
+  const sedes = useAsync(
+    () => (filtroPymeId ? pymesApi.sedes.list(filtroPymeId) : Promise.resolve({ sedes: [] })),
     [filtroPymeId]
   );
+  const productos = useAsync(
+    () => productosApi.list({ ...(filtroPymeId ? { pymeId: filtroPymeId } : {}), ...(filtroSedeId ? { sedeId: filtroSedeId } : {}) }),
+    [filtroPymeId, filtroSedeId]
+  );
   const ventas = useAsync(
-    () => ventasApi.list(filtroPymeId ? { pymeId: filtroPymeId } : {}),
-    [filtroPymeId]
+    () => ventasApi.list({ ...(filtroPymeId ? { pymeId: filtroPymeId } : {}), ...(filtroSedeId ? { sedeId: filtroSedeId } : {}) }),
+    [filtroPymeId, filtroSedeId]
   );
 
   const handleFiltroPyme = (value) => {
     setFiltroPymeId(value);
+    setFiltroSedeId('');
     setForm({ productoId: '', cantidad: 1, precioUnitario: '' });
   };
 
@@ -69,12 +75,22 @@ export default function Ventas() {
         subtitle="Cada venta actualiza el inventario y alimenta el modelo de predicción."
         actions={
           (pymes.data?.pymes?.length ?? 0) > 0 && (
-            <select value={filtroPymeId} onChange={(e) => handleFiltroPyme(e.target.value)}>
-              <option value="">Todas mis PYMES</option>
-              {pymes.data?.pymes?.map((p) => (
-                <option key={p.id} value={p.id}>{p.nombre}</option>
-              ))}
-            </select>
+            <>
+              <select value={filtroPymeId} onChange={(e) => handleFiltroPyme(e.target.value)}>
+                <option value="">Todas mis PYMES</option>
+                {pymes.data?.pymes?.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+              {filtroPymeId && (sedes.data?.sedes?.length ?? 0) > 1 && (
+                <select value={filtroSedeId} onChange={(e) => setFiltroSedeId(e.target.value)}>
+                  <option value="">Todas las sedes</option>
+                  {sedes.data.sedes.map((s) => (
+                    <option key={s.id} value={s.id}>{s.nombre}</option>
+                  ))}
+                </select>
+              )}
+            </>
           )
         }
       />

@@ -1,6 +1,7 @@
 const prisma = require('../lib/prisma');
 const ApiError = require('../utils/ApiError');
 const iaSync = require('../lib/iaSync');
+const { accesoCondiciones, tieneAcceso, resolverSedeId } = require('./acceso.util');
 
 const findOwned = async (id, user) => {
   const producto = await prisma.producto.findUnique({
@@ -8,18 +9,19 @@ const findOwned = async (id, user) => {
     include: { pyme: true },
   });
   if (!producto) throw new ApiError(404, 'Producto no encontrado');
-  if (user.rol !== 'ADMIN' && producto.pyme.userId !== user.id) {
+  if (!(await tieneAcceso(producto, user))) {
     throw new ApiError(403, 'No tiene acceso a este producto');
   }
   return producto;
 };
 
-const list = async (user, { pymeId, search } = {}) => {
-  const wherePyme = user.rol === 'ADMIN' ? {} : { userId: user.id };
+const list = async (user, { pymeId, sedeId, search } = {}) => {
+  const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
 
   const where = {
-    pyme: wherePyme,
+    OR: await accesoCondiciones(user),
     ...(pymeId ? { pymeId: Number(pymeId) } : {}),
+    ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
     ...(search ? { nombre: { contains: search } } : {}),
   };
 
@@ -48,20 +50,33 @@ const create = async (user, data) => {
     where: { id: Number(productoData.pymeId) },
   });
   if (!pyme) throw new ApiError(404, 'PYME no encontrada');
+
+  let sedeId = productoData.sedeId ? Number(productoData.sedeId) : null;
   if (user.rol !== 'ADMIN' && pyme.userId !== user.id) {
-    throw new ApiError(403, 'No tiene acceso a esta PYME');
+    const membresia = await prisma.pyme_membresia.findFirst({
+      where: { pymeId: pyme.id, userId: user.id, activo: true },
+    });
+    if (!membresia) throw new ApiError(403, 'No tiene acceso a esta PYME');
+    // Restringido a una sede: esa manda, no puede crear en otra.
+    if (membresia.sedeId) {
+      if (sedeId && sedeId !== membresia.sedeId) {
+        throw new ApiError(403, 'No tiene acceso a esa sede');
+      }
+      sedeId = membresia.sedeId;
+    }
   }
 
   const margen = productoData.precioVenta - productoData.costo;
 
   return prisma.$transaction(async (tx) => {
     const producto = await tx.producto.create({
-      data: { ...productoData, pymeId: pyme.id },
+      data: { ...productoData, pymeId: pyme.id, sedeId },
     });
 
     await tx.inventario.create({
       data: {
         productoId: producto.id,
+        sedeId,
         stockActual: inventario?.stockActual ?? 0,
         stockMinimo: inventario?.stockMinimo ?? 5,
         stockMaximo: inventario?.stockMaximo ?? null,
@@ -76,8 +91,14 @@ const create = async (user, data) => {
 const bulkCreate = async (user, { pymeId, productos: filas }) => {
   const pyme = await prisma.pyme.findUnique({ where: { id: Number(pymeId) } });
   if (!pyme) throw new ApiError(404, 'PYME no encontrada');
+
+  let sedeId = null;
   if (user.rol !== 'ADMIN' && pyme.userId !== user.id) {
-    throw new ApiError(403, 'No tiene acceso a esta PYME');
+    const membresia = await prisma.pyme_membresia.findFirst({
+      where: { pymeId: pyme.id, userId: user.id, activo: true },
+    });
+    if (!membresia) throw new ApiError(403, 'No tiene acceso a esta PYME');
+    sedeId = membresia.sedeId;
   }
 
   const resultado = { creados: 0, errores: [] };
@@ -104,11 +125,11 @@ const bulkCreate = async (user, { pymeId, productos: filas }) => {
 
       const producto = await prisma.$transaction(async (tx) => {
         const creado = await tx.producto.create({
-          data: { pymeId: pyme.id, nombre, codigo, categoria, precioVenta, costo },
+          data: { pymeId: pyme.id, sedeId, nombre, codigo, categoria, precioVenta, costo },
         });
 
         await tx.inventario.create({
-          data: { productoId: creado.id, stockActual, stockMinimo },
+          data: { productoId: creado.id, sedeId, stockActual, stockMinimo },
         });
 
         if (ventas > 0) {

@@ -3,13 +3,15 @@ const ApiError = require('../utils/ApiError');
 const inventarioService = require('./inventario.service');
 const prediccionesService = require('./predicciones.service');
 const iaSync = require('../lib/iaSync');
+const { accesoCondiciones, tieneAcceso, resolverSedeId } = require('./acceso.util');
 
-const list = async (user, { pymeId, desde, hasta } = {}) => {
-  const wherePyme = user.rol === 'ADMIN' ? {} : { userId: user.id };
+const list = async (user, { pymeId, sedeId, desde, hasta } = {}) => {
+  const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
 
   const where = {
-    pyme: wherePyme,
+    OR: await accesoCondiciones(user),
     ...(pymeId ? { pymeId: Number(pymeId) } : {}),
+    ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
     ...(desde || hasta
       ? {
           fecha: {
@@ -36,7 +38,7 @@ const create = async (user, data) => {
   });
 
   if (!producto) throw new ApiError(404, 'Producto no encontrado');
-  if (user.rol !== 'ADMIN' && producto.pyme.userId !== user.id) {
+  if (!(await tieneAcceso(producto, user))) {
     throw new ApiError(403, 'No tiene acceso a este producto');
   }
 
@@ -51,6 +53,7 @@ const create = async (user, data) => {
     const created = await tx.venta.create({
       data: {
         pymeId: pymeIdReal,
+        sedeId: producto.sedeId,
         productoId: producto.id,
         cantidad,
         precioUnitario,
@@ -110,14 +113,15 @@ const historialProducto = async (productoId, dias = 30) => {
  * menos vendio de los que vendieron algo", no incluye productos sin ventas —
  * esa seria una pregunta distinta (inventario sin movimiento).
  */
-const rankingVentas = async (user, { pymeId, categoria, dias, orden = 'DESC' } = {}) => {
-  const wherePyme = user.rol === 'ADMIN' ? {} : { userId: user.id };
+const rankingVentas = async (user, { pymeId, sedeId, categoria, dias, orden = 'DESC' } = {}) => {
+  const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
   const desde = dias ? new Date(Date.now() - dias * 24 * 60 * 60 * 1000) : null;
 
   const ventas = await prisma.venta.findMany({
     where: {
-      pyme: wherePyme,
+      OR: await accesoCondiciones(user),
       ...(pymeId ? { pymeId: Number(pymeId) } : {}),
+      ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
       ...(desde ? { fecha: { gte: desde } } : {}),
       ...(categoria ? { producto: { categoria } } : {}),
     },
@@ -155,14 +159,15 @@ const menosVendido = (user, opts = {}) => rankingVentas(user, { ...opts, orden: 
  * bajo. Usa datos reales de la tabla venta, no la prediccion del motor de IA
  * (eso es otro dato, calculado por predicciones.service para otro proposito).
  */
-const rankingRentabilidad = async (user, { pymeId, categoria, dias, orden = 'DESC' } = {}) => {
-  const wherePyme = user.rol === 'ADMIN' ? {} : { userId: user.id };
+const rankingRentabilidad = async (user, { pymeId, sedeId, categoria, dias, orden = 'DESC' } = {}) => {
+  const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
   const desde = dias ? new Date(Date.now() - dias * 24 * 60 * 60 * 1000) : null;
 
   const ventas = await prisma.venta.findMany({
     where: {
-      pyme: wherePyme,
+      OR: await accesoCondiciones(user),
       ...(pymeId ? { pymeId: Number(pymeId) } : {}),
+      ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
       ...(desde ? { fecha: { gte: desde } } : {}),
       ...(categoria ? { producto: { categoria } } : {}),
     },
@@ -205,4 +210,51 @@ const rankingRentabilidad = async (user, { pymeId, categoria, dias, orden = 'DES
 const masRentable = (user, opts = {}) => rankingRentabilidad(user, { ...opts, orden: 'DESC' });
 const menosRentable = (user, opts = {}) => rankingRentabilidad(user, { ...opts, orden: 'ASC' });
 
-module.exports = { list, create, historialProducto, masVendido, menosVendido, masRentable, menosRentable };
+// Comparativa entre sedes de una misma PYME: cuál vende más, y qué día de la
+// semana mueve más unidades — la pregunta que motivó agregar sedes.
+const comparativaSedes = async (user, { pymeId, dias } = {}) => {
+  if (!pymeId) throw new ApiError(400, 'pymeId es obligatorio para comparar sedes');
+  const desde = dias ? new Date(Date.now() - dias * 24 * 60 * 60 * 1000) : null;
+
+  const ventas = await prisma.venta.findMany({
+    where: {
+      OR: await accesoCondiciones(user),
+      pymeId: Number(pymeId),
+      ...(desde ? { fecha: { gte: desde } } : {}),
+    },
+    select: { sedeId: true, cantidad: true, total: true, fecha: true },
+  });
+
+  const sedes = await prisma.sede.findMany({ where: { pymeId: Number(pymeId) } });
+  const nombrePorSede = new Map(sedes.map((s) => [s.id, s.nombre]));
+
+  const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const porSede = new Map();
+  for (const v of ventas) {
+    const key = v.sedeId ?? 'sin-sede';
+    const entry = porSede.get(key) || {
+      sedeId: v.sedeId,
+      nombre: v.sedeId ? nombrePorSede.get(v.sedeId) || `Sede ${v.sedeId}` : 'Sin sede asignada',
+      unidades: 0,
+      ingresos: 0,
+      porDiaSemana: Array.from({ length: 7 }, (_, i) => ({ dia: DIAS[i], unidades: 0 })),
+    };
+    entry.unidades += v.cantidad;
+    entry.ingresos += v.total;
+    entry.porDiaSemana[v.fecha.getDay()].unidades += v.cantidad;
+    porSede.set(key, entry);
+  }
+
+  return Array.from(porSede.values()).sort((a, b) => b.ingresos - a.ingresos);
+};
+
+module.exports = {
+  list,
+  create,
+  historialProducto,
+  masVendido,
+  menosVendido,
+  masRentable,
+  menosRentable,
+  comparativaSedes,
+};

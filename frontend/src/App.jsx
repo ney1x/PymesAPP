@@ -10,6 +10,7 @@ import Pymes from './pages/Pymes';
 import Inventario from './pages/Inventario';
 import Ventas from './pages/Ventas';
 import Predicciones from './pages/Predicciones';
+import Equipo from './pages/Equipo';
 import Alertas from './pages/Alertas';
 import Perfil from './pages/Perfil';
 import About from './pages/About';
@@ -31,6 +32,7 @@ export default function App() {
                 <Route path="/inventario" element={<Inventario />} />
                 <Route path="/ventas" element={<Ventas />} />
                 <Route path="/predicciones" element={<Predicciones />} />
+                <Route path="/equipo" element={<Equipo />} />
                 <Route path="/alertas" element={<Alertas />} />
                 <Route path="/perfil" element={<Perfil />} />
                 <Route path="/about" element={<About />} />

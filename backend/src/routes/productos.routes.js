@@ -10,6 +10,7 @@ router.use(authenticate);
 
 const productoValidations = validate([
   body('pymeId').isInt().withMessage('pymeId es obligatorio'),
+  body('sedeId').optional({ nullable: true }).isInt().withMessage('sedeId inválido'),
   body('nombre').notEmpty().withMessage('El nombre es obligatorio'),
   body('codigo').notEmpty().withMessage('El código es obligatorio'),
   body('precioVenta').isFloat({ min: 0 }).withMessage('Precio de venta inválido'),
@@ -26,7 +27,7 @@ const idParam = validate([param('id').isInt().withMessage('ID inválido')]);
 
 router.get(
   '/',
-  validate([query('pymeId').optional().isInt()]),
+  validate([query('pymeId').optional().isInt(), query('sedeId').optional().isInt()]),
   asyncHandler(async (req, res) => {
     const productos = await productosService.list(req.user, req.query);
     res.json({ ok: true, productos });

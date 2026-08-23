@@ -19,6 +19,7 @@ router.get(
   '/',
   validate([
     query('pymeId').optional().isInt(),
+    query('sedeId').optional().isInt(),
     query('desde').optional().isISO8601().withMessage('desde debe ser fecha ISO'),
     query('hasta').optional().isISO8601().withMessage('hasta debe ser fecha ISO'),
   ]),
@@ -32,5 +33,17 @@ router.post('/', ventaValidations, asyncHandler(async (req, res) => {
   const venta = await ventasService.create(req.user, req.body);
   res.status(201).json({ ok: true, venta });
 }));
+
+router.get(
+  '/comparativa-sedes',
+  validate([
+    query('pymeId').isInt().withMessage('pymeId es obligatorio'),
+    query('dias').optional().isInt({ min: 1 }),
+  ]),
+  asyncHandler(async (req, res) => {
+    const comparativa = await ventasService.comparativaSedes(req.user, req.query);
+    res.json({ ok: true, comparativa });
+  })
+);
 
 module.exports = router;

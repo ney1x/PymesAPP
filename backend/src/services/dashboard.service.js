@@ -1,36 +1,35 @@
 const prisma = require('../lib/prisma');
-
-const scopeWhere = (user, pymeId) => ({
-  pyme: {
-    ...(user.rol === 'ADMIN' ? {} : { userId: user.id }),
-    ...(pymeId ? { id: Number(pymeId) } : {}),
-  },
-});
+const { accesoCondiciones, resolverSedeId } = require('./acceso.util');
+const ventasService = require('./ventas.service');
 
 const sum = (arr) => arr.reduce((acc, v) => acc + v, 0);
 
-const get = async (user, { pymeId } = {}) => {
-  const where = scopeWhere(user, pymeId);
+const get = async (user, { pymeId, sedeId } = {}) => {
+  const condiciones = await accesoCondiciones(user);
+  const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
+  const wherePyme = { OR: condiciones, ...(pymeId ? { pymeId: Number(pymeId) } : {}) };
+  const whereVentaInventario = { ...wherePyme, ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}) };
 
-  const [productos, ventas, inventarios, predicciones] = await Promise.all([
+  const [productos, ventas, inventarios, predicciones, comparativaSedes] = await Promise.all([
     prisma.producto.findMany({
-      where: { pyme: where.pyme },
+      where: whereVentaInventario,
       select: { id: true, nombre: true },
     }),
     prisma.venta.findMany({
-      where,
+      where: whereVentaInventario,
       select: { total: true, cantidad: true, precioUnitario: true, costoUnitario: true, fecha: true, productoId: true },
     }),
     prisma.inventario.findMany({
-      where: { producto: { pyme: where.pyme } },
+      where: { producto: whereVentaInventario },
       include: { producto: { select: { id: true, nombre: true, codigo: true, precioVenta: true } } },
     }),
     prisma.prediccion.findMany({
-      where: { producto: { pyme: where.pyme } },
+      where: { producto: whereVentaInventario },
       include: { producto: { select: { id: true, nombre: true, codigo: true, precioVenta: true, costo: true } } },
       orderBy: { createdAt: 'desc' },
       take: 200,
     }),
+    pymeId ? ventasService.comparativaSedes(user, { pymeId }) : Promise.resolve([]),
   ]);
 
   const ingresos = sum(ventas.map((v) => v.total));
@@ -106,6 +105,7 @@ const get = async (user, { pymeId } = {}) => {
     topProductos,
     productosBajoStock,
     rankingRentabilidad,
+    comparativaSedes,
   };
 };
 

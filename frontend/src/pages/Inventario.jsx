@@ -14,6 +14,7 @@ const OTRA_CATEGORIA = '__otra__';
 export default function Inventario() {
   const [search, setSearch] = useState('');
   const [filtroPymeId, setFiltroPymeId] = useState('');
+  const [filtroSedeId, setFiltroSedeId] = useState('');
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -32,9 +33,13 @@ export default function Inventario() {
   const modalFormRef = useRef(null);
 
   const pymes = useAsync(() => pymesApi.list());
-  const { data, loading, error, run } = useAsync(
-    () => inventarioApi.list(filtroPymeId ? { pymeId: filtroPymeId } : {}),
+  const sedes = useAsync(
+    () => (filtroPymeId ? pymesApi.sedes.list(filtroPymeId) : Promise.resolve({ sedes: [] })),
     [filtroPymeId]
+  );
+  const { data, loading, error, run } = useAsync(
+    () => inventarioApi.list({ ...(filtroPymeId ? { pymeId: filtroPymeId } : {}), ...(filtroSedeId ? { sedeId: filtroSedeId } : {}) }),
+    [filtroPymeId, filtroSedeId]
   );
 
   const inventarios = data?.inventarios || [];
@@ -280,11 +285,22 @@ export default function Inventario() {
         {tienePymes && (
           <select
             value={filtroPymeId}
-            onChange={(e) => { setFiltroPymeId(e.target.value); setPage(1); }}
+            onChange={(e) => { setFiltroPymeId(e.target.value); setFiltroSedeId(''); setPage(1); }}
           >
             <option value="">Todas mis PYMES</option>
             {pymes.data?.pymes?.map((p) => (
               <option key={p.id} value={p.id}>{p.nombre}</option>
+            ))}
+          </select>
+        )}
+        {filtroPymeId && (sedes.data?.sedes?.length ?? 0) > 1 && (
+          <select
+            value={filtroSedeId}
+            onChange={(e) => { setFiltroSedeId(e.target.value); setPage(1); }}
+          >
+            <option value="">Todas las sedes</option>
+            {sedes.data.sedes.map((s) => (
+              <option key={s.id} value={s.id}>{s.nombre}</option>
             ))}
           </select>
         )}

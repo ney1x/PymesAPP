@@ -13,6 +13,7 @@ router.get(
   validate([
     query('alertas').optional().isIn(['true', 'false']),
     query('pymeId').optional().isInt(),
+    query('sedeId').optional().isInt(),
   ]),
   asyncHandler(async (req, res) => {
     const inventarios = await inventarioService.list(req.user, req.query);

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { IconBox, IconChart, IconUser, IconLogout, IconStore, IconTrendUp, IconGrid, IconAlert, IconInfo } from './Icons';
+import { IconBox, IconChart, IconUser, IconLogout, IconStore, IconTrendUp, IconGrid, IconAlert, IconInfo, IconUsers } from './Icons';
 import { ChatWidget } from './ChatWidget';
 
 const NAV_LEFT = [
@@ -10,6 +10,7 @@ const NAV_LEFT = [
   { to: '/inventario', label: 'Inventario', icon: IconBox },
   { to: '/ventas', label: 'Ventas', icon: IconTrendUp },
   { to: '/predicciones', label: 'Predicción', icon: IconChart },
+  { to: '/equipo', label: 'Equipo', icon: IconUsers },
 ];
 
 const NAV_RIGHT = [

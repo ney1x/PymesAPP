@@ -1,15 +1,15 @@
 const prisma = require('../lib/prisma');
 const ApiError = require('../utils/ApiError');
+const { accesoCondiciones, tieneAcceso, resolverSedeId } = require('./acceso.util');
 
-const list = async (user, { alertas, pymeId } = {}) => {
-  const wherePyme = user.rol === 'ADMIN' ? {} : { userId: user.id };
+const list = async (user, { alertas, pymeId, sedeId } = {}) => {
+  const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
 
   const inventarios = await prisma.inventario.findMany({
     where: {
-      producto: {
-        pyme: wherePyme,
-        ...(pymeId ? { pymeId: Number(pymeId) } : {}),
-      },
+      OR: (await accesoCondiciones(user)).map((c) => ({ producto: c })),
+      ...(pymeId ? { producto: { pymeId: Number(pymeId) } } : {}),
+      ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
     },
     include: {
       producto: { include: { pyme: true } },
@@ -36,7 +36,8 @@ const update = async (id, user, data) => {
   });
 
   if (!inventario) throw new ApiError(404, 'Inventario no encontrado');
-  if (user.rol !== 'ADMIN' && inventario.producto.pyme.userId !== user.id) {
+  const acceso = { pymeId: inventario.producto.pymeId, sedeId: inventario.sedeId, pyme: inventario.producto.pyme };
+  if (!(await tieneAcceso(acceso, user))) {
     throw new ApiError(403, 'No tiene acceso a este inventario');
   }
 
@@ -60,7 +61,8 @@ const ajustarStock = async (productoId, cantidad, user) => {
   });
 
   if (!inventario) throw new ApiError(404, 'Inventario no encontrado para el producto');
-  if (user.rol !== 'ADMIN' && inventario.producto.pyme.userId !== user.id) {
+  const acceso = { pymeId: inventario.producto.pymeId, sedeId: inventario.sedeId, pyme: inventario.producto.pyme };
+  if (!(await tieneAcceso(acceso, user))) {
     throw new ApiError(403, 'No tiene acceso a este inventario');
   }
 

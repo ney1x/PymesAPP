@@ -20,6 +20,7 @@ const OTRA_CATEGORIA = '__otra__';
 
 export default function Productos() {
   const [pymeId, setPymeId] = useState('');
+  const [sedeId, setSedeId] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -35,10 +36,19 @@ export default function Productos() {
   };
 
   const pymes = useAsync(() => pymesApi.list());
-  const { data, loading, error, run } = useAsync(
-    () => productosApi.list(pymeId ? { pymeId } : {}),
+  const sedes = useAsync(
+    () => (pymeId ? pymesApi.sedes.list(pymeId) : Promise.resolve({ sedes: [] })),
     [pymeId]
   );
+  const { data, loading, error, run } = useAsync(
+    () => productosApi.list({ ...(pymeId ? { pymeId } : {}), ...(sedeId ? { sedeId } : {}) }),
+    [pymeId, sedeId]
+  );
+
+  const handleFiltroPyme = (value) => {
+    setPymeId(value);
+    setSedeId('');
+  };
 
   const tienePymes = (pymes.data?.pymes?.length ?? 0) > 0;
   const selectedPyme = pymeId || pymes.data?.pymes?.[0]?.id || '';
@@ -177,13 +187,24 @@ export default function Productos() {
         <div className="form-row">
           <div className="form-group">
             <label htmlFor="filterPyme">Filtrar por PYME</label>
-            <select id="filterPyme" value={pymeId} onChange={(e) => setPymeId(e.target.value)}>
+            <select id="filterPyme" value={pymeId} onChange={(e) => handleFiltroPyme(e.target.value)}>
               <option value="">Todas mis PYMES</option>
               {pymes.data?.pymes?.map((p) => (
                 <option key={p.id} value={p.id}>{p.nombre}</option>
               ))}
             </select>
           </div>
+          {pymeId && (sedes.data?.sedes?.length ?? 0) > 1 && (
+            <div className="form-group">
+              <label htmlFor="filterSede">Filtrar por sede</label>
+              <select id="filterSede" value={sedeId} onChange={(e) => setSedeId(e.target.value)}>
+                <option value="">Todas las sedes</option>
+                {sedes.data.sedes.map((s) => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
