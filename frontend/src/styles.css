@@ -1230,6 +1230,25 @@ a {
   border-radius: 6px;
 }
 
+.member-roles-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.member-rol-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.member-rol-checkbox input[type='checkbox'] {
+  margin: 0;
+}
+
 tbody tr.member-row-rechazada { opacity: 0.55; }
 tbody tr.member-row-rechazada:hover { opacity: 0.85; }
 

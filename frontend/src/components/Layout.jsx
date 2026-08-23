@@ -4,14 +4,17 @@ import { useAuth } from '../context/AuthContext';
 import { IconBox, IconChart, IconUser, IconLogout, IconStore, IconTrendUp, IconGrid, IconAlert, IconInfo, IconUsers } from './Icons';
 import { ChatWidget } from './ChatWidget';
 import NotificationBell from './NotificationBell';
+import { pymesApi } from '../api';
+import { useAsync } from '../hooks/useAsync';
+import { puedeEnAlguna } from '../constants/permisos';
 
 const NAV_LEFT = [
   { to: '/pymes', label: 'Mis PYMES', icon: IconStore },
   { to: '/dashboard', label: 'Dashboard', icon: IconGrid },
   { to: '/inventario', label: 'Inventario', icon: IconBox },
   { to: '/ventas', label: 'Ventas', icon: IconTrendUp },
-  { to: '/predicciones', label: 'Predicción', icon: IconChart },
-  { to: '/equipo', label: 'Equipo', icon: IconUsers },
+  { to: '/predicciones', label: 'Predicción', icon: IconChart, requiere: 'verPredicciones' },
+  { to: '/equipo', label: 'Equipo', icon: IconUsers, requiere: 'gestionarMiembros' },
 ];
 
 const NAV_RIGHT = [
@@ -23,6 +26,11 @@ export default function Layout() {
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileMenuRef = useRef(null);
+  const pymes = useAsync(() => pymesApi.list());
+
+  const navItems = NAV_LEFT.filter(
+    (item) => !item.requiere || puedeEnAlguna(pymes.data?.pymes, item.requiere)
+  );
 
   const handleLogout = () => {
     setProfileOpen(false);
@@ -76,7 +84,7 @@ export default function Layout() {
         </button>
 
         <div className="rail-nav">
-          {NAV_LEFT.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

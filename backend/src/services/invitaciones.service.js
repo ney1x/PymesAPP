@@ -8,6 +8,7 @@ const listPendientes = async (user) => {
       pyme: { select: { id: true, nombre: true, tipo: true, ciudad: true } },
       sede: { select: { id: true, nombre: true } },
       invitadoPor: { select: { id: true, nombre: true } },
+      rolesExtra: true,
     },
     orderBy: { createdAt: 'desc' },
   });

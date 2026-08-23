@@ -1,7 +1,13 @@
 const prisma = require('../lib/prisma');
 const ApiError = require('../utils/ApiError');
+const { exigirCapacidad } = require('./permisos');
 
-const ROLES_MEMBRESIA = ['OWNER', 'VENDEDOR', 'INVENTARIO', 'ANALISTA'];
+// Roles asignables a un miembro invitado. OWNER no está acá: se asigna solo
+// al crear la PYME (pyme.userId), nunca por este flujo de invitación.
+const ROLES_COMBINABLES = ['VENDEDOR', 'INVENTARIO', 'ANALISTA'];
+
+const rolesValidos = (roles) =>
+  Array.isArray(roles) && roles.length >= 1 && roles.every((r) => ROLES_COMBINABLES.includes(r));
 
 const scopeQuery = async (user) => {
   if (user.rol === 'ADMIN') return {};
@@ -22,8 +28,9 @@ const canAccess = async (pyme, user) => {
   return !!membresia;
 };
 
-// miRol adjuntado por pyme: le dice al frontend si puede mostrar controles de
-// gestión de equipo/sedes (solo OWNER) sin tener que adivinar por otra vía.
+// miRoles adjuntado por pyme: le dice al frontend qué controles puede
+// mostrar (gestión de equipo/sedes, botones por capacidad) sin tener que
+// adivinar por otra vía. Un miembro puede tener más de un rol a la vez.
 const list = async (user, { search } = {}) => {
   const pymes = await prisma.pyme.findMany({
     where: {
@@ -37,17 +44,20 @@ const list = async (user, { search } = {}) => {
   });
 
   if (user.rol === 'ADMIN') {
-    return pymes.map((p) => ({ ...p, miRol: 'OWNER' }));
+    return pymes.map((p) => ({ ...p, miRoles: ['OWNER'] }));
   }
 
   const membresias = await prisma.pyme_membresia.findMany({
     where: { userId: user.id, pymeId: { in: pymes.map((p) => p.id) }, activo: true, estado: 'ACEPTADA' },
+    include: { rolesExtra: true },
   });
-  const rolPorPyme = new Map(membresias.map((m) => [m.pymeId, m.rol]));
+  const rolesPorPyme = new Map(
+    membresias.map((m) => [m.pymeId, [m.rol, ...m.rolesExtra.map((r) => r.rol)]])
+  );
 
   return pymes.map((p) => ({
     ...p,
-    miRol: p.userId === user.id ? 'OWNER' : rolPorPyme.get(p.id) || null,
+    miRoles: p.userId === user.id ? ['OWNER'] : rolesPorPyme.get(p.id) || [],
   }));
 };
 
@@ -71,6 +81,7 @@ const update = async (id, user, data) => {
   const pyme = await prisma.pyme.findUnique({ where: { id: Number(id) } });
   if (!pyme) throw new ApiError(404, 'PYME no encontrada');
   if (!(await canAccess(pyme, user))) throw new ApiError(403, 'No tiene acceso a esta PYME');
+  await exigirCapacidad(user, pyme.id, 'gestionarPyme');
 
   return prisma.pyme.update({ where: { id: pyme.id }, data });
 };
@@ -79,6 +90,7 @@ const remove = async (id, user) => {
   const pyme = await prisma.pyme.findUnique({ where: { id: Number(id) } });
   if (!pyme) throw new ApiError(404, 'PYME no encontrada');
   if (!(await canAccess(pyme, user))) throw new ApiError(403, 'No tiene acceso a esta PYME');
+  await exigirCapacidad(user, pyme.id, 'gestionarPyme');
 
   const productos = await prisma.producto.findMany({
     where: { pymeId: pyme.id },
@@ -105,6 +117,7 @@ const listMiembros = async (pymeId) => {
     include: {
       user: { select: { id: true, nombre: true, email: true } },
       sede: { select: { id: true, nombre: true } },
+      rolesExtra: true,
     },
     orderBy: { createdAt: 'asc' },
   });
@@ -113,8 +126,12 @@ const listMiembros = async (pymeId) => {
 // Invita por email: el usuario debe existir ya (registrado por su cuenta) —
 // el OWNER no puede crear cuentas ajenas ni asignarles una clave temporal;
 // solo puede dar acceso a alguien que ya tiene credenciales propias.
-const inviteMiembro = async (pymeId, invitador, { email, rol, sedeId }) => {
-  if (!ROLES_MEMBRESIA.includes(rol)) throw new ApiError(400, 'Rol inválido');
+// `roles` es un array (1 a 3 de ROLES_COMBINABLES) — el primero se guarda en
+// `rol`, el resto en `rolesExtra`, así una persona puede ser p. ej. VENDEDOR
+// + ANALISTA a la vez.
+const inviteMiembro = async (pymeId, invitador, { email, roles, sedeId }) => {
+  if (!rolesValidos(roles)) throw new ApiError(400, 'Rol inválido');
+  const [rol, ...extra] = roles;
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
@@ -139,8 +156,9 @@ const inviteMiembro = async (pymeId, invitador, { email, rol, sedeId }) => {
         invitadoPorId: invitador.id,
         respondidoAt: null,
         decisionVistaPorOwner: true,
+        rolesExtra: { deleteMany: {}, create: extra.map((r) => ({ rol: r })) },
       },
-      include: { user: { select: { id: true, nombre: true, email: true } } },
+      include: { user: { select: { id: true, nombre: true, email: true } }, rolesExtra: true },
     });
     return { membresia: reabierta };
   }
@@ -152,26 +170,29 @@ const inviteMiembro = async (pymeId, invitador, { email, rol, sedeId }) => {
       sedeId: sedeId ? Number(sedeId) : null,
       rol,
       invitadoPorId: invitador.id,
+      rolesExtra: { create: extra.map((r) => ({ rol: r })) },
     },
-    include: { user: { select: { id: true, nombre: true, email: true } } },
+    include: { user: { select: { id: true, nombre: true, email: true } }, rolesExtra: true },
   });
 
   return { membresia };
 };
 
-const updateMiembro = async (pymeId, miembroId, { rol, sedeId }) => {
+const updateMiembro = async (pymeId, miembroId, { roles, sedeId }) => {
   const membresia = await prisma.pyme_membresia.findFirst({
     where: { id: Number(miembroId), pymeId: Number(pymeId) },
   });
   if (!membresia) throw new ApiError(404, 'Miembro no encontrado');
-  if (rol && !ROLES_MEMBRESIA.includes(rol)) throw new ApiError(400, 'Rol inválido');
+  if (roles && !rolesValidos(roles)) throw new ApiError(400, 'Rol inválido');
+  const [rol, ...extra] = roles || [];
 
   return prisma.pyme_membresia.update({
     where: { id: membresia.id },
     data: {
-      ...(rol ? { rol } : {}),
+      ...(roles ? { rol, rolesExtra: { deleteMany: {}, create: extra.map((r) => ({ rol: r })) } } : {}),
       ...(sedeId !== undefined ? { sedeId: sedeId ? Number(sedeId) : null } : {}),
     },
+    include: { rolesExtra: true },
   });
 };
 

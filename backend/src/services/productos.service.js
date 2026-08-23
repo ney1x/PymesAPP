@@ -2,6 +2,7 @@ const prisma = require('../lib/prisma');
 const ApiError = require('../utils/ApiError');
 const iaSync = require('../lib/iaSync');
 const { accesoWhere, tieneAcceso, resolverSedeId } = require('./acceso.util');
+const { exigirCapacidad, tieneCapacidad, pymeIdsConCapacidad, ocultarCosto } = require('./permisos');
 
 const findOwned = async (id, user) => {
   const producto = await prisma.producto.findUnique({
@@ -25,7 +26,7 @@ const list = async (user, { pymeId, sedeId, search } = {}) => {
     ...(search ? { nombre: { contains: search } } : {}),
   };
 
-  return prisma.producto.findMany({
+  const productos = await prisma.producto.findMany({
     where,
     include: {
       inventario: true,
@@ -33,14 +34,26 @@ const list = async (user, { pymeId, sedeId, search } = {}) => {
     },
     orderBy: { createdAt: 'desc' },
   });
+
+  if (pymeId) {
+    if (await tieneCapacidad(user, pymeId, 'verCostoProducto')) return productos;
+    return productos.map((p) => ocultarCosto(p));
+  }
+
+  const idsConCosto = await pymeIdsConCapacidad(user, 'verCostoProducto');
+  if (idsConCosto === null) return productos; // ADMIN global
+  const permitidos = new Set(idsConCosto);
+  return productos.map((p) => (permitidos.has(p.pymeId) ? p : ocultarCosto(p)));
 };
 
 const getById = async (id, user) => {
   const producto = await findOwned(id, user);
-  return prisma.producto.findUnique({
+  const full = await prisma.producto.findUnique({
     where: { id: producto.id },
     include: { inventario: true, pyme: true },
   });
+  if (!(await tieneCapacidad(user, producto.pymeId, 'verCostoProducto'))) ocultarCosto(full);
+  return full;
 };
 
 const create = async (user, data) => {
@@ -50,6 +63,7 @@ const create = async (user, data) => {
     where: { id: Number(productoData.pymeId) },
   });
   if (!pyme) throw new ApiError(404, 'PYME no encontrada');
+  await exigirCapacidad(user, pyme.id, 'gestionarProductos');
 
   let sedeId = productoData.sedeId ? Number(productoData.sedeId) : null;
   if (user.rol !== 'ADMIN' && pyme.userId !== user.id) {
@@ -91,6 +105,7 @@ const create = async (user, data) => {
 const bulkCreate = async (user, { pymeId, productos: filas }) => {
   const pyme = await prisma.pyme.findUnique({ where: { id: Number(pymeId) } });
   if (!pyme) throw new ApiError(404, 'PYME no encontrada');
+  await exigirCapacidad(user, pyme.id, 'gestionarProductos');
 
   let sedeId = null;
   if (user.rol !== 'ADMIN' && pyme.userId !== user.id) {
@@ -176,6 +191,7 @@ const bulkCreate = async (user, { pymeId, productos: filas }) => {
 
 const update = async (id, user, data) => {
   const producto = await findOwned(id, user);
+  await exigirCapacidad(user, producto.pymeId, 'gestionarProductos');
   const { inventario, ...productoData } = data;
 
   const updated = await prisma.producto.update({
@@ -202,6 +218,7 @@ const update = async (id, user, data) => {
 
 const remove = async (id, user) => {
   const producto = await findOwned(id, user);
+  await exigirCapacidad(user, producto.pymeId, 'gestionarProductos');
   await prisma.$transaction([
     prisma.venta.deleteMany({ where: { productoId: producto.id } }),
     prisma.prediccion.deleteMany({ where: { productoId: producto.id } }),

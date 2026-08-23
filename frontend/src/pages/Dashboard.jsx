@@ -170,8 +170,12 @@ export default function Dashboard() {
       </section>
 
       <div className="stat-grid dashboard-kpis">
-        <StatCard label="Ingresos (histórico)" value={money(resumen.ingresos)} hint="Total vendido" />
-        <StatCard label="Margen bruto" value={money(resumen.margenBruto)} hint="Utilidad estimada" tone="success" />
+        {resumen.ingresos !== undefined && (
+          <StatCard label="Ingresos (histórico)" value={money(resumen.ingresos)} hint="Total vendido" />
+        )}
+        {resumen.margenBruto !== undefined && (
+          <StatCard label="Margen bruto" value={money(resumen.margenBruto)} hint="Utilidad estimada" tone="success" />
+        )}
         <StatCard label="Unidades vendidas" value={resumen.unidadesVendidas} />
       </div>
 

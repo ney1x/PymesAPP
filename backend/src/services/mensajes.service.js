@@ -35,7 +35,15 @@ const enviar = async (pymeId, remitente, { destinatarioId, rol, contenido, prior
 
   if (!ROLES_DESTINO.includes(rol)) throw new ApiError(400, 'Rol inválido');
   const miembros = await prisma.pyme_membresia.findMany({
-    where: { pymeId: Number(pymeId), rol, activo: true, estado: 'ACEPTADA' },
+    where: {
+      pymeId: Number(pymeId),
+      activo: true,
+      estado: 'ACEPTADA',
+      // rol combinado: alguien con VENDEDOR como rol extra también debe
+      // recibir el mensaje "para todos los VENDEDOR", no solo quien lo tenga
+      // como rol principal.
+      OR: [{ rol }, { rolesExtra: { some: { rol } } }],
+    },
   });
   if (!miembros.length) throw new ApiError(404, `No hay miembros activos con rol ${rol}`);
 

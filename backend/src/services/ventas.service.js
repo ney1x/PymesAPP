@@ -4,6 +4,7 @@ const inventarioService = require('./inventario.service');
 const prediccionesService = require('./predicciones.service');
 const iaSync = require('../lib/iaSync');
 const { accesoWhere, tieneAcceso, resolverSedeId } = require('./acceso.util');
+const { exigirCapacidad, tieneCapacidad, pymeIdsConCapacidad, ocultarCostoVenta } = require('./permisos');
 
 const list = async (user, { pymeId, sedeId, desde, hasta } = {}) => {
   const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
@@ -22,11 +23,21 @@ const list = async (user, { pymeId, sedeId, desde, hasta } = {}) => {
       : {}),
   };
 
-  return prisma.venta.findMany({
+  const ventas = await prisma.venta.findMany({
     where,
     include: { producto: true },
     orderBy: { fecha: 'desc' },
   });
+
+  if (pymeId) {
+    if (await tieneCapacidad(user, pymeId, 'verCostoProducto')) return ventas;
+    return ventas.map((v) => ocultarCostoVenta(v));
+  }
+
+  const idsConCosto = await pymeIdsConCapacidad(user, 'verCostoProducto');
+  if (idsConCosto === null) return ventas; // ADMIN global
+  const permitidos = new Set(idsConCosto);
+  return ventas.map((v) => (permitidos.has(v.pymeId) ? v : ocultarCostoVenta(v)));
 };
 
 const create = async (user, data) => {
@@ -41,6 +52,7 @@ const create = async (user, data) => {
   if (!(await tieneAcceso(producto, user))) {
     throw new ApiError(403, 'No tiene acceso a este producto');
   }
+  await exigirCapacidad(user, pymeId ? Number(pymeId) : producto.pymeId, 'crearVentas');
 
   const inventario = await prisma.inventario.findUnique({ where: { productoId: producto.id } });
   if (inventario && cantidad > inventario.stockActual) {
@@ -85,11 +97,14 @@ const create = async (user, data) => {
     console.error('[iaSync]', err.message);
   }
 
-  // Disparar predicción en segundo plano sin bloquear la respuesta.
+  // Disparar predicción en segundo plano sin bloquear la respuesta. Usa la
+  // versión interna (sin chequeo de capacidad 'generarPredicciones'): es un
+  // efecto de sistema post-venta, no una acción directa del usuario.
   prediccionesService
-    .generarParaProducto(user, producto.id)
+    .generarParaProductoInterno(user, producto.id)
     .catch((err) => console.error('[prediccion]', err.message));
 
+  if (!(await tieneCapacidad(user, pymeIdReal, 'verCostoProducto'))) ocultarCostoVenta(venta);
   return venta;
 };
 
@@ -216,6 +231,7 @@ const menosRentable = (user, opts = {}) => rankingRentabilidad(user, { ...opts, 
 // semana mueve más unidades — la pregunta que motivó agregar sedes.
 const comparativaSedes = async (user, { pymeId, dias } = {}) => {
   if (!pymeId) throw new ApiError(400, 'pymeId es obligatorio para comparar sedes');
+  await exigirCapacidad(user, pymeId, 'verReportesFinancieros');
   const desde = dias ? new Date(Date.now() - dias * 24 * 60 * 60 * 1000) : null;
 
   const ventas = await prisma.venta.findMany({

@@ -1,6 +1,7 @@
 const prisma = require('../lib/prisma');
 const ApiError = require('../utils/ApiError');
 const { accesoWhere, tieneAcceso, resolverSedeId } = require('./acceso.util');
+const { exigirCapacidad } = require('./permisos');
 
 const list = async (user, { alertas, pymeId, sedeId } = {}) => {
   const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
@@ -40,6 +41,7 @@ const update = async (id, user, data) => {
   if (!(await tieneAcceso(acceso, user))) {
     throw new ApiError(403, 'No tiene acceso a este inventario');
   }
+  await exigirCapacidad(user, inventario.producto.pymeId, 'modificarInventario');
 
   const updated = await prisma.inventario.update({
     where: { id: inventario.id },
@@ -65,6 +67,7 @@ const ajustarStock = async (productoId, cantidad, user) => {
   if (!(await tieneAcceso(acceso, user))) {
     throw new ApiError(403, 'No tiene acceso a este inventario');
   }
+  await exigirCapacidad(user, inventario.producto.pymeId, 'modificarInventario');
 
   return prisma.inventario.update({
     where: { id: inventario.id },

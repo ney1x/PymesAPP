@@ -25,6 +25,7 @@ const decisionesPendientes = async (user) => {
     include: {
       user: { select: { id: true, nombre: true, email: true } },
       pyme: { select: { id: true, nombre: true } },
+      rolesExtra: true,
     },
     orderBy: { respondidoAt: 'desc' },
   });

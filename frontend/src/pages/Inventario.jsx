@@ -6,6 +6,7 @@ import { Spinner, ErrorBox, Badge, Modal, Button, EmptyState } from '../componen
 import { IconPlus, IconEdit, IconTrash, IconSearch, IconCheck } from '../components/Icons';
 import { categoriasComunesPorTipo } from '../constants/categorias';
 import ImportarProductosModal from '../components/ImportarProductosModal';
+import { puede, puedeEnAlguna } from '../constants/permisos';
 
 const PAGE_SIZE = 10;
 
@@ -44,6 +45,11 @@ export default function Inventario() {
 
   const inventarios = data?.inventarios || [];
   const tienePymes = (pymes.data?.pymes?.length ?? 0) > 0;
+  const rolPorPyme = useMemo(
+    () => new Map((pymes.data?.pymes || []).map((p) => [p.id, p.miRoles])),
+    [pymes.data]
+  );
+  const puedeGestionarProductos = puedeEnAlguna(pymes.data?.pymes, 'gestionarProductos');
 
   const categoriasDisponibles = useMemo(() => {
     const pymeId = form.pymeId ? Number(form.pymeId) : null;
@@ -252,10 +258,12 @@ export default function Inventario() {
         </div>
         <div className="page-actions">
           {tienePymes ? (
+            puedeGestionarProductos && (
             <>
               <Button variant="outline" onClick={openCreate}><IconPlus size={15} /> Añadir producto</Button>{' '}
               <Button variant="outline" onClick={() => setImportOpen(true)}>Importar / Exportar</Button>
             </>
+            )
           ) : (
             <Link to="/pymes" className="btn btn-outline">
               <IconPlus size={15} /> Crea tu primera PYME
@@ -329,6 +337,9 @@ export default function Inventario() {
             ) : (
               paginated.map((inv) => {
                 const alerta = inv.stockActual <= inv.stockMinimo;
+                const rol = rolPorPyme.get(inv.producto.pymeId);
+                const puedeVenderFila = puede(rol, 'crearVentas');
+                const puedeGestionarFila = puede(rol, 'gestionarProductos');
                 return (
                   <tr key={inv.id}>
                     <td><strong>{inv.producto.nombre}</strong></td>
@@ -343,30 +354,36 @@ export default function Inventario() {
                       )}
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <input
-                          type="number"
-                          min="1"
-                          max={inv.stockActual}
-                          placeholder="uds"
-                          style={{ width: 70 }}
-                          value={ventaInputs[inv.id] || ''}
-                          onChange={(e) => handleVenderChange(inv.id, e.target.value)}
-                          disabled={inv.stockActual <= 0}
-                        />
-                        <Button
-                          variant="outline"
-                          loading={vendiendoId === inv.id}
-                          disabled={inv.stockActual <= 0 || !ventaInputs[inv.id]}
-                          onClick={() => handleVender(inv)}
-                        >
-                          Vender
-                        </Button>
-                      </div>
+                      {puedeVenderFila && (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <input
+                            type="number"
+                            min="1"
+                            max={inv.stockActual}
+                            placeholder="uds"
+                            style={{ width: 70 }}
+                            value={ventaInputs[inv.id] || ''}
+                            onChange={(e) => handleVenderChange(inv.id, e.target.value)}
+                            disabled={inv.stockActual <= 0}
+                          />
+                          <Button
+                            variant="outline"
+                            loading={vendiendoId === inv.id}
+                            disabled={inv.stockActual <= 0 || !ventaInputs[inv.id]}
+                            onClick={() => handleVender(inv)}
+                          >
+                            Vender
+                          </Button>
+                        </div>
+                      )}
                     </td>
                     <td>
-                      <Button variant="outline" onClick={() => openEdit(inv)}><IconEdit size={14} /> Editar</Button>{' '}
-                      <Button variant="danger" onClick={() => handleDelete(inv)}><IconTrash size={14} /> Eliminar</Button>
+                      {puedeGestionarFila && (
+                        <>
+                          <Button variant="outline" onClick={() => openEdit(inv)}><IconEdit size={14} /> Editar</Button>{' '}
+                          <Button variant="danger" onClick={() => handleDelete(inv)}><IconTrash size={14} /> Eliminar</Button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 );

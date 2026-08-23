@@ -1,5 +1,6 @@
 const prisma = require('../lib/prisma');
 const mlClient = require('../lib/mlClient');
+const { accesoWhere } = require('./acceso.util');
 
 const DIAS_FORECAST_DEFAULT = 30;
 
@@ -56,11 +57,9 @@ const analizarProducto = async (producto, diasForecast = DIAS_FORECAST_DEFAULT) 
 };
 
 const listar = async (user, { pymeId, diasForecast } = {}) => {
-  const wherePyme = user.rol === 'ADMIN' ? {} : { userId: user.id };
-
   const productos = await prisma.producto.findMany({
     where: {
-      pyme: wherePyme,
+      ...(await accesoWhere(user)),
       ...(pymeId ? { pymeId: Number(pymeId) } : {}),
     },
     include: { inventario: true },

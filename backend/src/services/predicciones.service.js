@@ -2,6 +2,7 @@ const prisma = require('../lib/prisma');
 const ApiError = require('../utils/ApiError');
 const mlClient = require('../lib/mlClient');
 const { accesoWhere, tieneAcceso, resolverSedeId } = require('./acceso.util');
+const { exigirCapacidad, tieneCapacidad, pymeIdsConCapacidad, ocultarCosto } = require('./permisos');
 
 const historicoDeProducto = async (productoId, dias = 90) => {
   const desde = new Date();
@@ -44,7 +45,11 @@ const heuristica = (historico, horizonteDias = 7) => {
   };
 };
 
-const generarParaProducto = async (user, productoId, horizonteDiasInput) => {
+// Cuerpo real, sin chequeo de capacidad `generarPredicciones` — lo llama
+// internamente ventas.service tras cada venta (efecto de sistema, no una
+// acción directa del usuario; ya es fire-and-forget con .catch, así que un
+// VENDEDOR sin esa capacidad no debe hacer que la predicción se rompa).
+const _generarParaProducto = async (user, productoId, horizonteDiasInput) => {
   const producto = await findProducto(productoId, user);
   const horizonteDias = HORIZONTES_VALIDOS.includes(Number(horizonteDiasInput))
     ? Number(horizonteDiasInput)
@@ -91,20 +96,32 @@ const generarParaProducto = async (user, productoId, horizonteDiasInput) => {
   };
 };
 
+// Wrapper de ruta (POST /predicciones/generar/:productoId): exige la
+// capacidad antes de delegar en el cuerpo real.
+const generarParaProducto = async (user, productoId, horizonteDiasInput) => {
+  const producto = await findProducto(productoId, user);
+  await exigirCapacidad(user, producto.pymeId, 'generarPredicciones');
+  return _generarParaProducto(user, productoId, horizonteDiasInput);
+};
+
 const generarTodo = async (user, { pymeId, sedeId, horizonteDias } = {}) => {
   const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
+
+  if (pymeId) await exigirCapacidad(user, pymeId, 'generarPredicciones');
+  const idsPermitidos = pymeId ? null : await pymeIdsConCapacidad(user, 'generarPredicciones');
 
   const productos = await prisma.producto.findMany({
     where: {
       ...(await accesoWhere(user)),
       ...(pymeId ? { pymeId: Number(pymeId) } : {}),
       ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
+      ...(idsPermitidos ? { pymeId: { in: idsPermitidos } } : {}),
     },
   });
 
   const resultados = [];
   for (const producto of productos) {
-    resultados.push(await generarParaProducto(user, producto.id, horizonteDias));
+    resultados.push(await _generarParaProducto(user, producto.id, horizonteDias));
   }
 
   const ranking = resultados.sort(
@@ -117,12 +134,18 @@ const generarTodo = async (user, { pymeId, sedeId, horizonteDias } = {}) => {
 const list = async (user, { productoId, pymeId, sedeId } = {}) => {
   const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
 
-  return prisma.prediccion.findMany({
+  if (pymeId) {
+    await exigirCapacidad(user, pymeId, 'verPredicciones');
+  }
+  const idsConVista = pymeId ? null : await pymeIdsConCapacidad(user, 'verPredicciones');
+
+  const predicciones = await prisma.prediccion.findMany({
     where: {
       producto: {
         ...(await accesoWhere(user)),
         ...(pymeId ? { pymeId: Number(pymeId) } : {}),
         ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
+        ...(idsConVista ? { pymeId: { in: idsConVista } } : {}),
       },
       ...(productoId ? { productoId: Number(productoId) } : {}),
     },
@@ -131,6 +154,22 @@ const list = async (user, { productoId, pymeId, sedeId } = {}) => {
     distinct: ['productoId'],
     take: 100,
   });
+
+  // INVENTARIO ve demanda pero no rentabilidad en $ (métrica financiera).
+  const idsConReportes = pymeId
+    ? null
+    : await pymeIdsConCapacidad(user, 'verReportesFinancieros');
+  for (const p of predicciones) {
+    const tieneReportes = pymeId
+      ? await tieneCapacidad(user, pymeId, 'verReportesFinancieros')
+      : idsConReportes === null || idsConReportes.includes(p.producto.pymeId);
+    if (!tieneReportes) {
+      delete p.rentabilidadPredicha;
+      ocultarCosto(p.producto);
+    }
+  }
+
+  return predicciones;
 };
 
 const predecir = async (productoId, pymeId, horizonteDias = 7) => {
@@ -160,4 +199,4 @@ const predecir = async (productoId, pymeId, horizonteDias = 7) => {
   };
 };
 
-module.exports = { generarParaProducto, generarTodo, list, predecir };
+module.exports = { generarParaProducto, generarParaProductoInterno: _generarParaProducto, generarTodo, list, predecir };

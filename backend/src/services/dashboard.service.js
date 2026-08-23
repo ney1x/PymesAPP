@@ -1,5 +1,6 @@
 const prisma = require('../lib/prisma');
 const { accesoWhere, resolverSedeId } = require('./acceso.util');
+const { tieneCapacidad, capacidadEnTodas } = require('./permisos');
 const ventasService = require('./ventas.service');
 
 const sum = (arr) => arr.reduce((acc, v) => acc + v, 0);
@@ -8,6 +9,14 @@ const get = async (user, { pymeId, sedeId } = {}) => {
   const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
   const wherePyme = { ...(await accesoWhere(user)), ...(pymeId ? { pymeId: Number(pymeId) } : {}) };
   const whereVentaInventario = { ...wherePyme, ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}) };
+
+  // Se resuelve antes del Promise.all: comparativaSedes exige la capacidad
+  // ella misma (endpoint expuesto también directo en /ventas/comparativa-sedes),
+  // así que si el rol no la tiene, ni se llama — evita que su 403 tumbe el
+  // resto del dashboard.
+  const verReportes = pymeId
+    ? await tieneCapacidad(user, pymeId, 'verReportesFinancieros')
+    : await capacidadEnTodas(user, 'verReportesFinancieros');
 
   const [productos, ventas, inventarios, predicciones, comparativaSedes] = await Promise.all([
     prisma.producto.findMany({
@@ -28,7 +37,7 @@ const get = async (user, { pymeId, sedeId } = {}) => {
       orderBy: { createdAt: 'desc' },
       take: 200,
     }),
-    pymeId ? ventasService.comparativaSedes(user, { pymeId }) : Promise.resolve([]),
+    pymeId && verReportes ? ventasService.comparativaSedes(user, { pymeId }) : Promise.resolve([]),
   ]);
 
   const ingresos = sum(ventas.map((v) => v.total));
@@ -92,7 +101,7 @@ const get = async (user, { pymeId, sedeId } = {}) => {
     }))
     .sort((a, b) => b.rentabilidadPredicha - a.rentabilidadPredicha);
 
-  return {
+  const resultado = {
     resumen: {
       ingresos: Math.round(ingresos),
       margenBruto: Math.round(margenBruto),
@@ -106,6 +115,17 @@ const get = async (user, { pymeId, sedeId } = {}) => {
     rankingRentabilidad,
     comparativaSedes,
   };
+
+  if (!verReportes) {
+    delete resultado.resumen.ingresos;
+    delete resultado.resumen.margenBruto;
+    resultado.ventasPorDia = [];
+    resultado.topProductos = [];
+    resultado.rankingRentabilidad = [];
+    resultado.comparativaSedes = [];
+  }
+
+  return resultado;
 };
 
 module.exports = { get };

@@ -241,10 +241,22 @@ model pyme_membresia {
   pyme          pyme            @relation(fields: [pymeId], references: [id], map: "PymeMembresia_pymeId_fkey")
   sede          sede?           @relation(fields: [sedeId], references: [id], map: "PymeMembresia_sedeId_fkey")
   invitadoPor   user?           @relation("InvitadoPor", fields: [invitadoPorId], references: [id], map: "PymeMembresia_invitadoPorId_fkey")
+  // Roles combinados además de `rol` (el "primero") — un miembro puede ser
+  // p. ej. VENDEDOR + ANALISTA a la vez. `rol` nunca se duplica acá.
+  rolesExtra    pyme_membresia_rol[]
 
   @@unique([userId, pymeId, sedeId], map: "PymeMembresia_userId_pymeId_sedeId_key")
   @@index([pymeId, rol], map: "PymeMembresia_pymeId_rol_idx")
   @@index([userId, estado], map: "PymeMembresia_userId_estado_idx")
+}
+
+model pyme_membresia_rol {
+  id          Int            @id @default(autoincrement())
+  membresiaId Int
+  rol         RolMembresia
+  membresia   pyme_membresia @relation(fields: [membresiaId], references: [id], onDelete: Cascade, map: "PymeMembresiaRol_membresiaId_fkey")
+
+  @@unique([membresiaId, rol], map: "PymeMembresiaRol_membresiaId_rol_key")
 }
 
 // envioLoteId agrupa las filas de un mismo envio masivo por rol (una fila

@@ -32,7 +32,9 @@ const ROL_TONE = {
 const ESTADO_LABELS = { PENDIENTE: 'Pendiente', ACEPTADA: 'Activo', RECHAZADA: 'Rechazó' };
 const ESTADO_TONE = { PENDIENTE: 'warning', ACEPTADA: 'success', RECHAZADA: 'danger' };
 
-const emptyInvite = { email: '', rol: 'VENDEDOR', sedeId: '' };
+const ROLES_ASIGNABLES = ['VENDEDOR', 'INVENTARIO', 'ANALISTA'];
+
+const emptyInvite = { email: '', roles: ['VENDEDOR'], sedeId: '' };
 const emptySede = { nombre: '', direccion: '', ciudad: '' };
 
 export default function Equipo() {
@@ -68,7 +70,7 @@ export default function Equipo() {
     return lista.find((p) => String(p.id) === pymeId) || lista[0];
   }, [pymes.data, pymeId]);
 
-  const esOwner = pymeActual?.miRol === 'OWNER';
+  const esOwner = !!pymeActual?.miRoles?.includes('OWNER');
 
   const sedes = useAsync(
     () => (pymeActual ? pymesApi.sedes.list(pymeActual.id) : Promise.resolve({ sedes: [] })),
@@ -99,15 +101,24 @@ export default function Equipo() {
 
   const handleInviteChange = (e) => setInviteForm({ ...inviteForm, [e.target.name]: e.target.value });
 
+  const toggleInviteRol = (rol) => {
+    setInviteForm((prev) => ({
+      ...prev,
+      roles: prev.roles.includes(rol)
+        ? prev.roles.filter((r) => r !== rol)
+        : [...prev.roles, rol],
+    }));
+  };
+
   const handleInviteSubmit = async (e) => {
     e.preventDefault();
-    if (saving) return;
+    if (saving || inviteForm.roles.length === 0) return;
     setSaving(true);
     setActionError(null);
     try {
       const res = await pymesApi.miembros.invite(pymeActual.id, {
         email: inviteForm.email,
-        rol: inviteForm.rol,
+        roles: inviteForm.roles,
         ...(inviteForm.sedeId ? { sedeId: Number(inviteForm.sedeId) } : {}),
       });
       setInviteResult(res);
@@ -119,14 +130,21 @@ export default function Equipo() {
     }
   };
 
-  const handleRolChange = async (miembro, rol) => {
+  const handleRolesChange = async (miembro, roles) => {
+    if (roles.length === 0) return;
     try {
-      await pymesApi.miembros.update(pymeActual.id, miembro.id, { rol });
+      await pymesApi.miembros.update(pymeActual.id, miembro.id, { roles });
       miembros.run();
       showToast('Rol actualizado');
     } catch (err) {
       showToast(err.message);
     }
+  };
+
+  const toggleMiembroRol = (miembro, rol) => {
+    const actuales = [miembro.rol, ...miembro.rolesExtra.map((r) => r.rol)];
+    const nuevos = actuales.includes(rol) ? actuales.filter((r) => r !== rol) : [...actuales, rol];
+    handleRolesChange(miembro, nuevos);
   };
 
   const handleSedeAsignada = async (miembro, sedeId) => {
@@ -340,11 +358,23 @@ export default function Equipo() {
                         {m.rol === 'OWNER' ? (
                           <Badge tone={ROL_TONE[m.rol]}>{ROL_LABELS[m.rol]}</Badge>
                         ) : (
-                          <select className="table-inline-select" value={m.rol} onChange={(e) => handleRolChange(m, e.target.value)}>
-                            {Object.entries(ROL_LABELS).filter(([k]) => k !== 'OWNER').map(([k, v]) => (
-                              <option key={k} value={k}>{v}</option>
-                            ))}
-                          </select>
+                          <div className="member-roles-checkboxes">
+                            {ROLES_ASIGNABLES.map((rol) => {
+                              const roles = [m.rol, ...m.rolesExtra.map((r) => r.rol)];
+                              const marcado = roles.includes(rol);
+                              return (
+                                <label key={rol} className="member-rol-checkbox">
+                                  <input
+                                    type="checkbox"
+                                    checked={marcado}
+                                    disabled={marcado && roles.length === 1}
+                                    onChange={() => toggleMiembroRol(m, rol)}
+                                  />
+                                  {ROL_LABELS[rol]}
+                                </label>
+                              );
+                            })}
+                          </div>
                         )}
                       </td>
                       <td>
@@ -401,12 +431,20 @@ export default function Equipo() {
             </div>
             <div className="form-grid">
               <div className="form-group">
-                <label>Rol</label>
-                <select name="rol" value={inviteForm.rol} onChange={handleInviteChange}>
-                  {Object.entries(ROL_LABELS).filter(([k]) => k !== 'OWNER').map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
+                <label>Rol (puedes elegir más de uno)</label>
+                <div className="member-roles-checkboxes">
+                  {ROLES_ASIGNABLES.map((rol) => (
+                    <label key={rol} className="member-rol-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={inviteForm.roles.includes(rol)}
+                        onChange={() => toggleInviteRol(rol)}
+                      />
+                      {ROL_LABELS[rol]}
+                    </label>
                   ))}
-                </select>
+                </div>
+                {inviteForm.roles.length === 0 && <span className="hint">Selecciona al menos un rol.</span>}
               </div>
               <div className="form-group">
                 <label>Sede con acceso</label>
@@ -420,7 +458,7 @@ export default function Equipo() {
             </div>
             <div className="form-row">
               <Button type="button" variant="ghost" onClick={() => setInviteOpen(false)}>Cancelar</Button>
-              <Button type="submit" loading={saving}>Invitar</Button>
+              <Button type="submit" loading={saving} disabled={inviteForm.roles.length === 0}>Invitar</Button>
             </div>
           </form>
         )}

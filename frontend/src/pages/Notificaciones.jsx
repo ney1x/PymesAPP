@@ -6,6 +6,12 @@ import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, EmptyState } from 
 import { IconCheck, IconX, IconMail } from '../components/Icons';
 
 const ROL_LABELS = { OWNER: 'Dueño', VENDEDOR: 'Vendedor', INVENTARIO: 'Inventario', ANALISTA: 'Analista' };
+// Un miembro puede tener más de un rol (rol + rolesExtra) — junta las
+// etiquetas de todos para mostrarlas en una sola frase.
+const rolesLabel = (item) =>
+  [item.rol, ...(item.rolesExtra || []).map((r) => r.rol)]
+    .map((r) => ROL_LABELS[r] || r)
+    .join(' + ');
 const PRIORIDAD_LABELS = { ALTA: 'Alta', NORMAL: 'Normal', BAJA: 'Baja' };
 const PRIORIDAD_TONE = { ALTA: 'danger', NORMAL: 'primary', BAJA: 'default' };
 const DECISION_LABELS = { ACEPTADA: 'Aceptó', RECHAZADA: 'Rechazó' };
@@ -141,7 +147,7 @@ export default function Notificaciones() {
                   <span className="notif-entry-time">{tiempoRelativo(inv.createdAt)}</span>
                 </div>
                 <div className="invite-card-body">
-                  {inv.invitadoPor?.nombre} te invitó como <strong>{ROL_LABELS[inv.rol] || inv.rol}</strong>
+                  {inv.invitadoPor?.nombre} te invitó como <strong>{rolesLabel(inv)}</strong>
                   {inv.sede ? ` en la sede ${inv.sede.nombre}` : ''}.
                 </div>
                 <div className="invite-card-actions">
@@ -171,7 +177,7 @@ export default function Notificaciones() {
                     <span className="notif-entry-time">{tiempoRelativo(dec.respondidoAt)}</span>
                   </div>
                   <div className="notif-entry-body">
-                    {DECISION_LABELS[dec.estado] || dec.estado} tu invitación a <strong>{dec.pyme.nombre}</strong> como {ROL_LABELS[dec.rol] || dec.rol}.
+                    {DECISION_LABELS[dec.estado] || dec.estado} tu invitación a <strong>{dec.pyme.nombre}</strong> como {rolesLabel(dec)}.
                   </div>
                   <div className="notif-entry-actions">
                     <Button variant="ghost" onClick={() => descartarDecision(dec)}>Descartar</Button>
@@ -251,7 +257,7 @@ export default function Notificaciones() {
             <ErrorBox error={confirmError} />
             <p>
               {pendiente.tipo === 'aceptar' ? (
-                <>¿Confirmas que quieres unirte a <strong>{pendiente.invitacion.pyme.nombre}</strong> como <strong>{ROL_LABELS[pendiente.invitacion.rol] || pendiente.invitacion.rol}</strong>?</>
+                <>¿Confirmas que quieres unirte a <strong>{pendiente.invitacion.pyme.nombre}</strong> como <strong>{rolesLabel(pendiente.invitacion)}</strong>?</>
               ) : (
                 <>¿Confirmas que quieres rechazar la invitación a <strong>{pendiente.invitacion.pyme.nombre}</strong>? Esta acción se puede revertir si te vuelven a invitar.</>
               )}

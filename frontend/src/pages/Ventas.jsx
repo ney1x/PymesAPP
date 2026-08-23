@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { ventasApi, productosApi, pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, PageHeader, Button, EmptyState, money, date } from '../components/ui';
+import { puedeEnAlguna } from '../constants/permisos';
 
 export default function Ventas() {
   const [filtroPymeId, setFiltroPymeId] = useState('');
@@ -13,6 +14,7 @@ export default function Ventas() {
   const formRef = useRef(null);
 
   const pymes = useAsync(() => pymesApi.list());
+  const puedeVender = puedeEnAlguna(pymes.data?.pymes, 'crearVentas');
   const sedes = useAsync(
     () => (filtroPymeId ? pymesApi.sedes.list(filtroPymeId) : Promise.resolve({ sedes: [] })),
     [filtroPymeId]
@@ -95,7 +97,8 @@ export default function Ventas() {
         }
       />
 
-      <div className="grid-2">
+      <div className={puedeVender ? 'grid-2' : undefined}>
+        {puedeVender && (
         <div className="card">
           <div className="card-title">Nueva venta</div>
           <form ref={formRef} onSubmit={handleSubmit}>
@@ -132,6 +135,7 @@ export default function Ventas() {
             <Button type="submit" loading={saving} className="btn-block" aria-busy={saving} aria-label={saving ? 'Registrando venta...' : 'Registrar venta'}>Registrar venta</Button>
           </form>
         </div>
+        )}
 
         <div className="card">
           <div className="card-title">Ventas recientes</div>

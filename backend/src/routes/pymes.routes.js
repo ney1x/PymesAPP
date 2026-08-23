@@ -57,12 +57,14 @@ router.delete('/:id', idParam, asyncHandler(async (req, res) => {
 
 const miembroValidations = validate([
   body('email').isEmail().withMessage('Correo inválido'),
-  body('rol').isIn(['OWNER', 'VENDEDOR', 'INVENTARIO', 'ANALISTA']).withMessage('Rol inválido'),
+  body('roles').isArray({ min: 1 }).withMessage('Selecciona al menos un rol'),
+  body('roles.*').isIn(['VENDEDOR', 'INVENTARIO', 'ANALISTA']).withMessage('Rol inválido'),
   body('sedeId').optional({ nullable: true }).isInt().withMessage('sedeId inválido'),
 ]);
 
 const updateMiembroValidations = validate([
-  body('rol').optional().isIn(['OWNER', 'VENDEDOR', 'INVENTARIO', 'ANALISTA']).withMessage('Rol inválido'),
+  body('roles').optional().isArray({ min: 1 }).withMessage('Selecciona al menos un rol'),
+  body('roles.*').optional().isIn(['VENDEDOR', 'INVENTARIO', 'ANALISTA']).withMessage('Rol inválido'),
   body('sedeId').optional({ nullable: true }).isInt().withMessage('sedeId inválido'),
 ]);
 

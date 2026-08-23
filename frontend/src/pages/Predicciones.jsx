@@ -4,6 +4,7 @@ import { useAsync } from '../hooks/useAsync';
 import { usePymeFilter } from '../context/PymeFilterContext';
 import { Spinner, ErrorBox, PageHeader, Badge, Button, EmptyState, money } from '../components/ui';
 import { IconSearch } from '../components/Icons';
+import { puedeEnAlguna } from '../constants/permisos';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
@@ -25,6 +26,7 @@ export default function Predicciones() {
   const formRef = useRef(null);
 
   const pymes = useAsync(() => pymesApi.list());
+  const puedeGenerar = puedeEnAlguna(pymes.data?.pymes, 'generarPredicciones');
   const sedes = useAsync(
     () => (filtroPymeId ? pymesApi.sedes.list(filtroPymeId) : Promise.resolve({ sedes: [] })),
     [filtroPymeId]
@@ -133,9 +135,11 @@ export default function Predicciones() {
                 <option key={h.value} value={h.value}>{h.label}</option>
               ))}
             </select>
-            <Button loading={generating} onClick={generar} aria-busy={generating} aria-label={generating ? 'Generando predicción...' : 'Generar predicción'}>
-              {generating ? 'Analizando...' : 'Generar Predicción'}
-            </Button>
+            {puedeGenerar && (
+              <Button loading={generating} onClick={generar} aria-busy={generating} aria-label={generating ? 'Generando predicción...' : 'Generar predicción'}>
+                {generating ? 'Analizando...' : 'Generar Predicción'}
+              </Button>
+            )}
           </div>
         }
       />
