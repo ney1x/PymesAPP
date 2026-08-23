@@ -13,6 +13,7 @@ router.get(
   validate([
     query('productoId').optional().isInt(),
     query('pymeId').optional().isInt(),
+    query('sedeId').optional().isInt(),
   ]),
   asyncHandler(async (req, res) => {
     const predicciones = await prediccionesService.list(req.user, req.query);
@@ -24,6 +25,7 @@ router.post(
   '/generar',
   validate([
     query('pymeId').optional().isInt(),
+    query('sedeId').optional().isInt(),
     query('horizonteDias').optional().isInt({ min: 1, max: 120 }),
   ]),
   asyncHandler(async (req, res) => {

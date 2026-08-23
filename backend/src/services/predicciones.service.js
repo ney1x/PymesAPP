@@ -1,6 +1,7 @@
 const prisma = require('../lib/prisma');
 const ApiError = require('../utils/ApiError');
 const mlClient = require('../lib/mlClient');
+const { accesoCondiciones, tieneAcceso, resolverSedeId } = require('./acceso.util');
 
 const historicoDeProducto = async (productoId, dias = 90) => {
   const desde = new Date();
@@ -24,7 +25,7 @@ const findProducto = async (productoId, user) => {
     include: { pyme: true, inventario: true },
   });
   if (!producto) throw new ApiError(404, 'Producto no encontrado');
-  if (user.rol !== 'ADMIN' && producto.pyme.userId !== user.id) {
+  if (!(await tieneAcceso(producto, user))) {
     throw new ApiError(403, 'No tiene acceso a este producto');
   }
   return producto;
@@ -53,7 +54,7 @@ const generarParaProducto = async (user, productoId, horizonteDiasInput) => {
   try {
     prediccion = await mlClient.predict({
       itemId: producto.codigo,
-      storeId: String(producto.pymeId),
+      storeId: String(producto.sedeId ?? producto.pymeId),
       horizonteDias,
     });
   } catch (err) {
@@ -90,13 +91,14 @@ const generarParaProducto = async (user, productoId, horizonteDiasInput) => {
   };
 };
 
-const generarTodo = async (user, { pymeId, horizonteDias } = {}) => {
-  const wherePyme = user.rol === 'ADMIN' ? {} : { userId: user.id };
+const generarTodo = async (user, { pymeId, sedeId, horizonteDias } = {}) => {
+  const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
 
   const productos = await prisma.producto.findMany({
     where: {
-      pyme: wherePyme,
+      OR: await accesoCondiciones(user),
       ...(pymeId ? { pymeId: Number(pymeId) } : {}),
+      ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
     },
   });
 
@@ -112,14 +114,15 @@ const generarTodo = async (user, { pymeId, horizonteDias } = {}) => {
   return ranking;
 };
 
-const list = async (user, { productoId, pymeId } = {}) => {
-  const wherePyme = user.rol === 'ADMIN' ? {} : { userId: user.id };
+const list = async (user, { productoId, pymeId, sedeId } = {}) => {
+  const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
 
   return prisma.prediccion.findMany({
     where: {
       producto: {
-        pyme: wherePyme,
+        OR: await accesoCondiciones(user),
         ...(pymeId ? { pymeId: Number(pymeId) } : {}),
+        ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
       },
       ...(productoId ? { productoId: Number(productoId) } : {}),
     },
@@ -142,7 +145,7 @@ const predecir = async (productoId, pymeId, horizonteDias = 7) => {
   try {
     prediccion = await mlClient.predict({
       itemId: producto.codigo,
-      storeId: String(producto.pymeId),
+      storeId: String(producto.sedeId ?? producto.pymeId),
       horizonteDias,
     });
   } catch (err) {

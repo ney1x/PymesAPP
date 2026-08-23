@@ -6,6 +6,11 @@
  * (@@ignore en schema.prisma) — acá se escriben con SQL crudo porque
  * Prisma Client no las expone.
  *
+ * `store_id` = sede (bodega/tienda física), no la PYME: una PYME con varias
+ * sedes debe entrenar/predecir cada una por separado, igual que M5 trata
+ * cada tienda del dataset original como una serie distinta. Si el producto
+ * no tiene sede asignada (dato legado), cae a pyme.id para no romper.
+ *
  * Nunca debe bloquear ni revertir el flujo de ventas de la app: quien
  * llama a syncVenta debe envolverlo en try/catch y solo loguear errores.
  */
@@ -20,14 +25,16 @@ const toDateOnly = (fecha) => {
   return `${y}-${m}-${day}`;
 };
 
-const syncVenta = async ({ producto, pyme, cantidad, precioUnitario, fecha }) => {
+const syncVenta = async ({ producto, pyme, sede, cantidad, precioUnitario, fecha }) => {
   const itemId = producto.codigo;
-  const storeId = String(pyme.id);
+  const storeId = String(sede?.id ?? pyme.id);
   const fechaSql = toDateOnly(fecha || new Date());
+  const nombreBodega = sede ? `${pyme.nombre} - ${sede.nombre}` : pyme.nombre;
+  const ciudadBodega = sede?.ciudad ?? pyme.ciudad ?? null;
 
   await prisma.$executeRaw`
     INSERT INTO bodegas (store_id, state_id, nombre)
-    VALUES (${storeId}, ${pyme.ciudad || null}, ${pyme.nombre})
+    VALUES (${storeId}, ${ciudadBodega}, ${nombreBodega})
     ON DUPLICATE KEY UPDATE state_id = VALUES(state_id), nombre = VALUES(nombre)
   `;
 

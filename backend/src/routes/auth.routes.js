@@ -44,6 +44,14 @@ const loginValidations = validate([
   body('password').notEmpty().withMessage('La contraseña es obligatoria'),
 ]);
 
+const updateMeValidations = validate([
+  body('nombre').optional().notEmpty().withMessage('El nombre es obligatorio'),
+  body('email').optional().isEmail().withMessage('Correo inválido'),
+  body('telefono').optional({ nullable: true }).isString(),
+  body('password').optional({ nullable: true }).isLength({ min: 6 }).withMessage('La contraseña debe tener al menos 6 caracteres'),
+  body('passwordActual').optional().isString(),
+]);
+
 router.post(
   '/register',
   authLimiter,
@@ -79,6 +87,16 @@ router.get(
   authenticate,
   asyncHandler(async (req, res) => {
     const user = await authService.me(req.user.id);
+    res.json({ ok: true, user });
+  })
+);
+
+router.put(
+  '/me',
+  authenticate,
+  updateMeValidations,
+  asyncHandler(async (req, res) => {
+    const user = await authService.updateMe(req.user.id, req.body);
     res.json({ ok: true, user });
   })
 );

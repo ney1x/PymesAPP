@@ -100,6 +100,7 @@ const bulkCreate = async (user, { pymeId, productos: filas }) => {
     if (!membresia) throw new ApiError(403, 'No tiene acceso a esta PYME');
     sedeId = membresia.sedeId;
   }
+  const sede = sedeId ? await prisma.sede.findUnique({ where: { id: sedeId } }) : null;
 
   const resultado = { creados: 0, errores: [] };
 
@@ -136,6 +137,7 @@ const bulkCreate = async (user, { pymeId, productos: filas }) => {
           await tx.venta.create({
             data: {
               pymeId: pyme.id,
+              sedeId,
               productoId: creado.id,
               cantidad: Math.round(ventas),
               precioUnitario: precioVenta,
@@ -153,6 +155,7 @@ const bulkCreate = async (user, { pymeId, productos: filas }) => {
           await iaSync.syncVenta({
             producto,
             pyme,
+            sede,
             cantidad: Math.round(ventas),
             precioUnitario: precioVenta,
             fecha: new Date(),

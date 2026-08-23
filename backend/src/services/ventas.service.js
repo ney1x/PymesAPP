@@ -72,9 +72,11 @@ const create = async (user, data) => {
 
   // Espejo hacia el motor de IA. No debe impedir registrar la venta si falla.
   try {
+    const sede = producto.sedeId ? await prisma.sede.findUnique({ where: { id: producto.sedeId } }) : null;
     await iaSync.syncVenta({
       producto,
       pyme: producto.pyme,
+      sede,
       cantidad,
       precioUnitario,
       fecha: venta.fecha,

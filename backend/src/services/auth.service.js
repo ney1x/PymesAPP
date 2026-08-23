@@ -52,4 +52,34 @@ const me = async (userId) => {
   return toUserResponse(user);
 };
 
-module.exports = { register, login, me };
+const updateMe = async (userId, { nombre, email, telefono, password, passwordActual }) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new ApiError(404, 'Usuario no encontrado');
+  }
+
+  const data = {};
+  if (nombre !== undefined) data.nombre = nombre;
+  if (telefono !== undefined) data.telefono = telefono || null;
+
+  if (email !== undefined && email !== user.email) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new ApiError(409, 'Ya existe un usuario con ese correo');
+    }
+    data.email = email;
+  }
+
+  if (password) {
+    const valid = await bcrypt.compare(passwordActual || '', user.password);
+    if (!valid) {
+      throw new ApiError(400, 'Contraseña actual incorrecta');
+    }
+    data.password = await bcrypt.hash(password, 10);
+  }
+
+  const updated = await prisma.user.update({ where: { id: userId }, data });
+  return toUserResponse(updated);
+};
+
+module.exports = { register, login, me, updateMe };

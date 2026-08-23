@@ -16,6 +16,7 @@ const HORIZONTES = [
 
 export default function Predicciones() {
   const { pymeSeleccionada: filtroPymeId, setPymeSeleccionada: setFiltroPymeId } = usePymeFilter();
+  const [filtroSedeId, setFiltroSedeId] = useState('');
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState(null);
   const [ranking, setRanking] = useState(null);
@@ -24,10 +25,19 @@ export default function Predicciones() {
   const formRef = useRef(null);
 
   const pymes = useAsync(() => pymesApi.list());
-  const historico = useAsync(
-    () => prediccionesApi.list(filtroPymeId ? { pymeId: filtroPymeId } : {}),
+  const sedes = useAsync(
+    () => (filtroPymeId ? pymesApi.sedes.list(filtroPymeId) : Promise.resolve({ sedes: [] })),
     [filtroPymeId]
   );
+  const historico = useAsync(
+    () => prediccionesApi.list({ ...(filtroPymeId ? { pymeId: filtroPymeId } : {}), ...(filtroSedeId ? { sedeId: filtroSedeId } : {}) }),
+    [filtroPymeId, filtroSedeId]
+  );
+
+  const handleFiltroPyme = (value) => {
+    setFiltroPymeId(value);
+    setFiltroSedeId('');
+  };
 
   // Un ranking recien generado queda "pegado" en memoria hasta la proxima
   // generacion (mostrar usa `ranking || historico...`) — si el usuario
@@ -36,7 +46,7 @@ export default function Predicciones() {
   // nueva.
   useEffect(() => {
     setRanking(null);
-  }, [filtroPymeId]);
+  }, [filtroPymeId, filtroSedeId]);
 
   const generar = async () => {
     if (generating) return; // prevent double submit
@@ -46,6 +56,7 @@ export default function Predicciones() {
       const res = await prediccionesApi.generarTodo({
         horizonteDias: horizonte,
         ...(filtroPymeId ? { pymeId: filtroPymeId } : {}),
+        ...(filtroSedeId ? { sedeId: filtroSedeId } : {}),
       });
       setRanking(res.ranking);
     } catch (err) {
@@ -92,12 +103,24 @@ export default function Predicciones() {
             {(pymes.data?.pymes?.length ?? 0) > 0 && (
               <select
                 value={filtroPymeId}
-                onChange={(e) => setFiltroPymeId(e.target.value)}
+                onChange={(e) => handleFiltroPyme(e.target.value)}
                 disabled={generating}
               >
                 <option value="">Todas mis PYMES</option>
                 {pymes.data?.pymes?.map((p) => (
                   <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+            )}
+            {filtroPymeId && (sedes.data?.sedes?.length ?? 0) > 1 && (
+              <select
+                value={filtroSedeId}
+                onChange={(e) => setFiltroSedeId(e.target.value)}
+                disabled={generating}
+              >
+                <option value="">Todas las sedes</option>
+                {sedes.data.sedes.map((s) => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
                 ))}
               </select>
             )}
