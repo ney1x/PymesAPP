@@ -1,7 +1,7 @@
 const prisma = require('../lib/prisma');
 const ApiError = require('../utils/ApiError');
 const iaSync = require('../lib/iaSync');
-const { accesoCondiciones, tieneAcceso, resolverSedeId } = require('./acceso.util');
+const { accesoWhere, tieneAcceso, resolverSedeId } = require('./acceso.util');
 
 const findOwned = async (id, user) => {
   const producto = await prisma.producto.findUnique({
@@ -19,7 +19,7 @@ const list = async (user, { pymeId, sedeId, search } = {}) => {
   const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
 
   const where = {
-    OR: await accesoCondiciones(user),
+    ...(await accesoWhere(user)),
     ...(pymeId ? { pymeId: Number(pymeId) } : {}),
     ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
     ...(search ? { nombre: { contains: search } } : {}),

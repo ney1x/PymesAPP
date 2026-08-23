@@ -7,6 +7,9 @@ const ventasRoutes = require('./ventas.routes');
 const prediccionesRoutes = require('./predicciones.routes');
 const dashboardRoutes = require('./dashboard.routes');
 const reordenRoutes = require('./reorden.routes');
+const invitacionesRoutes = require('./invitaciones.routes');
+const mensajesRoutes = require('./mensajes.routes');
+const notificacionesRoutes = require('./notificaciones.routes');
 const chatRoutes = require('../chat/chat.routes');
 
 const router = Router();
@@ -19,6 +22,9 @@ router.use('/ventas', ventasRoutes);
 router.use('/predicciones', prediccionesRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/reorden', reordenRoutes);
+router.use('/invitaciones', invitacionesRoutes);
+router.use('/mensajes', mensajesRoutes);
+router.use('/notificaciones', notificacionesRoutes);
 router.use('/chat', chatRoutes);
 
 module.exports = router;

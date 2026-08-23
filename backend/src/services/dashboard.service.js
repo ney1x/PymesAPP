@@ -1,13 +1,12 @@
 const prisma = require('../lib/prisma');
-const { accesoCondiciones, resolverSedeId } = require('./acceso.util');
+const { accesoWhere, resolverSedeId } = require('./acceso.util');
 const ventasService = require('./ventas.service');
 
 const sum = (arr) => arr.reduce((acc, v) => acc + v, 0);
 
 const get = async (user, { pymeId, sedeId } = {}) => {
-  const condiciones = await accesoCondiciones(user);
   const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
-  const wherePyme = { OR: condiciones, ...(pymeId ? { pymeId: Number(pymeId) } : {}) };
+  const wherePyme = { ...(await accesoWhere(user)), ...(pymeId ? { pymeId: Number(pymeId) } : {}) };
   const whereVentaInventario = { ...wherePyme, ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}) };
 
   const [productos, ventas, inventarios, predicciones, comparativaSedes] = await Promise.all([

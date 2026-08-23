@@ -963,6 +963,276 @@ a {
 .pagination button.active { background: var(--navy); color: #fff; border-color: var(--navy); }
 .pagination button:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* ======================== NOTIFICACIONES ======================== */
+
+.notif-trigger { position: relative; }
+
+.notif-badge {
+  position: absolute;
+  top: 3px;
+  left: 20px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--navy);
+}
+
+.notif-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 12px 16px 6px;
+}
+
+.notif-empty {
+  padding: 18px 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.notif-entry {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.notif-entry-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.notif-entry-body { font-size: 13px; color: var(--text); }
+.notif-entry-time { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+.notif-entry-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.notif-entry.unread { background: var(--primary-soft); }
+.notif-entry.unread .notif-entry-body { cursor: pointer; }
+
+.notif-entry-body svg { position: relative; top: 2px; margin-right: 2px; color: var(--muted); }
+
+/* Tabs de la pagina de notificaciones: segmented control, no dos botones
+   sueltos — el fondo del contenedor y el relleno solido del activo son lo
+   que lo distingue de un par de <Button> con variant intercambiada. */
+.notif-tabs {
+  display: inline-flex;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
+  gap: 2px;
+  margin-bottom: 28px;
+}
+
+.notif-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.notif-tab:hover { color: var(--text); }
+
+.notif-tab.active {
+  background: var(--navy);
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+}
+
+.notif-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.notif-tab.active .notif-tab-count { background: rgba(255, 255, 255, 0.22); color: #fff; }
+
+/* Filtro de prioridad: chips, no <select> — el tono de cada chip activo
+   toma el color de su badge (danger/primary/default) para que el filtro
+   ensene el mismo vocabulario de color que usan las filas. */
+.priority-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.priority-chip {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 6px 15px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.priority-chip:hover { border-color: var(--navy); color: var(--navy); }
+
+.priority-chip.active { color: #fff; border-color: transparent; }
+.priority-chip.active.tone-danger { background: var(--danger); }
+.priority-chip.active.tone-primary { background: var(--primary-dark); }
+.priority-chip.active.tone-default { background: var(--navy); }
+
+/* Tarjeta de invitacion pendiente: elevada y con jerarquia propia — se
+   distingue a proposito de la lista tranquila de .notif-entry (decisiones ya
+   resueltas, mensajes) porque esta si pide una accion del visitante. */
+.invite-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.invite-card:last-child { margin-bottom: 0; }
+
+.invite-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.invite-card-pyme { font-family: var(--font-display); font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.invite-card-body { font-size: 13.5px; color: var(--text); }
+.invite-card-actions { display: flex; gap: 10px; margin-top: 2px; }
+
+/* ======================== EQUIPO Y SEDES ======================== */
+
+.sede-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.sede-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 8px 7px 18px;
+  box-shadow: var(--shadow);
+}
+
+.sede-pill-name { font-weight: 600; font-size: 13.5px; white-space: nowrap; }
+.sede-pill-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+.sede-pill-actions { display: flex; gap: 2px; }
+
+.sede-pill-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.sede-pill-actions button:hover { background: var(--surface-alt); color: var(--text); }
+.sede-pill-actions button.danger:hover { background: var(--danger-soft); color: var(--danger); }
+
+.sede-pill-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 999px;
+  padding: 9px 18px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
+}
+
+.sede-pill-add:hover { border-color: var(--navy); color: var(--navy); background: var(--surface-alt); }
+
+.member-cell { display: flex; align-items: center; gap: 11px; }
+
+.member-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--petrol);
+  color: #241804;
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.member-name-line { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.member-name-line strong { font-size: 13.5px; }
+.member-email { color: var(--muted); font-size: 12px; }
+
+.table-inline-select {
+  width: auto;
+  min-width: 0;
+  padding: 5px 8px;
+  font-size: 12.5px;
+  border-radius: 6px;
+}
+
+tbody tr.member-row-rechazada { opacity: 0.55; }
+tbody tr.member-row-rechazada:hover { opacity: 0.85; }
+
 /* ======================== PERFIL ======================== */
 
 .profile-header {

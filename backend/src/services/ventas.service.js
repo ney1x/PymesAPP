@@ -3,13 +3,13 @@ const ApiError = require('../utils/ApiError');
 const inventarioService = require('./inventario.service');
 const prediccionesService = require('./predicciones.service');
 const iaSync = require('../lib/iaSync');
-const { accesoCondiciones, tieneAcceso, resolverSedeId } = require('./acceso.util');
+const { accesoWhere, tieneAcceso, resolverSedeId } = require('./acceso.util');
 
 const list = async (user, { pymeId, sedeId, desde, hasta } = {}) => {
   const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
 
   const where = {
-    OR: await accesoCondiciones(user),
+    ...(await accesoWhere(user)),
     ...(pymeId ? { pymeId: Number(pymeId) } : {}),
     ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
     ...(desde || hasta
@@ -121,7 +121,7 @@ const rankingVentas = async (user, { pymeId, sedeId, categoria, dias, orden = 'D
 
   const ventas = await prisma.venta.findMany({
     where: {
-      OR: await accesoCondiciones(user),
+      ...(await accesoWhere(user)),
       ...(pymeId ? { pymeId: Number(pymeId) } : {}),
       ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
       ...(desde ? { fecha: { gte: desde } } : {}),
@@ -167,7 +167,7 @@ const rankingRentabilidad = async (user, { pymeId, sedeId, categoria, dias, orde
 
   const ventas = await prisma.venta.findMany({
     where: {
-      OR: await accesoCondiciones(user),
+      ...(await accesoWhere(user)),
       ...(pymeId ? { pymeId: Number(pymeId) } : {}),
       ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
       ...(desde ? { fecha: { gte: desde } } : {}),
@@ -220,7 +220,7 @@ const comparativaSedes = async (user, { pymeId, dias } = {}) => {
 
   const ventas = await prisma.venta.findMany({
     where: {
-      OR: await accesoCondiciones(user),
+      ...(await accesoWhere(user)),
       pymeId: Number(pymeId),
       ...(desde ? { fecha: { gte: desde } } : {}),
     },

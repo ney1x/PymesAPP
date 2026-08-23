@@ -1,5 +1,3 @@
-const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 const ApiError = require('../utils/ApiError');
 
@@ -8,7 +6,7 @@ const ROLES_MEMBRESIA = ['OWNER', 'VENDEDOR', 'INVENTARIO', 'ANALISTA'];
 const scopeQuery = async (user) => {
   if (user.rol === 'ADMIN') return {};
   const membresias = await prisma.pyme_membresia.findMany({
-    where: { userId: user.id, activo: true },
+    where: { userId: user.id, activo: true, estado: 'ACEPTADA' },
     select: { pymeId: true },
   });
   const pymeIds = membresias.map((m) => m.pymeId);
@@ -19,7 +17,7 @@ const canAccess = async (pyme, user) => {
   if (user.rol === 'ADMIN') return true;
   if (pyme.userId === user.id) return true;
   const membresia = await prisma.pyme_membresia.findFirst({
-    where: { pymeId: pyme.id, userId: user.id, activo: true },
+    where: { pymeId: pyme.id, userId: user.id, activo: true, estado: 'ACEPTADA' },
   });
   return !!membresia;
 };
@@ -43,7 +41,7 @@ const list = async (user, { search } = {}) => {
   }
 
   const membresias = await prisma.pyme_membresia.findMany({
-    where: { userId: user.id, pymeId: { in: pymes.map((p) => p.id) }, activo: true },
+    where: { userId: user.id, pymeId: { in: pymes.map((p) => p.id) }, activo: true, estado: 'ACEPTADA' },
   });
   const rolPorPyme = new Map(membresias.map((m) => [m.pymeId, m.rol]));
 
@@ -112,27 +110,40 @@ const listMiembros = async (pymeId) => {
   });
 };
 
-// Invita por email: si el usuario no existe, lo crea con clave temporal (se
-// devuelve una sola vez para que el OWNER se la comparta; no se envía correo
-// porque el proyecto aún no tiene servicio de mail configurado).
+// Invita por email: el usuario debe existir ya (registrado por su cuenta) —
+// el OWNER no puede crear cuentas ajenas ni asignarles una clave temporal;
+// solo puede dar acceso a alguien que ya tiene credenciales propias.
 const inviteMiembro = async (pymeId, invitador, { email, rol, sedeId }) => {
   if (!ROLES_MEMBRESIA.includes(rol)) throw new ApiError(400, 'Rol inválido');
 
-  let user = await prisma.user.findUnique({ where: { email } });
-  let claveTemporal = null;
-
+  const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
-    claveTemporal = crypto.randomBytes(6).toString('hex');
-    const hashed = await bcrypt.hash(claveTemporal, 10);
-    user = await prisma.user.create({
-      data: { nombre: email.split('@')[0], email, password: hashed, rol: 'COMERCIANTE' },
-    });
+    throw new ApiError(404, 'No existe ninguna cuenta con ese correo. La persona debe registrarse primero.');
   }
 
   const existente = await prisma.pyme_membresia.findFirst({
     where: { userId: user.id, pymeId: Number(pymeId), sedeId: sedeId ? Number(sedeId) : null },
   });
-  if (existente) throw new ApiError(409, 'Este usuario ya es miembro de la PYME');
+
+  if (existente) {
+    if (existente.estado !== 'RECHAZADA') {
+      throw new ApiError(409, 'Este usuario ya es miembro de la PYME o tiene una invitación pendiente');
+    }
+    // Rechazó antes: reabrir la misma fila como invitación nueva en vez de
+    // acumular filas muertas (el @@unique userId+pymeId+sedeId no lo permitiría).
+    const reabierta = await prisma.pyme_membresia.update({
+      where: { id: existente.id },
+      data: {
+        rol,
+        estado: 'PENDIENTE',
+        invitadoPorId: invitador.id,
+        respondidoAt: null,
+        decisionVistaPorOwner: true,
+      },
+      include: { user: { select: { id: true, nombre: true, email: true } } },
+    });
+    return { membresia: reabierta };
+  }
 
   const membresia = await prisma.pyme_membresia.create({
     data: {
@@ -145,7 +156,7 @@ const inviteMiembro = async (pymeId, invitador, { email, rol, sedeId }) => {
     include: { user: { select: { id: true, nombre: true, email: true } } },
   });
 
-  return { membresia, claveTemporal };
+  return { membresia };
 };
 
 const updateMiembro = async (pymeId, miembroId, { rol, sedeId }) => {

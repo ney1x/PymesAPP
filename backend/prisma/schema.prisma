@@ -168,6 +168,7 @@ model pyme {
   productos   producto[]
   sedes       sede[]
   membresias  pyme_membresia[]
+  mensajes    mensaje[]
   user        user             @relation(fields: [userId], references: [id], map: "Pyme_userId_fkey")
   ventas      venta[]
 
@@ -186,6 +187,8 @@ model user {
   pymes       pyme[]
   membresias  pyme_membresia[]
   invitaciones pyme_membresia[] @relation("InvitadoPor")
+  mensajesEnviados  mensaje[]  @relation("MensajeRemitente")
+  mensajesRecibidos mensaje[]  @relation("MensajeDestinatario")
 }
 
 model sede {
@@ -213,22 +216,64 @@ enum RolMembresia {
   ANALISTA
 }
 
+enum EstadoMembresia {
+  PENDIENTE
+  ACEPTADA
+  RECHAZADA
+}
+
 model pyme_membresia {
-  id          Int          @id @default(autoincrement())
-  userId      Int
-  pymeId      Int
-  sedeId      Int?
-  rol         RolMembresia
+  id            Int             @id @default(autoincrement())
+  userId        Int
+  pymeId        Int
+  sedeId        Int?
+  rol           RolMembresia
+  estado        EstadoMembresia @default(PENDIENTE)
   invitadoPorId Int?
-  activo      Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  user        user         @relation(fields: [userId], references: [id], map: "PymeMembresia_userId_fkey")
-  pyme        pyme         @relation(fields: [pymeId], references: [id], map: "PymeMembresia_pymeId_fkey")
-  sede        sede?        @relation(fields: [sedeId], references: [id], map: "PymeMembresia_sedeId_fkey")
-  invitadoPor user?        @relation("InvitadoPor", fields: [invitadoPorId], references: [id], map: "PymeMembresia_invitadoPorId_fkey")
+  // false solo entre el momento en que el invitado acepta o rechaza y el
+  // momento en que el owner ve/descarta el aviso — controla la campanita, no
+  // el estado real de la membresia (ese es `estado`).
+  decisionVistaPorOwner Boolean @default(true)
+  activo        Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  respondidoAt  DateTime?
+  user          user            @relation(fields: [userId], references: [id], map: "PymeMembresia_userId_fkey")
+  pyme          pyme            @relation(fields: [pymeId], references: [id], map: "PymeMembresia_pymeId_fkey")
+  sede          sede?           @relation(fields: [sedeId], references: [id], map: "PymeMembresia_sedeId_fkey")
+  invitadoPor   user?           @relation("InvitadoPor", fields: [invitadoPorId], references: [id], map: "PymeMembresia_invitadoPorId_fkey")
 
   @@unique([userId, pymeId, sedeId], map: "PymeMembresia_userId_pymeId_sedeId_key")
   @@index([pymeId, rol], map: "PymeMembresia_pymeId_rol_idx")
+  @@index([userId, estado], map: "PymeMembresia_userId_estado_idx")
+}
+
+// envioLoteId agrupa las filas de un mismo envio masivo por rol (una fila
+// por destinatario, para que cada quien tenga su propio estado de leido);
+// null en un mensaje 1 a 1.
+enum PrioridadMensaje {
+  BAJA
+  NORMAL
+  ALTA
+}
+
+model mensaje {
+  id             Int              @id @default(autoincrement())
+  pymeId         Int
+  remitenteId    Int
+  destinatarioId Int
+  rolDestino     RolMembresia?
+  prioridad      PrioridadMensaje @default(NORMAL)
+  envioLoteId    String?
+  contenido      String           @db.Text
+  leido          Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  pyme           pyme             @relation(fields: [pymeId], references: [id], map: "Mensaje_pymeId_fkey")
+  remitente      user             @relation("MensajeRemitente", fields: [remitenteId], references: [id], map: "Mensaje_remitenteId_fkey")
+  destinatario   user             @relation("MensajeDestinatario", fields: [destinatarioId], references: [id], map: "Mensaje_destinatarioId_fkey")
+
+  @@index([destinatarioId, leido], map: "Mensaje_destinatarioId_leido_idx")
+  @@index([destinatarioId, prioridad], map: "Mensaje_destinatarioId_prioridad_idx")
+  @@index([pymeId, envioLoteId], map: "Mensaje_pymeId_envioLoteId_idx")
 }
 
 model venta {

@@ -1,4 +1,5 @@
 const pymesService = require('../services/pymes.service');
+const mensajesService = require('../services/mensajes.service');
 const asyncHandler = require('../utils/asyncHandler');
 const validate = require('../middlewares/validate.middleware');
 const { body, param, query } = require('express-validator');
@@ -81,8 +82,8 @@ router.post(
   requirePymeRole('OWNER'),
   miembroValidations,
   asyncHandler(async (req, res) => {
-    const { membresia, claveTemporal } = await pymesService.inviteMiembro(req.params.id, req.user, req.body);
-    res.status(201).json({ ok: true, membresia, claveTemporal });
+    const { membresia } = await pymesService.inviteMiembro(req.params.id, req.user, req.body);
+    res.status(201).json({ ok: true, membresia });
   })
 );
 
@@ -158,6 +159,36 @@ router.delete(
   asyncHandler(async (req, res) => {
     await pymesService.removeSede(req.params.id, req.params.sedeId);
     res.json({ ok: true, message: 'Sede eliminada' });
+  })
+);
+
+// --- Mensajes del equipo - solo OWNER envía y ve el historial enviado ---
+
+const mensajeValidations = validate([
+  body('contenido').notEmpty().withMessage('El mensaje no puede estar vacío'),
+  body('destinatarioId').optional({ nullable: true }).isInt().withMessage('destinatarioId inválido'),
+  body('rol').optional({ nullable: true }).isIn(['VENDEDOR', 'INVENTARIO', 'ANALISTA']).withMessage('Rol inválido'),
+  body('prioridad').optional({ nullable: true }).isIn(['BAJA', 'NORMAL', 'ALTA']).withMessage('Prioridad inválida'),
+]);
+
+router.get(
+  '/:id/mensajes',
+  idParam,
+  requirePymeRole('OWNER'),
+  asyncHandler(async (req, res) => {
+    const mensajes = await mensajesService.enviados(req.params.id, req.user.id);
+    res.json({ ok: true, mensajes });
+  })
+);
+
+router.post(
+  '/:id/mensajes',
+  idParam,
+  requirePymeRole('OWNER'),
+  mensajeValidations,
+  asyncHandler(async (req, res) => {
+    const mensajes = await mensajesService.enviar(req.params.id, req.user, req.body);
+    res.status(201).json({ ok: true, mensajes });
   })
 );
 

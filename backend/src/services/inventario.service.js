@@ -1,13 +1,13 @@
 const prisma = require('../lib/prisma');
 const ApiError = require('../utils/ApiError');
-const { accesoCondiciones, tieneAcceso, resolverSedeId } = require('./acceso.util');
+const { accesoWhere, tieneAcceso, resolverSedeId } = require('./acceso.util');
 
 const list = async (user, { alertas, pymeId, sedeId } = {}) => {
   const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
 
   const inventarios = await prisma.inventario.findMany({
     where: {
-      OR: (await accesoCondiciones(user)).map((c) => ({ producto: c })),
+      ...(await accesoWhere(user, 'producto')),
       ...(pymeId ? { producto: { pymeId: Number(pymeId) } } : {}),
       ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
     },

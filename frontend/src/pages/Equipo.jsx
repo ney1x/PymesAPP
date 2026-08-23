@@ -2,7 +2,18 @@ import React, { useState, useMemo } from 'react';
 import { pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, EmptyState, date } from '../components/ui';
-import { IconPlus, IconEdit, IconTrash } from '../components/Icons';
+import { IconPlus, IconEdit, IconTrash, IconMail, IconMapPin } from '../components/Icons';
+
+const ESTADO_ORDEN = { PENDIENTE: 0, ACEPTADA: 1, RECHAZADA: 2 };
+
+const iniciales = (nombre) =>
+  (nombre || '?')
+    .split(' ')
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
 const ROL_LABELS = {
   OWNER: 'Dueño',
@@ -18,6 +29,9 @@ const ROL_TONE = {
   ANALISTA: 'default',
 };
 
+const ESTADO_LABELS = { PENDIENTE: 'Pendiente', ACEPTADA: 'Activo', RECHAZADA: 'Rechazó' };
+const ESTADO_TONE = { PENDIENTE: 'warning', ACEPTADA: 'success', RECHAZADA: 'danger' };
+
 const emptyInvite = { email: '', rol: 'VENDEDOR', sedeId: '' };
 const emptySede = { nombre: '', direccion: '', ciudad: '' };
 
@@ -32,6 +46,14 @@ export default function Equipo() {
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [toast, setToast] = useState(null);
+
+  const [mensajeOpen, setMensajeOpen] = useState(false);
+  const [mensajeDestino, setMensajeDestino] = useState(null); // { tipo: 'miembro', miembro } | { tipo: 'rol', rol }
+  const [mensajeTexto, setMensajeTexto] = useState('');
+  const [mensajePrioridad, setMensajePrioridad] = useState('NORMAL');
+  const [enviandoMensaje, setEnviandoMensaje] = useState(false);
+  const [mensajeError, setMensajeError] = useState(null);
+  const [mensajeEnviado, setMensajeEnviado] = useState(false);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -57,6 +79,16 @@ export default function Equipo() {
     () => (pymeActual && esOwner ? pymesApi.miembros.list(pymeActual.id) : Promise.resolve({ miembros: [] })),
     [pymeActual?.id, esOwner]
   );
+
+  // Pendientes primero (necesitan seguimiento del owner), rechazados al final
+  // (informativos, ya no requieren acción) — el resto por antigüedad.
+  const miembrosOrdenados = useMemo(() => {
+    const lista = miembros.data?.miembros || [];
+    return [...lista].sort((a, b) => ESTADO_ORDEN[a.estado] - ESTADO_ORDEN[b.estado]);
+  }, [miembros.data]);
+
+  const conteoActivos = miembrosOrdenados.filter((m) => m.estado === 'ACEPTADA').length;
+  const conteoPendientes = miembrosOrdenados.filter((m) => m.estado === 'PENDIENTE').length;
 
   const openInvite = () => {
     setInviteForm(emptyInvite);
@@ -166,6 +198,42 @@ export default function Equipo() {
     }
   };
 
+  const abrirMensajeParaMiembro = (miembro) => {
+    setMensajeDestino({ tipo: 'miembro', miembro });
+    setMensajeTexto('');
+    setMensajePrioridad('NORMAL');
+    setMensajeError(null);
+    setMensajeEnviado(false);
+    setMensajeOpen(true);
+  };
+
+  const abrirMensajeParaRol = () => {
+    setMensajeDestino({ tipo: 'rol', rol: 'VENDEDOR' });
+    setMensajeTexto('');
+    setMensajePrioridad('NORMAL');
+    setMensajeError(null);
+    setMensajeEnviado(false);
+    setMensajeOpen(true);
+  };
+
+  const handleEnviarMensaje = async (e) => {
+    e.preventDefault();
+    if (enviandoMensaje || !mensajeTexto.trim()) return;
+    setEnviandoMensaje(true);
+    setMensajeError(null);
+    try {
+      const payload = mensajeDestino.tipo === 'miembro'
+        ? { destinatarioId: mensajeDestino.miembro.userId, contenido: mensajeTexto.trim(), prioridad: mensajePrioridad }
+        : { rol: mensajeDestino.rol, contenido: mensajeTexto.trim(), prioridad: mensajePrioridad };
+      await pymesApi.mensajes.enviar(pymeActual.id, payload);
+      setMensajeEnviado(true);
+    } catch (err) {
+      setMensajeError(err.message);
+    } finally {
+      setEnviandoMensaje(false);
+    }
+  };
+
   if (pymes.loading) return <Spinner label="Cargando..." />;
   if (pymes.error) return <ErrorBox error={pymes.error} />;
 
@@ -189,51 +257,52 @@ export default function Equipo() {
 
       {toast && <div className="alert alert-success">{toast}</div>}
 
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Sedes de {pymeActual?.nombre}</span>
-          {esOwner && <Button onClick={openCreateSede}><IconPlus size={14} /> Nueva sede</Button>}
+      {sedes.loading ? <Spinner label="Cargando sedes..." /> : !sedes.data?.sedes?.length && !esOwner ? (
+        <p className="muted" style={{ marginBottom: 28 }}>Esta PYME aún no tiene sedes registradas.</p>
+      ) : (
+        <div className="sede-pill-row">
+          {sedes.data?.sedes?.map((s) => (
+            <div key={s.id} className="sede-pill">
+              <IconMapPin size={14} aria-hidden="true" />
+              <span className="sede-pill-name">{s.nombre}</span>
+              {s.ciudad && <span className="sede-pill-meta">{s.ciudad}</span>}
+              {esOwner && (
+                <div className="sede-pill-actions">
+                  <button type="button" onClick={() => openEditSede(s)} aria-label={`Editar sede ${s.nombre}`}>
+                    <IconEdit size={13} />
+                  </button>
+                  <button type="button" className="danger" onClick={() => handleDeleteSede(s)} aria-label={`Eliminar sede ${s.nombre}`}>
+                    <IconTrash size={13} />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+          {esOwner && (
+            <button type="button" className="sede-pill-add" onClick={openCreateSede}>
+              <IconPlus size={14} /> Nueva sede
+            </button>
+          )}
         </div>
-
-        {sedes.loading ? <Spinner label="Cargando sedes..." /> : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Ciudad</th>
-                  <th>Dirección</th>
-                  {esOwner && <th>Acciones</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {!sedes.data?.sedes?.length ? (
-                  <tr><td colSpan={esOwner ? 4 : 3}><EmptyState title="Sin sedes" message="Aún no hay sedes registradas." /></td></tr>
-                ) : (
-                  sedes.data.sedes.map((s) => (
-                    <tr key={s.id}>
-                      <td><strong>{s.nombre}</strong></td>
-                      <td>{s.ciudad || '—'}</td>
-                      <td>{s.direccion || '—'}</td>
-                      {esOwner && (
-                        <td>
-                          <Button variant="outline" onClick={() => openEditSede(s)}><IconEdit size={14} /></Button>{' '}
-                          <Button variant="danger" onClick={() => handleDeleteSede(s)}><IconTrash size={14} /></Button>
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      )}
 
       <div className="card">
         <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Equipo de {pymeActual?.nombre}</span>
-          {esOwner && <Button onClick={openInvite}><IconPlus size={14} /> Invitar miembro</Button>}
+          <div>
+            <span>Equipo de {pymeActual?.nombre}</span>
+            {esOwner && !miembros.loading && miembrosOrdenados.length > 0 && (
+              <span className="muted" style={{ fontWeight: 400, marginLeft: 8, fontSize: 12.5 }}>
+                {conteoActivos} activo{conteoActivos === 1 ? '' : 's'}
+                {conteoPendientes > 0 ? ` · ${conteoPendientes} pendiente${conteoPendientes === 1 ? '' : 's'}` : ''}
+              </span>
+            )}
+          </div>
+          {esOwner && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button variant="outline" onClick={abrirMensajeParaRol}><IconMail size={14} /> Mensaje por rol</Button>
+              <Button onClick={openInvite}><IconPlus size={14} /> Invitar miembro</Button>
+            </div>
+          )}
         </div>
 
         {!esOwner ? (
@@ -243,8 +312,8 @@ export default function Equipo() {
             <table>
               <thead>
                 <tr>
-                  <th>Nombre</th>
-                  <th>Email</th>
+                  <th>Miembro</th>
+                  <th>Estado</th>
                   <th>Rol</th>
                   <th>Sede con acceso</th>
                   <th>Desde</th>
@@ -252,18 +321,26 @@ export default function Equipo() {
                 </tr>
               </thead>
               <tbody>
-                {!miembros.data?.miembros?.length ? (
+                {!miembrosOrdenados.length ? (
                   <tr><td colSpan="6"><EmptyState title="Sin miembros" message="Invita a tu primer colaborador." /></td></tr>
                 ) : (
-                  miembros.data.miembros.map((m) => (
-                    <tr key={m.id}>
-                      <td><strong>{m.user.nombre}</strong></td>
-                      <td>{m.user.email}</td>
+                  miembrosOrdenados.map((m) => (
+                    <tr key={m.id} className={m.estado === 'RECHAZADA' ? 'member-row-rechazada' : undefined}>
+                      <td>
+                        <div className="member-cell">
+                          <span className="member-avatar">{iniciales(m.user.nombre)}</span>
+                          <div className="member-name-line">
+                            <strong>{m.user.nombre}</strong>
+                            <span className="member-email">{m.user.email}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td><Badge tone={ESTADO_TONE[m.estado]}>{ESTADO_LABELS[m.estado] || m.estado}</Badge></td>
                       <td>
                         {m.rol === 'OWNER' ? (
                           <Badge tone={ROL_TONE[m.rol]}>{ROL_LABELS[m.rol]}</Badge>
                         ) : (
-                          <select value={m.rol} onChange={(e) => handleRolChange(m, e.target.value)}>
+                          <select className="table-inline-select" value={m.rol} onChange={(e) => handleRolChange(m, e.target.value)}>
                             {Object.entries(ROL_LABELS).filter(([k]) => k !== 'OWNER').map(([k, v]) => (
                               <option key={k} value={k}>{v}</option>
                             ))}
@@ -274,7 +351,7 @@ export default function Equipo() {
                         {m.rol === 'OWNER' ? (
                           <span className="muted">Todas las sedes</span>
                         ) : (
-                          <select value={m.sedeId ?? ''} onChange={(e) => handleSedeAsignada(m, e.target.value)}>
+                          <select className="table-inline-select" value={m.sedeId ?? ''} onChange={(e) => handleSedeAsignada(m, e.target.value)}>
                             <option value="">Todas las sedes</option>
                             {sedes.data?.sedes?.map((s) => (
                               <option key={s.id} value={s.id}>{s.nombre}</option>
@@ -284,9 +361,16 @@ export default function Equipo() {
                       </td>
                       <td>{date(m.createdAt)}</td>
                       <td>
-                        {m.rol !== 'OWNER' && (
-                          <Button variant="danger" onClick={() => handleRemoveMiembro(m)}><IconTrash size={14} /> Quitar</Button>
-                        )}
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {m.rol !== 'OWNER' && m.estado === 'ACEPTADA' && (
+                            <Button variant="outline" onClick={() => abrirMensajeParaMiembro(m)} aria-label={`Enviar mensaje a ${m.user.nombre}`}>
+                              <IconMail size={14} />
+                            </Button>
+                          )}
+                          {m.rol !== 'OWNER' && (
+                            <Button variant="danger" onClick={() => handleRemoveMiembro(m)}><IconTrash size={14} /> Quitar</Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -301,14 +385,8 @@ export default function Equipo() {
         {inviteResult ? (
           <div>
             <div className="alert alert-success">
-              Miembro invitado: <strong>{inviteResult.membresia.user.email}</strong>
+              Invitación enviada a <strong>{inviteResult.membresia.user.email}</strong>. Queda pendiente hasta que la acepte.
             </div>
-            {inviteResult.claveTemporal && (
-              <p>
-                Es un usuario nuevo. Clave temporal: <code>{inviteResult.claveTemporal}</code>
-                <br /><span className="muted">Compártela para que inicie sesión y la cambie luego.</span>
-              </p>
-            )}
             <div className="form-row">
               <Button onClick={() => setInviteOpen(false)}>Cerrar</Button>
             </div>
@@ -319,6 +397,7 @@ export default function Equipo() {
             <div className="form-group">
               <label>Correo</label>
               <input type="email" name="email" required value={inviteForm.email} onChange={handleInviteChange} placeholder="vendedor@correo.com" />
+              <span className="hint">La persona debe tener una cuenta ya creada en la plataforma.</span>
             </div>
             <div className="form-grid">
               <div className="form-group">
@@ -367,6 +446,60 @@ export default function Equipo() {
             <Button type="submit" loading={saving}>{editingSede ? 'Guardar cambios' : 'Crear sede'}</Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={mensajeOpen}
+        title={mensajeDestino?.tipo === 'miembro' ? `Mensaje para ${mensajeDestino.miembro.user.nombre}` : 'Mensaje por rol'}
+        onClose={() => setMensajeOpen(false)}
+      >
+        {mensajeEnviado ? (
+          <div>
+            <div className="alert alert-success">Mensaje enviado con éxito</div>
+            <div className="form-row">
+              <Button onClick={() => setMensajeOpen(false)}>Cerrar</Button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleEnviarMensaje}>
+            <ErrorBox error={mensajeError} />
+            {mensajeDestino?.tipo === 'rol' && (
+              <div className="form-group">
+                <label>Enviar a todos los</label>
+                <select
+                  value={mensajeDestino.rol}
+                  onChange={(e) => setMensajeDestino({ ...mensajeDestino, rol: e.target.value })}
+                >
+                  {Object.entries(ROL_LABELS).filter(([k]) => k !== 'OWNER').map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="form-group">
+              <label>Prioridad</label>
+              <select value={mensajePrioridad} onChange={(e) => setMensajePrioridad(e.target.value)}>
+                <option value="ALTA">Alta</option>
+                <option value="NORMAL">Normal</option>
+                <option value="BAJA">Baja</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Mensaje</label>
+              <textarea
+                rows={4}
+                required
+                value={mensajeTexto}
+                onChange={(e) => setMensajeTexto(e.target.value)}
+                placeholder="Escribe tu mensaje..."
+              />
+            </div>
+            <div className="form-row">
+              <Button type="button" variant="ghost" onClick={() => setMensajeOpen(false)}>Cancelar</Button>
+              <Button type="submit" loading={enviandoMensaje}>Enviar</Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );

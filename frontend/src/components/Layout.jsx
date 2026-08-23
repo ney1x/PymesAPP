@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { IconBox, IconChart, IconUser, IconLogout, IconStore, IconTrendUp, IconGrid, IconAlert, IconInfo, IconUsers } from './Icons';
 import { ChatWidget } from './ChatWidget';
+import NotificationBell from './NotificationBell';
 
 const NAV_LEFT = [
   { to: '/pymes', label: 'Mis PYMES', icon: IconStore },
@@ -100,6 +101,7 @@ export default function Layout() {
               <span>{item.label}</span>
             </NavLink>
           ))}
+          <NotificationBell />
         </div>
 
         <div className="rail-profile" ref={profileMenuRef}>

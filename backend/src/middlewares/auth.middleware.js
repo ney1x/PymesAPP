@@ -46,7 +46,7 @@ const requirePymeRole = (...roles) => async (req, _res, next) => {
       rol = 'OWNER';
     } else {
       const membresia = await prisma.pyme_membresia.findFirst({
-        where: { pymeId, userId: req.user.id, activo: true },
+        where: { pymeId, userId: req.user.id, activo: true, estado: 'ACEPTADA' },
       });
       rol = membresia?.rol ?? null;
     }

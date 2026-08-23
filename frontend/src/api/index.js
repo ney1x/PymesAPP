@@ -25,6 +25,27 @@ export const pymesApi = {
     update: (pymeId, sedeId, data) => client.put(`/pymes/${pymeId}/sedes/${sedeId}`, data),
     remove: (pymeId, sedeId) => client.delete(`/pymes/${pymeId}/sedes/${sedeId}`),
   },
+  mensajes: {
+    listEnviados: (pymeId) => client.get(`/pymes/${pymeId}/mensajes`),
+    enviar: (pymeId, data) => client.post(`/pymes/${pymeId}/mensajes`, data),
+  },
+};
+
+export const invitacionesApi = {
+  list: () => client.get('/invitaciones'),
+  aceptar: (id) => client.post(`/invitaciones/${id}/aceptar`),
+  rechazar: (id) => client.post(`/invitaciones/${id}/rechazar`),
+};
+
+export const mensajesApi = {
+  list: (params) => client.get('/mensajes', { params }),
+  marcarLeido: (id) => client.post(`/mensajes/${id}/leido`),
+};
+
+export const notificacionesApi = {
+  resumen: () => client.get('/notificaciones'),
+  decisiones: () => client.get('/notificaciones/decisiones'),
+  descartarDecision: (id) => client.post(`/notificaciones/decisiones/${id}/visto`),
 };
 
 export const productosApi = {

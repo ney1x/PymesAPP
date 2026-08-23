@@ -1,7 +1,7 @@
 const prisma = require('../lib/prisma');
 const ApiError = require('../utils/ApiError');
 const mlClient = require('../lib/mlClient');
-const { accesoCondiciones, tieneAcceso, resolverSedeId } = require('./acceso.util');
+const { accesoWhere, tieneAcceso, resolverSedeId } = require('./acceso.util');
 
 const historicoDeProducto = async (productoId, dias = 90) => {
   const desde = new Date();
@@ -96,7 +96,7 @@ const generarTodo = async (user, { pymeId, sedeId, horizonteDias } = {}) => {
 
   const productos = await prisma.producto.findMany({
     where: {
-      OR: await accesoCondiciones(user),
+      ...(await accesoWhere(user)),
       ...(pymeId ? { pymeId: Number(pymeId) } : {}),
       ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
     },
@@ -120,7 +120,7 @@ const list = async (user, { productoId, pymeId, sedeId } = {}) => {
   return prisma.prediccion.findMany({
     where: {
       producto: {
-        OR: await accesoCondiciones(user),
+        ...(await accesoWhere(user)),
         ...(pymeId ? { pymeId: Number(pymeId) } : {}),
         ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
       },
