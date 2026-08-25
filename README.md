@@ -301,6 +301,7 @@ o, para desarrollo:
 
 # Autores
 
+Adriano Aragon
 Ney Salazar
 
 Sistema Inteligente para Gestión y Predicción de Inventarios en PYMES utilizando Machine Learning.
