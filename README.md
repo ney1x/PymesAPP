@@ -6,10 +6,12 @@ Sistema web para la administración de inventarios de pequeñas y medianas empre
 
 # Características principales
 
-- Autenticación mediante JWT.
-- Gestión de PYMES.
-- Gestión de productos.
-- Gestión de inventario.
+- Autenticación mediante JWT, con verificación de correo al registrarse y recuperación de contraseña por código (ambos vía correo electrónico).
+- Gestión de PYMES, cada una con múltiples sedes.
+- Equipo y roles: invitá miembros por correo, asignales rol (Vendedor, Inventario, Analista, o combinados) y limitá su acceso a una sede específica. Cada rol tiene permisos distintos sobre productos, inventario, ventas y reportes financieros (ver [Roles y permisos](#roles-y-permisos)).
+- Mensajería interna entre miembros del equipo (a una persona puntual o a todos los de un rol) y centro de notificaciones (invitaciones, respuestas, mensajes).
+- Gestión de productos, con importación y exportación masiva por Excel/CSV.
+- Gestión de inventario, con alertas de stock bajo y tablero de reposición ordenado por urgencia.
 - Registro de ventas.
 - Asistente conversacional con IA para consultar el negocio en lenguaje natural: stock, ventas, rentabilidad, rankings, reordenes, resumen y predicciones.
 - Predicción automática de demanda mediante IA.
@@ -163,12 +165,15 @@ En ella conviven dos esquemas independientes:
 
 ### Aplicación
 
-- User
+- User (incluye código y expiración de verificación de correo / recuperación de contraseña)
 - Pyme
+- Sede
+- PymeMembresia / PymeMembresiaRol (equipo, roles, invitaciones por sede)
 - Producto
 - Inventario
 - Venta
 - Prediccion
+- Mensaje (mensajería interna, personal o por rol)
 
 ### Motor IA
 
@@ -181,6 +186,21 @@ En ella conviven dos esquemas independientes:
 - compras
 
 Esto permite mantener desacoplada la lógica del backend y la del motor de IA.
+
+---
+
+# Roles y permisos
+
+Cada miembro de una PYME tiene un rol (o varios combinados) que determina qué puede hacer. El dueño (`OWNER`) tiene acceso total; los demás roles son acumulables — un miembro puede ser, por ejemplo, Vendedor + Analista a la vez.
+
+| Rol | Productos | Inventario | Ventas | Costo del producto | Reportes financieros | Ver predicciones | Generar predicciones | Equipo / sedes |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Dueño (OWNER)** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Vendedor** | — | — | ✅ | — | — | — | — | — |
+| **Inventario** | ✅ | ✅ | — | ✅ | — | ✅ | — | — |
+| **Analista** | — | — | — | ✅ | ✅ | ✅ | — | — |
+
+El acceso a cada rol puede además limitarse a una sede específica dentro de la PYME.
 
 ---
 
@@ -240,6 +260,15 @@ Variables de entorno relevantes para el asistente conversacional (`backend/.env`
 
 Para desarrollo local fuera de Docker se necesita una instancia de Ollama corriendo con el modelo correspondiente ya descargado (`ollama pull qwen3:8b`).
 
+Variables para el envío de correos (verificación de cuenta y recuperación de contraseña), vía Gmail SMTP:
+
+| Variable | Uso |
+|---|---|
+| `GMAIL_USER` | Cuenta de Gmail que envía los correos |
+| `GMAIL_APP_PASSWORD` | [App Password](https://myaccount.google.com/apppasswords) de esa cuenta (no la contraseña normal) |
+
+El servicio `backend` en `docker-compose.yml` las toma de un `.env` en la **raíz** del proyecto (distinto del `backend/.env` de desarrollo local) — creá ese archivo con las mismas dos variables antes de levantar Docker.
+
 ---
 
 ## ML Service
@@ -260,12 +289,15 @@ uvicorn app.main:app --reload
 
 ## Completado
 
-- Autenticación.
-- Gestión de PYMES.
-- Gestión de productos.
-- Inventario.
+- Autenticación con verificación de correo al registrarse y recuperación de contraseña por código.
+- Gestión de PYMES multi-sede.
+- Equipo: invitaciones, roles combinables (Vendedor / Inventario / Analista) y permisos por sede.
+- Mensajería interna (personal o por rol) y centro de notificaciones.
+- Gestión de productos, con importación/exportación por Excel/CSV.
+- Inventario, con alertas de stock y tablero de reposición por urgencia.
 - Registro de ventas.
 - Dashboard.
+- Perfil de usuario editable.
 - Asistente conversacional con IA (Ollama + Qwen3:8B + tool calling) para stock, ventas, rentabilidad, rankings, reordenes, resumen y predicciones.
 - Integración Backend ↔ IA (predicción).
 - Integración LightGBM.
@@ -281,6 +313,7 @@ uvicorn app.main:app --reload
 - Sincronización automática entre las ventas registradas y el motor de IA.
 - Mejorar la precisión del modelo con histórico propio.
 - Reportes avanzados y analítica de negocio.
+- Tests automatizados para el resto del backend (hoy solo hay pruebas puntuales del asistente de chat, sin `npm test` configurado).
 
 ---
 
@@ -296,6 +329,7 @@ o, para desarrollo:
 - Python 3.10+
 - MySQL 8+
 - Ollama instalado localmente con el modelo configurado, para el asistente conversacional
+- (Opcional) Cuenta de Gmail con [App Password](https://myaccount.google.com/apppasswords), para que funcionen la verificación de correo y la recuperación de contraseña
 
 ---
 
