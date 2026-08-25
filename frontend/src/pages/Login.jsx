@@ -76,6 +76,9 @@ export default function Login() {
           <p className="auth-footer">
             ¿No tienes cuenta? <Link to="/register">Crea una</Link>
           </p>
+          <p className="auth-footer" style={{ marginTop: 4 }}>
+            <Link to="/recuperar">¿Olvidaste tu contraseña?</Link>
+          </p>
         </form>
       </div>
     </div>

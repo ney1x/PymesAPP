@@ -10,4 +10,6 @@ module.exports = {
   llmProvider: process.env.LLM_PROVIDER || 'ollama',
   ollamaUrl: process.env.OLLAMA_URL || 'http://ollama:11434/v1',
   ollamaModel: process.env.OLLAMA_MODEL || 'qwen2.5:3b',
+  gmailUser: process.env.GMAIL_USER,
+  gmailAppPassword: process.env.GMAIL_APP_PASSWORD,
 };

@@ -56,6 +56,8 @@ services:
       LLM_PROVIDER: "ollama"
       OLLAMA_URL: "http://ollama:11434/v1"
       OLLAMA_MODEL: "qwen3:8b"
+      GMAIL_USER: "${GMAIL_USER}"
+      GMAIL_APP_PASSWORD: "${GMAIL_APP_PASSWORD}"
     command: >
       sh -c "npx prisma db push &&
              npm run seed &&

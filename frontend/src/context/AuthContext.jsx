@@ -36,11 +36,22 @@ export function AuthProvider({ children }) {
     [persist]
   );
 
-  const register = useCallback(
+  // No persiste sesión: la cuenta queda sin uso hasta verificar el correo
+  // (ver verifyEmail) — register() solo dispara el envío del código.
+  const register = useCallback(async (data) => {
+    setLoading(true);
+    try {
+      return await authApi.register(data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const verifyEmail = useCallback(
     async (data) => {
       setLoading(true);
       try {
-        const res = await authApi.register(data);
+        const res = await authApi.verifyEmail(data);
         persist(res);
         return res.user;
       } finally {
@@ -63,7 +74,7 @@ export function AuthProvider({ children }) {
   }, [persist]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, loading, login, register, verifyEmail, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

@@ -6,6 +6,7 @@ import ProtectedRoute from './routes/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import RecuperarPassword from './pages/RecuperarPassword';
 import Dashboard from './pages/Dashboard';
 import Pymes from './pages/Pymes';
 import Inventario from './pages/Inventario';
@@ -26,6 +27,7 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/recuperar" element={<RecuperarPassword />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route element={<Layout />}>

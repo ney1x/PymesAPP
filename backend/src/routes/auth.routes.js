@@ -1,7 +1,13 @@
 const authService = require('../services/auth.service');
 const asyncHandler = require('../utils/asyncHandler');
 const validate = require('../middlewares/validate.middleware');
-const { authLimiter } = require('../middlewares/rateLimit.middleware');
+const {
+  registerLimiter,
+  loginLimiter,
+  forgotPasswordLimiter,
+  resetPasswordLimiter,
+  verifyEmailLimiter,
+} = require('../middlewares/rateLimit.middleware');
 const { body } = require('express-validator');
 const { authenticate } = require('../middlewares/auth.middleware');
 const { nodeEnv } = require('../config/env');
@@ -44,6 +50,21 @@ const loginValidations = validate([
   body('password').notEmpty().withMessage('La contraseña es obligatoria'),
 ]);
 
+const forgotPasswordValidations = validate([
+  body('email').isEmail().withMessage('Correo inválido'),
+]);
+
+const resetPasswordValidations = validate([
+  body('email').isEmail().withMessage('Correo inválido'),
+  body('codigo').isLength({ min: 6, max: 6 }).isNumeric().withMessage('El código debe tener 6 dígitos'),
+  body('password').isLength({ min: 6 }).withMessage('La contraseña debe tener al menos 6 caracteres'),
+]);
+
+const verifyEmailValidations = validate([
+  body('email').isEmail().withMessage('Correo inválido'),
+  body('codigo').isLength({ min: 6, max: 6 }).isNumeric().withMessage('El código debe tener 6 dígitos'),
+]);
+
 const updateMeValidations = validate([
   body('nombre').optional().notEmpty().withMessage('El nombre es obligatorio'),
   body('email').optional().isEmail().withMessage('Correo inválido'),
@@ -54,23 +75,53 @@ const updateMeValidations = validate([
 
 router.post(
   '/register',
-  authLimiter,
+  registerLimiter,
   registerValidations,
   asyncHandler(async (req, res) => {
-    const { token, user } = await authService.register(req.body);
+    await authService.register(req.body);
+    res.status(201).json({ ok: true, message: 'Te enviamos un código de verificación a tu correo.' });
+  })
+);
+
+router.post(
+  '/verify-email',
+  verifyEmailLimiter,
+  verifyEmailValidations,
+  asyncHandler(async (req, res) => {
+    const { token, user } = await authService.verifyEmail(req.body);
     res.cookie('token', token, COOKIE_OPTIONS);
-    res.status(201).json({ ok: true, user });
+    res.json({ ok: true, user });
   })
 );
 
 router.post(
   '/login',
-  authLimiter,
+  loginLimiter,
   loginValidations,
   asyncHandler(async (req, res) => {
     const { token, user } = await authService.login(req.body);
     res.cookie('token', token, COOKIE_OPTIONS);
     res.json({ ok: true, user });
+  })
+);
+
+router.post(
+  '/forgot-password',
+  forgotPasswordLimiter,
+  forgotPasswordValidations,
+  asyncHandler(async (req, res) => {
+    await authService.forgotPassword(req.body);
+    res.json({ ok: true, message: 'Si el correo está registrado, te enviamos un código.' });
+  })
+);
+
+router.post(
+  '/reset-password',
+  resetPasswordLimiter,
+  resetPasswordValidations,
+  asyncHandler(async (req, res) => {
+    await authService.resetPassword(req.body);
+    res.json({ ok: true, message: 'Contraseña actualizada con éxito.' });
   })
 );
 

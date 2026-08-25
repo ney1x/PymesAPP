@@ -6,6 +6,9 @@ export const authApi = {
   logout: () => client.post('/auth/logout'),
   me: () => client.get('/auth/me'),
   updateMe: (data) => client.put('/auth/me', data),
+  forgotPassword: (data) => client.post('/auth/forgot-password', data),
+  resetPassword: (data) => client.post('/auth/reset-password', data),
+  verifyEmail: (data) => client.post('/auth/verify-email', data),
 };
 
 export const pymesApi = {
