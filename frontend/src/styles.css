@@ -37,7 +37,7 @@
   --primary: #c97a0c;
   --primary-dark: #8a5608;
   --primary-soft: #f6e4c4;
-  --success: #2f7d4f;
+  --success: #2a7048;
   --success-soft: #e1eee3;
   --warning: #c97a0c;
   --warning-soft: #f6e4c4;
@@ -318,35 +318,128 @@ a:hover { color: var(--primary); }
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 9px 16px;
-  border-radius: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
   border: 1px solid transparent;
   font-size: 13.5px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   cursor: pointer;
-  transition: background 0.15s, opacity 0.15s, transform 0.1s;
+  transition: background 0.15s, opacity 0.15s, transform 0.1s, box-shadow 0.15s, border-color 0.15s, color 0.15s;
   text-decoration: none;
   line-height: 1.2;
-  min-height: 38px;
+  min-height: 36px;
+  white-space: nowrap;
 }
 
 .btn:active:not(:disabled) { transform: scale(0.98) translateY(0); }
-.btn:disabled { opacity: 0.55; cursor: not-allowed; }
-.btn-primary { background: var(--navy); color: #fff; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; transform: none; }
+.btn:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; }
+
+/* Primary — la única acción que debe ganar el ojo por vista. */
+.btn-primary { background: var(--navy); color: #fff; box-shadow: 0 1px 2px rgba(18, 42, 71, 0.18); }
 .btn-primary:hover:not(:disabled) { background: var(--navy-dark); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(18, 42, 71, 0.22); }
-.btn-outline { background: transparent; color: var(--text); border-color: var(--border-strong); }
-.btn-outline:hover { background: var(--surface-alt); border-color: var(--navy); color: var(--navy); }
-.btn-ghost { background: transparent; color: var(--muted); }
-.btn-ghost:hover { background: var(--surface-alt); color: var(--text); }
-.btn-danger { background: var(--danger); color: #fff; }
-.btn-danger:hover { background: #8f1e18; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(178, 58, 46, 0.22); }
+.btn-primary:active:not(:disabled) { box-shadow: 0 1px 2px rgba(18, 42, 71, 0.22); }
+
+/* Secondary (Editar, Ver, navegación de tarjetas) — superficie tintada en
+   vez del borde blanco-sobre-gris de un botón outline por defecto, para que
+   lea a sistema propio y no a componente genérico. */
+.btn-outline { background: var(--surface-alt); color: var(--text); border-color: var(--border); }
+.btn-outline:hover:not(:disabled) { background: var(--navy-soft); border-color: var(--navy); color: var(--navy); }
+.btn-outline:active:not(:disabled) { background: var(--navy-soft); }
+
+.btn-ghost { background: transparent; color: var(--muted); border-color: transparent; }
+.btn-ghost:hover:not(:disabled) { background: var(--surface-alt); color: var(--text); }
+
+/* Danger sólido — reservado al submit real de una confirmación (el punto
+   sin retorno). En reposo dentro de una fila usamos btn-danger-subtle. */
+.btn-danger { background: var(--danger); color: #fff; box-shadow: 0 1px 2px rgba(178, 58, 46, 0.2); }
+.btn-danger:hover:not(:disabled) { background: #8f1e18; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(178, 58, 46, 0.22); }
+.btn-danger:active:not(:disabled) { box-shadow: 0 1px 2px rgba(178, 58, 46, 0.22); }
+
+/* Danger tenue — disparador de eliminar dentro de listas/tablas. Claramente
+   rojo en su vocabulario de color, pero no grita en reposo; el peso completo
+   llega con la intención de hover/focus. */
+.btn-danger-subtle { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.btn-danger-subtle:hover:not(:disabled) { background: var(--danger); color: #fff; box-shadow: 0 4px 10px rgba(178, 58, 46, 0.22); }
+
+.btn-success { background: var(--success); color: #fff; box-shadow: 0 1px 2px rgba(42, 112, 72, 0.2); }
+.btn-success:hover:not(:disabled) { background: #1e5236; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(42, 112, 72, 0.22); }
+.btn-success:active:not(:disabled) { box-shadow: 0 1px 2px rgba(42, 112, 72, 0.22); }
+
 .btn-block { width: 100%; }
+
+/* Compacto — acciones dentro de tablas y listas densas. */
+.btn-sm { min-height: 30px; padding: 5px 11px; font-size: 12.5px; border-radius: 7px; gap: 5px; }
+
+/* Solo-icono, siempre acompañado del tooltip de .icon-btn-tip. */
+.btn-icon { padding: 0; width: 34px; flex-shrink: 0; }
+.btn-icon.btn-sm { width: 28px; border-radius: 7px; }
+
+/* Grupo de acciones de fila: pegadas, sin separadores ni ruido entre ellas. */
+.row-actions { display: inline-flex; align-items: center; gap: 4px; }
+
+/* Tooltip CSS puro para botones solo-icono (IconButton). El nombre accesible
+   vive en aria-label; esto es únicamente la pista visual sobre hover/focus. */
+.icon-btn-tip { position: relative; display: inline-flex; }
+.icon-btn-tip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%) translateY(2px);
+  background: var(--navy-dark);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  padding: 5px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 30;
+  box-shadow: 0 4px 12px rgba(18, 42, 71, 0.2);
+}
+.icon-btn-tip::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--navy-dark);
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+  z-index: 30;
+}
+.icon-btn-tip:hover::after, .icon-btn-tip:hover::before,
+.icon-btn-tip:focus-within::after, .icon-btn-tip:focus-within::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn-tip::after, .icon-btn-tip::before { transition: none; }
+}
 
 /* ======================== FORMULARIOS ======================== */
 
 .form-group { margin-bottom: 14px; }
 .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 12.5px; color: var(--text); }
 .form-group .hint { font-size: 12px; color: var(--muted); }
+
+.form-advanced { margin-bottom: 14px; }
+.form-advanced summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.form-advanced summary:hover { color: var(--text); }
+
+button { font-family: inherit; }
 
 input, select, textarea {
   width: 100%;
@@ -420,6 +513,10 @@ tbody td {
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: var(--surface-alt); }
 tbody tr:focus-visible { outline: 2px solid var(--petrol); outline-offset: -2px; background: var(--primary-soft); }
+
+/* Inventario: la fila con stock bajo lleva su propia señal de color,
+   no solo el badge — la cifra de stock actual pasa a rojo. */
+td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 
 /* ======================== TARJETAS ======================== */
 
@@ -658,6 +755,80 @@ tbody tr:focus-visible { outline: 2px solid var(--petrol); outline-offset: -2px;
 .alert-success { background: var(--success-soft); color: var(--success); border: 1px solid #bfe1cc; }
 .alert-info { background: var(--primary-soft); color: var(--primary-dark); border: 1px solid #ecceA0; }
 
+/* ======================== VENTAS: PANEL EN VIVO ======================== */
+
+.venta-total-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: var(--primary-soft);
+  border-radius: var(--radius);
+}
+
+.venta-total-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+.venta-total-ticker {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--navy);
+  animation: ventaTotalBump 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ventaTotalBump {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.venta-stock-gauge { margin-bottom: 16px; }
+
+.venta-stock-gauge-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+
+.venta-stock-gauge-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  background: var(--success);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms ease;
+}
+
+.venta-stock-gauge-warning .venta-stock-gauge-fill { background: var(--warning); }
+.venta-stock-gauge-danger .venta-stock-gauge-fill { background: var(--danger); }
+
+.venta-stock-gauge-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.venta-feed-item-new {
+  animation: ventaFeedNewFade 1800ms ease-out forwards;
+}
+
+@keyframes ventaFeedNewFade {
+  0% { background-color: var(--primary-soft); }
+  100% { background-color: transparent; }
+}
+
 /* ======================== SPINNER ======================== */
 
 .spinner {
@@ -722,6 +893,20 @@ tbody tr:focus-visible { outline: 2px solid var(--petrol); outline-offset: -2px;
   animation: pulseSoft 2s ease-in-out infinite;
 }
 
+/* Predicciones: la confianza del modelo "asienta" un instante después de que
+   la fila aparece — dramatiza el único dato que es específico de esta
+   pantalla (nadie más en la app muestra una confianza calculada). */
+@keyframes prediccionConfianzaPop {
+  from { transform: scale(0.85); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.prediccion-confianza-pop {
+  display: inline-flex;
+  animation: prediccionConfianzaPop 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
 /* Stagger delays */
 .delay-1 { animation-delay: 0ms; }
 .delay-2 { animation-delay: 80ms; }
@@ -762,6 +947,59 @@ tbody tr:focus-visible { outline: 2px solid var(--petrol); outline-offset: -2px;
 }
 
 .rank-item:focus-visible { outline: 2px solid var(--petrol); outline-offset: -2px; }
+
+/* Alertas: fila agotada, mismo tinte plano que .notif-entry.unread ya usa
+   para "esto necesita tu atención" — se mantiene incluso en hover. */
+.rank-item.alerta-critica {
+  background: var(--danger-soft);
+  /* Separa filas críticas apiladas entre sí (dos productos agotados
+     seguidos es un escenario normal) — el borde de 1px estándar entre
+     filas se pierde contra el mismo fondo. */
+  border-top: 2px solid var(--danger);
+}
+.rank-item.alerta-critica:hover { background: var(--danger-soft); }
+
+.alerta-comprar-cifra {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+}
+.alerta-comprar-cifra strong {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--navy);
+}
+.alerta-comprar-cifra span { font-size: 11px; color: var(--muted); }
+
+.alerta-comprar-fallback {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+  text-align: right;
+  max-width: 140px;
+}
+
+/* Alertas es de solo lectura, fila por fila — nada responde al click.
+   Se apaga acá, con clases propias de esta pantalla, la señal de
+   "esto es clickeable" que .card/.rank-item heredan por defecto en el
+   resto de la app (donde sí hay interacción). No se toca la regla
+   compartida: otras pantallas siguen usándola tal cual. */
+.card--static:hover {
+  transform: none;
+  box-shadow: var(--shadow);
+  border-color: var(--border);
+}
+.list-card--static .rank-item:hover {
+  background-color: transparent;
+  transform: none;
+}
+.list-card--static .rank-item.alerta-critica:hover {
+  background-color: var(--danger-soft);
+}
+.list-card--static .rank-item:focus-visible { outline: none; }
 
 /* Badge animation */
 .badge {
@@ -809,9 +1047,27 @@ a {
   .rail-dropdown-item,
   .pagination button,
   .sugerencia-btn,
-  .recharts-wrapper {
+  .venta-total-ticker,
+  .venta-stock-gauge-fill,
+  .venta-feed-item-new,
+  .prediccion-confianza-pop,
+  .recharts-wrapper,
+  .modal-overlay,
+  .modal {
     animation: none !important;
     transition: none !important;
+  }
+
+  /* Las clases de arriba fijan opacity/transform de arranque como estado
+     base (no solo como keyframe) para que la animación tenga de dónde
+     partir — apagar la animación sola las deja atascadas invisibles/
+     desplazadas para siempre. Hay que devolverlas a su estado final. */
+  .animate-fade-in-up,
+  .animate-fade-in,
+  .animate-slide-in-right,
+  .prediccion-confianza-pop {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 
@@ -841,6 +1097,7 @@ a {
   justify-content: center;
   z-index: 50;
   padding: 20px;
+  animation: modalOverlayIn 160ms ease;
 }
 
 .modal {
@@ -851,6 +1108,13 @@ a {
   max-height: 90vh;
   overflow: auto;
   box-shadow: 0 20px 50px rgba(18, 42, 71, 0.25);
+  animation: modalPopIn 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalPopIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .modal-header {
@@ -1026,10 +1290,25 @@ a {
   margin-top: 2px;
 }
 
-.notif-entry.unread { background: var(--primary-soft); }
+/* Wash neutro-frío para "no leído" — el amber de --primary-soft queda
+   reservado al badge "Personal"; si tiñera también la fila entera, los dos
+   usos del mismo color dejan de significar cosas distintas a simple vista. */
+.notif-entry.unread { background: var(--navy-soft); }
 .notif-entry.unread .notif-entry-body { cursor: pointer; }
 
-.notif-entry-body svg { position: relative; top: 2px; margin-right: 2px; color: var(--muted); }
+/* Fila de metadatos del mensaje (destinatario, prioridad) — separada de la
+   cabecera (quién / cuándo) para que cada línea responda una sola pregunta. */
+.notif-entry-meta { display: flex; align-items: center; gap: 6px; }
+
+.notif-unread-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  vertical-align: middle;
+}
 
 /* Tabs de la pagina de notificaciones: segmented control, no dos botones
    sueltos — el fondo del contenedor y el relleno solido del activo son lo
@@ -1166,23 +1445,6 @@ a {
 .sede-pill-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
 
 .sede-pill-actions { display: flex; gap: 2px; }
-
-.sede-pill-actions button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease;
-}
-
-.sede-pill-actions button:hover { background: var(--surface-alt); color: var(--text); }
-.sede-pill-actions button.danger:hover { background: var(--danger-soft); color: var(--danger); }
 
 .sede-pill-add {
   display: flex;
@@ -1354,7 +1616,9 @@ tbody tr.member-row-rechazada:hover { opacity: 0.85; }
 }
 
 .toast-success { border-left: 2px solid var(--success); }
+.toast-error { border-left: 2px solid var(--danger); }
 .toast-icon { display: flex; align-items: center; color: var(--success); }
+.toast-error .toast-icon { color: var(--danger); }
 
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 

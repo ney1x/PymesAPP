@@ -24,6 +24,10 @@ export default function Predicciones() {
   const [search, setSearch] = useState('');
   const [horizonte, setHorizonte] = useState(7);
   const formRef = useRef(null);
+  // Recharts no respeta prefers-reduced-motion por su cuenta (es SVG/JS, no
+  // CSS) — hay que apagarle la animación a mano cuando el SO lo pide.
+  const prefersReducedMotion = typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   const pymes = useAsync(() => pymesApi.list());
   const puedeGenerar = puedeEnAlguna(pymes.data?.pymes, 'generarPredicciones');
@@ -166,9 +170,13 @@ export default function Predicciones() {
           />
         </div>
       ) : (
+        // Las cards remontan cada vez que se sale de "generating" o del
+        // vacío — el fade-up marca justo el instante en que llega la
+        // respuesta del modelo, no cada tecla de búsqueda (eso solo
+        // actualiza el contenido de las mismas cards, sin remount).
         <div className="grid-2">
           {/* Gráfica */}
-          <div className="card">
+          <div className="card animate-fade-in-up delay-1">
             <div className="card-title">Gráfica</div>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={chartData}>
@@ -176,13 +184,21 @@ export default function Predicciones() {
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
-                <Bar dataKey="demanda" name="Demanda" fill="#122a47" radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="demanda"
+                  name="Demanda"
+                  fill="#122a47"
+                  radius={[4, 4, 0, 0]}
+                  isAnimationActive={!prefersReducedMotion}
+                  animationDuration={300}
+                  animationEasing="ease-out"
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
           {/* Resultados por producto */}
-          <div className="card">
+          <div className="card animate-fade-in-up delay-2">
             <div className="card-title">Resultados por producto</div>
             <p className="muted" style={{ marginTop: -4, marginBottom: 12 }}>
               "Demanda" es el total estimado de unidades que se venderían en
@@ -202,12 +218,13 @@ export default function Predicciones() {
                   {tablaDatos.length === 0 ? (
                     <tr><td colSpan="4"><EmptyState title="Sin resultados" /></td></tr>
                   ) : (
-                    tablaDatos.map((p) => {
+                    tablaDatos.map((p, i) => {
                       const fecha = p.fecha ? new Date(p.fecha).toLocaleDateString('es-CO') : '—';
                       const horizonteLabel = HORIZONTES.find((h) => h.value === p.horizonteDias)?.label
                         || `${p.horizonteDias} días`;
+                      const filaDelay = Math.min(i, 7) * 40;
                       return (
-                        <tr key={p.id}>
+                        <tr key={p.id} className="animate-slide-in-right" style={{ animationDelay: `${filaDelay}ms` }}>
                           <td><strong>{p.producto.nombre}</strong></td>
                           <td>
                             {p.demandaPredicha} uds
@@ -215,7 +232,11 @@ export default function Predicciones() {
                               en {horizonteLabel.toLowerCase()}
                             </span>
                           </td>
-                          <td>{confianzaBadge(p.nivelConfianza)}</td>
+                          <td>
+                            <span className="prediccion-confianza-pop" style={{ animationDelay: `${filaDelay + 120}ms` }}>
+                              {confianzaBadge(p.nivelConfianza)}
+                            </span>
+                          </td>
                           <td>{fecha}</td>
                         </tr>
                       );

@@ -1,12 +1,33 @@
 import React, { useEffect, useRef } from 'react';
 import { IconArchive, IconClose } from './Icons';
 
-export function Button({ variant = 'primary', loading, children, className = '', ...props }) {
+export function Button({ variant = 'primary', size, loading, children, className = '', ...props }) {
+  const sizeClass = size ? `btn-${size}` : '';
   return (
-    <button className={`btn btn-${variant} ${className}`.trim()} disabled={loading || props.disabled} {...props}>
+    <button className={`btn btn-${variant} ${sizeClass} ${className}`.trim()} disabled={loading || props.disabled} {...props}>
       {loading && <span className="spinner spinner-sm" />}
       {children}
     </button>
+  );
+}
+
+// Botón solo-icono para acciones compactas (filas de tabla, pills). Siempre
+// lleva tooltip visual (CSS puro, sin librería) + aria-label — el icono solo
+// nunca es la única pista de qué hace el botón.
+export function IconButton({ variant = 'outline', size = 'sm', label, tooltip, children, className = '', ...props }) {
+  const tip = tooltip || label;
+  return (
+    <span className="icon-btn-tip" data-tooltip={tip}>
+      <button
+        type="button"
+        className={`btn btn-icon btn-${variant} btn-${size} ${className}`.trim()}
+        aria-label={label || tooltip}
+        disabled={props.loading || props.disabled}
+        {...props}
+      >
+        {children}
+      </button>
+    </span>
   );
 }
 
@@ -114,9 +135,9 @@ export function Modal({ open, title, onClose, children }) {
       <div className="modal" ref={modalRef} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 id="modal-title">{title}</h2>
-          <button className="btn btn-ghost" onClick={onClose} aria-label="Cerrar" type="button">
+          <IconButton variant="ghost" label="Cerrar" onClick={onClose}>
             <IconClose size={16} aria-hidden="true" />
-          </button>
+          </IconButton>
         </div>
         <div className="modal-body">{children}</div>
       </div>

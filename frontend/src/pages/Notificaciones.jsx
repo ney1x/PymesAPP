@@ -3,7 +3,7 @@ import { invitacionesApi, mensajesApi, notificacionesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { useNotificaciones } from '../context/NotificacionesContext';
 import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, EmptyState } from '../components/ui';
-import { IconCheck, IconX, IconMail } from '../components/Icons';
+import { IconCheck, IconX } from '../components/Icons';
 
 const ROL_LABELS = { OWNER: 'Dueño', VENDEDOR: 'Vendedor', INVENTARIO: 'Inventario', ANALISTA: 'Analista' };
 // Un miembro puede tener más de un rol (rol + rolesExtra) — junta las
@@ -12,8 +12,6 @@ const rolesLabel = (item) =>
   [item.rol, ...(item.rolesExtra || []).map((r) => r.rol)]
     .map((r) => ROL_LABELS[r] || r)
     .join(' + ');
-const PRIORIDAD_LABELS = { ALTA: 'Alta', NORMAL: 'Normal', BAJA: 'Baja' };
-const PRIORIDAD_TONE = { ALTA: 'danger', NORMAL: 'primary', BAJA: 'default' };
 const DECISION_LABELS = { ACEPTADA: 'Aceptó', RECHAZADA: 'Rechazó' };
 
 const iniciales = (nombre) =>
@@ -151,10 +149,10 @@ export default function Notificaciones() {
                   {inv.sede ? ` en la sede ${inv.sede.nombre}` : ''}.
                 </div>
                 <div className="invite-card-actions">
-                  <Button onClick={() => abrirConfirmacion(inv, 'aceptar')}>
+                  <Button size="sm" onClick={() => abrirConfirmacion(inv, 'aceptar')}>
                     <IconCheck size={13} /> Aceptar
                   </Button>
-                  <Button variant="outline" onClick={() => abrirConfirmacion(inv, 'rechazar')}>
+                  <Button size="sm" variant="outline" onClick={() => abrirConfirmacion(inv, 'rechazar')}>
                     <IconX size={13} /> Rechazar
                   </Button>
                 </div>
@@ -180,7 +178,7 @@ export default function Notificaciones() {
                     {DECISION_LABELS[dec.estado] || dec.estado} tu invitación a <strong>{dec.pyme.nombre}</strong> como {rolesLabel(dec)}.
                   </div>
                   <div className="notif-entry-actions">
-                    <Button variant="ghost" onClick={() => descartarDecision(dec)}>Descartar</Button>
+                    <Button size="sm" variant="ghost" onClick={() => descartarDecision(dec)}>Descartar</Button>
                   </div>
                 </div>
               ))}
@@ -193,7 +191,7 @@ export default function Notificaciones() {
         <div>
           <div className="priority-filter" style={{ marginBottom: 18 }}>
             {[
-              { value: '', label: 'Todas', tone: null },
+              { value: '', label: 'Todas', tone: 'default' },
               { value: 'ALTA', label: 'Alta', tone: 'danger' },
               { value: 'NORMAL', label: 'Normal', tone: 'primary' },
               { value: 'BAJA', label: 'Baja', tone: 'default' },
@@ -223,21 +221,25 @@ export default function Notificaciones() {
                     <div className="member-cell">
                       <span className="member-avatar">{iniciales(msg.remitente?.nombre)}</span>
                       <div className="member-name-line">
-                        <strong>{msg.remitente?.nombre}</strong>
+                        <strong>
+                          {!msg.leido && <span className="notif-unread-dot" aria-hidden="true" />}
+                          {msg.remitente?.nombre}
+                        </strong>
                         <span className="member-email">{msg.pyme?.nombre}</span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Badge tone={PRIORIDAD_TONE[msg.prioridad]}>{PRIORIDAD_LABELS[msg.prioridad] || msg.prioridad}</Badge>
-                      <span className="notif-entry-time">{tiempoRelativo(msg.createdAt)}</span>
-                    </div>
+                    <span className="notif-entry-time">{tiempoRelativo(msg.createdAt)}</span>
                   </div>
-                  <div className="notif-entry-body">
-                    <IconMail size={12} aria-hidden="true" /> {msg.contenido}
+                  <div className="notif-entry-meta">
+                    <Badge tone={msg.rolDestino ? 'default' : 'primary'}>
+                      {msg.rolDestino ? `Para ${ROL_LABELS[msg.rolDestino] || msg.rolDestino}` : 'Personal'}
+                    </Badge>
+                    {msg.prioridad === 'ALTA' && <Badge tone="danger">Alta prioridad</Badge>}
                   </div>
+                  <div className="notif-entry-body">{msg.contenido}</div>
                   {!msg.leido && (
                     <div className="notif-entry-actions">
-                      <Button variant="ghost" onClick={() => marcarLeido(msg)}>Marcar leído</Button>
+                      <Button size="sm" variant="ghost" onClick={() => marcarLeido(msg)}>Marcar leído</Button>
                     </div>
                   )}
                 </div>

@@ -2,7 +2,7 @@ import React, { useMemo, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { productosApi, pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
-import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, EmptyState, money, date } from '../components/ui';
+import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, IconButton, EmptyState, money, date } from '../components/ui';
 import { IconPlus, IconEdit, IconTrash } from '../components/Icons';
 import { categoriasComunesPorTipo } from '../constants/categorias';
 
@@ -246,8 +246,14 @@ export default function Productos() {
                       ) : '—'}
                     </td>
                     <td>
-                      <Button variant="outline" onClick={() => openEdit(p)} aria-label={`Editar ${p.nombre}`}><IconEdit size={14} aria-hidden="true" /> Editar</Button>{' '}
-                      <Button variant="danger" onClick={() => handleDelete(p)} aria-label={`Eliminar ${p.nombre}`}><IconTrash size={14} aria-hidden="true" /> Eliminar</Button>
+                      <div className="row-actions">
+                        <IconButton variant="outline" label={`Editar ${p.nombre}`} tooltip="Editar" onClick={() => openEdit(p)}>
+                          <IconEdit size={14} aria-hidden="true" />
+                        </IconButton>
+                        <IconButton variant="danger-subtle" label={`Eliminar ${p.nombre}`} tooltip="Eliminar" onClick={() => handleDelete(p)}>
+                          <IconTrash size={14} aria-hidden="true" />
+                        </IconButton>
+                      </div>
                     </td>
                   </tr>
                 );

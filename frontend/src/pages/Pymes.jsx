@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
-import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, EmptyState, date } from '../components/ui';
+import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, IconButton, EmptyState, date } from '../components/ui';
 import { IconPlus, IconEdit, IconTrash } from '../components/Icons';
 
 const TIPO_LABELS = {
@@ -137,8 +137,14 @@ export default function Pymes() {
                   <td>{p._count.productos}</td>
                   <td>{date(p.createdAt)}</td>
                   <td>
-                    <Button variant="outline" onClick={() => openEdit(p)}><IconEdit size={14} /> Editar</Button>{' '}
-                    <Button variant="danger" onClick={() => handleDelete(p)}><IconTrash size={14} /> Eliminar</Button>
+                    <div className="row-actions">
+                      <IconButton variant="outline" label={`Editar ${p.nombre}`} tooltip="Editar" onClick={() => openEdit(p)}>
+                        <IconEdit size={14} aria-hidden="true" />
+                      </IconButton>
+                      <IconButton variant="danger-subtle" label={`Eliminar ${p.nombre}`} tooltip="Eliminar" onClick={() => handleDelete(p)}>
+                        <IconTrash size={14} aria-hidden="true" />
+                      </IconButton>
+                    </div>
                   </td>
                 </tr>
               ))

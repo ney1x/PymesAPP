@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
-import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, EmptyState, date } from '../components/ui';
+import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, IconButton, EmptyState, date } from '../components/ui';
 import { IconPlus, IconEdit, IconTrash, IconMail, IconMapPin } from '../components/Icons';
 
 const ESTADO_ORDEN = { PENDIENTE: 0, ACEPTADA: 1, RECHAZADA: 2 };
@@ -279,19 +279,19 @@ export default function Equipo() {
         <p className="muted" style={{ marginBottom: 28 }}>Esta PYME aún no tiene sedes registradas.</p>
       ) : (
         <div className="sede-pill-row">
-          {sedes.data?.sedes?.map((s) => (
-            <div key={s.id} className="sede-pill">
+          {sedes.data?.sedes?.map((s, i) => (
+            <div key={s.id} className="sede-pill animate-fade-in" style={{ animationDelay: `${i * 40}ms` }}>
               <IconMapPin size={14} aria-hidden="true" />
               <span className="sede-pill-name">{s.nombre}</span>
               {s.ciudad && <span className="sede-pill-meta">{s.ciudad}</span>}
               {esOwner && (
                 <div className="sede-pill-actions">
-                  <button type="button" onClick={() => openEditSede(s)} aria-label={`Editar sede ${s.nombre}`}>
-                    <IconEdit size={13} />
-                  </button>
-                  <button type="button" className="danger" onClick={() => handleDeleteSede(s)} aria-label={`Eliminar sede ${s.nombre}`}>
-                    <IconTrash size={13} />
-                  </button>
+                  <IconButton variant="ghost" label={`Editar sede ${s.nombre}`} tooltip="Editar" onClick={() => openEditSede(s)}>
+                    <IconEdit size={13} aria-hidden="true" />
+                  </IconButton>
+                  <IconButton variant="danger-subtle" label={`Eliminar sede ${s.nombre}`} tooltip="Eliminar" onClick={() => handleDeleteSede(s)}>
+                    <IconTrash size={13} aria-hidden="true" />
+                  </IconButton>
                 </div>
               )}
             </div>
@@ -304,7 +304,7 @@ export default function Equipo() {
         </div>
       )}
 
-      <div className="card">
+      <div className="card animate-fade-in-up">
         <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <span>Equipo de {pymeActual?.nombre}</span>
@@ -342,8 +342,12 @@ export default function Equipo() {
                 {!miembrosOrdenados.length ? (
                   <tr><td colSpan="6"><EmptyState title="Sin miembros" message="Invita a tu primer colaborador." /></td></tr>
                 ) : (
-                  miembrosOrdenados.map((m) => (
-                    <tr key={m.id} className={m.estado === 'RECHAZADA' ? 'member-row-rechazada' : undefined}>
+                  miembrosOrdenados.map((m, i) => (
+                    <tr
+                      key={m.id}
+                      className={`animate-fade-in${m.estado === 'RECHAZADA' ? ' member-row-rechazada' : ''}`}
+                      style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+                    >
                       <td>
                         <div className="member-cell">
                           <span className="member-avatar">{iniciales(m.user.nombre)}</span>
@@ -391,14 +395,16 @@ export default function Equipo() {
                       </td>
                       <td>{date(m.createdAt)}</td>
                       <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
+                        <div className="row-actions">
                           {m.rol !== 'OWNER' && m.estado === 'ACEPTADA' && (
-                            <Button variant="outline" onClick={() => abrirMensajeParaMiembro(m)} aria-label={`Enviar mensaje a ${m.user.nombre}`}>
-                              <IconMail size={14} />
-                            </Button>
+                            <IconButton variant="outline" label={`Enviar mensaje a ${m.user.nombre}`} tooltip="Mensaje" onClick={() => abrirMensajeParaMiembro(m)}>
+                              <IconMail size={14} aria-hidden="true" />
+                            </IconButton>
                           )}
                           {m.rol !== 'OWNER' && (
-                            <Button variant="danger" onClick={() => handleRemoveMiembro(m)}><IconTrash size={14} /> Quitar</Button>
+                            <IconButton variant="danger-subtle" label={`Quitar a ${m.user.nombre} del equipo`} tooltip="Quitar" onClick={() => handleRemoveMiembro(m)}>
+                              <IconTrash size={14} aria-hidden="true" />
+                            </IconButton>
                           )}
                         </div>
                       </td>
