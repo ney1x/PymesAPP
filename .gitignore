@@ -26,6 +26,9 @@ venv/
 ml-service/models/*.joblib
 ml-service/models/*.pkl
 ml-service/data/processed/
+ml-service/data/
+ml-service/retrain/dataset/
+ml-service/retrain/pfs/dataset/
 
 # Logs
 logs/

@@ -1,0 +1,7 @@
+# El formato de texto nativo de LightGBM (Booster.save_model) es sensible a
+# saltos de linea exactos — git en Windows con autocrlf convierte LF a CRLF
+# al hacer checkout y el parser de LightGBM se rompe silenciosamente
+# ("Model format error, expect a tree here"), cayendo sin aviso al fallback
+# de Random Forest. -text lo trata como binario: git nunca toca sus bytes.
+ml-service/vendor/ia-inventario/modelo/* -text
+ml-service/app/models/*.txt -text
