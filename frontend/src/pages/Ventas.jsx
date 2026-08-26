@@ -10,9 +10,9 @@
  * STORY: el vendedor ve de un vistazo cuánto va a cobrar y cuánto stock le
  *   queda antes de confirmar, y ve su venta aparecer al instante en la lista
  *   — refuerza que cada venta cuenta y ya quedó registrada.
- * FIRST VIEWPORT: dos columnas se mantienen; izquierda el formulario con el
- *   total como número grande animado y una barra de stock viva bajo la
- *   cantidad; derecha "Ventas recientes" como lista animada (no tabla).
+ * FIRST VIEWPORT: dos columnas se mantienen; izquierda el carrito (escaneo +
+ *   líneas + total) con el total como número grande animado; derecha "Ventas
+ *   recientes" como lista animada (no tabla).
  * FORM: dirección líder de la tirada de concept-seed (candidato #5 de la
  *   lista propia), seed key ventasredesign1. Recorte post-entrega: se quitó
  *   la franja de mini-barras de actividad (raise del reto "osciloscopio")
@@ -21,6 +21,11 @@
  * FINISH: unreviewed and undocumented is unfinished; this build ends with
  *   the finish review, the verdict, DESIGN.md, and every shipping raster
  *   carrying its provenance.
+ *
+ * Carrito de venta (código de barras): la pistola USB emula teclado — tipea
+ * el código y termina en Enter. No hay endpoint de "factura": cada línea del
+ * carrito confirmada dispara su propio ventasApi.create() (mismo endpoint de
+ * siempre), la agrupación visual es puramente de esta pantalla.
  */
 import React, { useState, useRef } from 'react';
 import { ventasApi, productosApi, pymesApi } from '../api';
@@ -32,11 +37,14 @@ export default function Ventas() {
   const [filtroPymeId, setFiltroPymeId] = useState('');
   const [filtroSedeId, setFiltroSedeId] = useState('');
   const [form, setForm] = useState({ productoId: '', cantidad: 1, precioUnitario: '' });
-  const [saving, setSaving] = useState(false);
+  const [carrito, setCarrito] = useState([]); // [{ productoId, nombre, codigo, cantidad, precioUnitario, stockActual }]
+  const [scanValue, setScanValue] = useState('');
+  const [scanError, setScanError] = useState(null);
+  const [confirmando, setConfirmando] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [ventaNuevaId, setVentaNuevaId] = useState(null);
-  const formRef = useRef(null);
+  const [ventaNuevaIds, setVentaNuevaIds] = useState(new Set());
+  const scanInputRef = useRef(null);
 
   const pymes = useAsync(() => pymesApi.list());
   const puedeVender = puedeEnAlguna(pymes.data?.pymes, 'crearVentas');
@@ -57,45 +65,152 @@ export default function Ventas() {
     setFiltroPymeId(value);
     setFiltroSedeId('');
     setForm({ productoId: '', cantidad: 1, precioUnitario: '' });
+    setCarrito([]);
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const focusScan = () => {
+    // el foco vuelve solo al campo de escaneo tras cada lectura/acción, para
+    // no requerir clic entre ítems escaneados con la pistola.
+    requestAnimationFrame(() => scanInputRef.current?.focus());
+  };
 
+  // Agrega una línea al carrito, o incrementa su cantidad si el producto ya
+  // estaba (auto-incremento para códigos repetidos).
+  const agregarLinea = (producto, cantidadAgregar) => {
+    const stockActual = producto.inventario?.stockActual;
+    const tieneStock = typeof stockActual === 'number';
+
+    setCarrito((actual) => {
+      const idx = actual.findIndex((l) => l.productoId === producto.id);
+      if (idx >= 0) {
+        const linea = actual[idx];
+        const nuevaCantidad = linea.cantidad + cantidadAgregar;
+        if (tieneStock && nuevaCantidad > stockActual) {
+          setScanError(`Stock insuficiente: quedan ${stockActual} uds de ${producto.nombre}`);
+          return actual;
+        }
+        const copia = [...actual];
+        copia[idx] = { ...linea, cantidad: nuevaCantidad };
+        return copia;
+      }
+
+      if (tieneStock && cantidadAgregar > stockActual) {
+        setScanError(`Stock insuficiente: quedan ${stockActual} uds de ${producto.nombre}`);
+        return actual;
+      }
+
+      return [
+        ...actual,
+        {
+          productoId: producto.id,
+          nombre: producto.nombre,
+          codigo: producto.codigo,
+          cantidad: cantidadAgregar,
+          precioUnitario: producto.precioVenta,
+          stockActual,
+        },
+      ];
+    });
+  };
+
+  const handleScanKeyDown = (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+
+    const codigo = scanValue.trim();
+    setScanValue('');
+    if (!codigo) return;
+
+    const producto = productos.data?.productos?.find((p) => p.codigo === codigo);
+    if (!producto) {
+      setScanError(`Código no reconocido: ${codigo}`);
+      focusScan();
+      return;
+    }
+
+    setScanError(null);
+    setSuccess(null);
+    agregarLinea(producto, 1);
+    focusScan();
+  };
+
+  const actualizarCantidad = (productoId, delta) => {
+    setCarrito((actual) =>
+      actual.map((l) => {
+        if (l.productoId !== productoId) return l;
+        const nueva = l.cantidad + delta;
+        if (nueva < 1) return l;
+        if (typeof l.stockActual === 'number' && nueva > l.stockActual) return l;
+        return { ...l, cantidad: nueva };
+      })
+    );
+  };
+
+  const quitarLinea = (productoId) => {
+    setCarrito((actual) => actual.filter((l) => l.productoId !== productoId));
+  };
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
     if (name === 'productoId') {
       const precioSugerido = productos.data?.productos?.find((p) => String(p.id) === value)?.precioVenta || '';
       setForm({ ...form, productoId: value, precioUnitario: precioSugerido });
     } else {
       setForm({ ...form, [name]: name === 'cantidad' ? Number(value) : value });
     }
-    setSuccess(null);
   };
 
-  const handleSubmit = async (e) => {
+  const handleAgregarManual = (e) => {
     e.preventDefault();
-    if (saving) return; // prevent double submit
-    setSaving(true);
+    const producto = productos.data?.productos?.find((p) => String(p.id) === form.productoId);
+    if (!producto) return;
+
+    agregarLinea(
+      { ...producto, precioVenta: Number(form.precioUnitario) || producto.precioVenta },
+      Number(form.cantidad) || 1
+    );
+    setForm({ productoId: '', cantidad: 1, precioUnitario: '' });
+  };
+
+  const totalCarrito = carrito.reduce((acc, l) => acc + l.cantidad * l.precioUnitario, 0);
+
+  const confirmarVenta = async () => {
+    if (confirmando || carrito.length === 0) return;
+    setConfirmando(true);
     setActionError(null);
     setSuccess(null);
-    try {
-      const res = await ventasApi.create({
-        productoId: Number(form.productoId),
-        cantidad: Number(form.cantidad),
-        precioUnitario: Number(form.precioUnitario),
-      });
-      setSuccess('Venta registrada. El stock se actualizó y se programó la predicción.');
-      setForm({ productoId: '', cantidad: 1, precioUnitario: '' });
-      setVentaNuevaId(res?.venta?.id ?? null);
-      ventas.run();
-      productos.run(); // el stock mostrado (selector, barra en vivo) debe reflejar la venta recién hecha
-    } catch (err) {
-      setActionError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
 
-  const total = Number(form.precioUnitario || 0) * Number(form.cantidad || 0);
+    const nuevosIds = new Set();
+    const pendientes = [...carrito];
+
+    while (pendientes.length > 0) {
+      const linea = pendientes[0];
+      try {
+        const res = await ventasApi.create({
+          productoId: linea.productoId,
+          cantidad: linea.cantidad,
+          precioUnitario: linea.precioUnitario,
+        });
+        if (res?.venta?.id) nuevosIds.add(res.venta.id);
+        pendientes.shift();
+        setCarrito((actual) => actual.filter((l) => l.productoId !== linea.productoId));
+      } catch (err) {
+        setActionError(
+          `${err.message} — se detuvo en "${linea.nombre}". Las líneas anteriores ya quedaron registradas.`
+        );
+        break;
+      }
+    }
+
+    if (pendientes.length === 0) {
+      setSuccess('Venta registrada. El stock se actualizó y se programó la predicción.');
+    }
+    setVentaNuevaIds(nuevosIds);
+    ventas.run();
+    productos.run(); // el stock mostrado (carrito, gauge) debe reflejar la venta recién hecha
+    setConfirmando(false);
+    focusScan();
+  };
 
   const productoSeleccionado = productos.data?.productos?.find((p) => String(p.id) === form.productoId);
   const stockActual = productoSeleccionado?.inventario?.stockActual;
@@ -108,7 +223,7 @@ export default function Ventas() {
     <div data-impeccable-seed="ventasredesign1">
       <PageHeader
         title="Registrar venta"
-        subtitle="Cada venta actualiza el inventario y alimenta el modelo de predicción."
+        subtitle="Escaneá o agregá productos al carrito; cada venta actualiza el inventario y alimenta el modelo de predicción."
         actions={
           (pymes.data?.pymes?.length ?? 0) > 0 && (
             <>
@@ -134,62 +249,119 @@ export default function Ventas() {
       <div className={puedeVender ? 'grid-2' : undefined}>
         {puedeVender && (
         <div className="card">
-          <div className="card-title">Nueva venta</div>
-          <form ref={formRef} onSubmit={handleSubmit}>
-            <ErrorBox error={actionError} />
-            {success && <div className="alert alert-success">{success}</div>}
+          <div className="card-title">Carrito de venta</div>
 
-            <div className="form-group">
-              <label htmlFor="productoId">Producto</label>
-              <select id="productoId" name="productoId" value={form.productoId} onChange={handleChange} required>
-                <option value="">Selecciona un producto</option>
-                {productos.data?.productos?.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre} ({p.inventario?.stockActual ?? 0} uds)
-                  </option>
-                ))}
-              </select>
-            </div>
+          <ErrorBox error={actionError} />
+          {success && <div className="alert alert-success">{success}</div>}
 
-            <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="scanInput">Escanear código de barras</label>
+            <input
+              id="scanInput"
+              ref={scanInputRef}
+              className="venta-scan-input"
+              type="text"
+              autoFocus
+              placeholder="Enfocá acá y escaneá con la pistola..."
+              value={scanValue}
+              onChange={(e) => { setScanValue(e.target.value); setScanError(null); }}
+              onKeyDown={handleScanKeyDown}
+            />
+            {scanError && <div className="alert alert-error" style={{ marginTop: 8 }}>{scanError}</div>}
+          </div>
+
+          <details style={{ marginBottom: 16 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--muted)' }}>Agregar manualmente</summary>
+            <div style={{ marginTop: 10 }}>
               <div className="form-group">
-                <label htmlFor="cantidad">Cantidad</label>
-                <input
-                  id="cantidad"
-                  name="cantidad"
-                  type="number"
-                  min="1"
-                  max={tieneStock ? stockActual : undefined}
-                  required
-                  value={form.cantidad}
-                  onChange={handleChange}
-                />
+                <label htmlFor="productoId">Producto</label>
+                <select id="productoId" name="productoId" value={form.productoId} onChange={handleFormChange}>
+                  <option value="">Selecciona un producto</option>
+                  {productos.data?.productos?.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre} ({p.inventario?.stockActual ?? 0} uds)
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="form-group">
-                <label htmlFor="precioUnitario">Precio unitario (COP)</label>
-                <input id="precioUnitario" name="precioUnitario" type="number" min="0" step="0.01" required value={form.precioUnitario} onChange={handleChange} />
-              </div>
-            </div>
 
-            {tieneStock && (
-              <div className={`venta-stock-gauge${stockTone !== 'ok' ? ` venta-stock-gauge-${stockTone}` : ''}`}>
-                <div className="venta-stock-gauge-track" role="progressbar" aria-label="Stock restante tras esta venta" aria-valuenow={stockRestante} aria-valuemin={0} aria-valuemax={stockActual}>
-                  <div className="venta-stock-gauge-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="cantidad">Cantidad</label>
+                  <input
+                    id="cantidad"
+                    name="cantidad"
+                    type="number"
+                    min="1"
+                    max={tieneStock ? stockActual : undefined}
+                    value={form.cantidad}
+                    onChange={handleFormChange}
+                  />
                 </div>
-                <div className="venta-stock-gauge-label">
-                  <span>Quedan {stockRestante} uds tras esta venta</span>
-                  <span>{stockActual} en stock</span>
+                <div className="form-group">
+                  <label htmlFor="precioUnitario">Precio unitario (COP)</label>
+                  <input id="precioUnitario" name="precioUnitario" type="number" min="0" step="0.01" value={form.precioUnitario} onChange={handleFormChange} />
                 </div>
               </div>
-            )}
 
-            <div className="venta-total-row">
-              <span className="venta-total-label">Total a cobrar</span>
-              <strong key={total} className="venta-total-ticker">{money(total)}</strong>
+              {tieneStock && (
+                <div className={`venta-stock-gauge${stockTone !== 'ok' ? ` venta-stock-gauge-${stockTone}` : ''}`}>
+                  <div className="venta-stock-gauge-track" role="progressbar" aria-label="Stock restante tras agregar" aria-valuenow={stockRestante} aria-valuemin={0} aria-valuemax={stockActual}>
+                    <div className="venta-stock-gauge-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
+                  </div>
+                  <div className="venta-stock-gauge-label">
+                    <span>Quedan {stockRestante} uds tras agregar</span>
+                    <span>{stockActual} en stock</span>
+                  </div>
+                </div>
+              )}
+
+              <Button type="button" variant="secondary" className="btn-block" onClick={handleAgregarManual} disabled={!form.productoId}>
+                Agregar al carrito
+              </Button>
             </div>
+          </details>
 
-            <Button type="submit" loading={saving} className="btn-block" aria-busy={saving} aria-label={saving ? 'Registrando venta...' : 'Registrar venta'}>Registrar venta</Button>
-          </form>
+          {carrito.length === 0 ? (
+            <EmptyState title="Carrito vacío" message="Escaneá un código o agregá un producto manualmente." />
+          ) : (
+            <ul className="list-card venta-carrito-lista">
+              {carrito.map((l) => (
+                <li key={l.productoId} className="rank-item venta-carrito-linea">
+                  <div className="rank-info">
+                    <strong>{l.nombre}</strong>
+                    <small>{money(l.precioUnitario)} c/u{l.codigo ? ` · ${l.codigo}` : ''}</small>
+                  </div>
+                  <div className="venta-carrito-cantidad">
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => actualizarCantidad(l.productoId, -1)} aria-label={`Quitar una unidad de ${l.nombre}`}>−</button>
+                    <span>{l.cantidad}</span>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => actualizarCantidad(l.productoId, 1)} aria-label={`Agregar una unidad de ${l.nombre}`}>+</button>
+                  </div>
+                  <div className="dashboard-rank-metric">
+                    <strong>{money(l.cantidad * l.precioUnitario)}</strong>
+                  </div>
+                  <button type="button" className="venta-carrito-quitar" onClick={() => quitarLinea(l.productoId)} aria-label={`Quitar ${l.nombre} del carrito`}>×</button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="venta-total-row">
+            <span className="venta-total-label">Total a cobrar</span>
+            <strong key={totalCarrito} className="venta-total-ticker">{money(totalCarrito)}</strong>
+          </div>
+
+          <Button
+            type="button"
+            loading={confirmando}
+            className="btn-block"
+            disabled={carrito.length === 0}
+            aria-busy={confirmando}
+            aria-label={confirmando ? 'Registrando venta...' : 'Confirmar venta'}
+            onClick={confirmarVenta}
+          >
+            Confirmar venta
+          </Button>
         </div>
         )}
 
@@ -204,7 +376,7 @@ export default function Ventas() {
                 {ventas.data.ventas.slice(0, 15).map((v, i) => (
                   <li
                     key={v.id}
-                    className={`rank-item animate-slide-in-right${v.id === ventaNuevaId ? ' venta-feed-item-new' : ''}`}
+                    className={`rank-item animate-slide-in-right${ventaNuevaIds.has(v.id) ? ' venta-feed-item-new' : ''}`}
                     style={{ animationDelay: `${Math.min(i, 6) * 40}ms` }}
                   >
                     <div className="rank-info">

@@ -829,6 +829,43 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   100% { background-color: transparent; }
 }
 
+.venta-scan-input {
+  font-family: var(--font-display);
+  font-size: 18px;
+  border: 2px dashed var(--border);
+  background: var(--surface-alt);
+}
+
+.venta-scan-input:focus {
+  border-color: var(--petrol);
+  border-style: solid;
+  background: #fff;
+}
+
+.venta-carrito-linea { gap: 10px; }
+
+.venta-carrito-cantidad {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.venta-carrito-cantidad span { min-width: 20px; text-align: center; font-weight: 600; }
+
+.venta-carrito-quitar {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.venta-carrito-quitar:hover { color: var(--danger); background: var(--danger-soft); }
+
 /* ======================== SPINNER ======================== */
 
 .spinner {
