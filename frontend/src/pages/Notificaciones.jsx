@@ -163,25 +163,28 @@ export default function Notificaciones() {
           {(decisiones.data?.decisiones?.length ?? 0) > 0 && (
             <div className="card" style={{ marginTop: 24 }}>
               <div className="card-title">Respuestas a tus invitaciones</div>
-              {decisiones.data.decisiones.map((dec) => (
-                <div key={dec.id} className="notif-entry">
-                  <div className="notif-entry-head">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <strong>{dec.user.nombre}</strong>
-                      <Badge tone={dec.estado === 'ACEPTADA' ? 'success' : 'danger'}>
-                        {DECISION_LABELS[dec.estado] || dec.estado}
-                      </Badge>
+              <div className="notif-timeline">
+                {decisiones.data.decisiones.map((dec) => (
+                  <div key={dec.id} className="notif-entry">
+                    <span className={`notif-timeline-dot notif-timeline-dot-${dec.estado === 'ACEPTADA' ? 'success' : 'danger'}`} aria-hidden="true" />
+                    <div className="notif-entry-head">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <strong>{dec.user.nombre}</strong>
+                        <Badge tone={dec.estado === 'ACEPTADA' ? 'success' : 'danger'}>
+                          {DECISION_LABELS[dec.estado] || dec.estado}
+                        </Badge>
+                      </div>
+                      <span className="notif-entry-time">{tiempoRelativo(dec.respondidoAt)}</span>
                     </div>
-                    <span className="notif-entry-time">{tiempoRelativo(dec.respondidoAt)}</span>
+                    <div className="notif-entry-body">
+                      {DECISION_LABELS[dec.estado] || dec.estado} tu invitación a <strong>{dec.pyme.nombre}</strong> como {rolesLabel(dec)}.
+                    </div>
+                    <div className="notif-entry-actions">
+                      <Button size="sm" variant="ghost" onClick={() => descartarDecision(dec)}>Descartar</Button>
+                    </div>
                   </div>
-                  <div className="notif-entry-body">
-                    {DECISION_LABELS[dec.estado] || dec.estado} tu invitación a <strong>{dec.pyme.nombre}</strong> como {rolesLabel(dec)}.
-                  </div>
-                  <div className="notif-entry-actions">
-                    <Button size="sm" variant="ghost" onClick={() => descartarDecision(dec)}>Descartar</Button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -215,35 +218,38 @@ export default function Notificaciones() {
             ) : !mensajes.data?.mensajes?.length ? (
               <EmptyState title="Sin mensajes" message="Aquí aparecerán los mensajes que te envíe tu equipo." />
             ) : (
-              mensajes.data.mensajes.map((msg) => (
-                <div key={msg.id} className={`notif-entry${msg.leido ? '' : ' unread'}`}>
-                  <div className="notif-entry-head">
-                    <div className="member-cell">
-                      <span className="member-avatar">{iniciales(msg.remitente?.nombre)}</span>
-                      <div className="member-name-line">
-                        <strong>
-                          {!msg.leido && <span className="notif-unread-dot" aria-hidden="true" />}
-                          {msg.remitente?.nombre}
-                        </strong>
-                        <span className="member-email">{msg.pyme?.nombre}</span>
+              <div className="notif-timeline">
+                {mensajes.data.mensajes.map((msg) => (
+                  <div key={msg.id} className={`notif-entry${msg.leido ? '' : ' unread'}`}>
+                    <span className={`notif-timeline-dot${msg.leido ? '' : ' notif-timeline-dot-unread'}`} aria-hidden="true" />
+                    <div className="notif-entry-head">
+                      <div className="member-cell">
+                        <span className="member-avatar">{iniciales(msg.remitente?.nombre)}</span>
+                        <div className="member-name-line">
+                          <strong>
+                            {!msg.leido && <span className="notif-unread-dot" aria-hidden="true" />}
+                            {msg.remitente?.nombre}
+                          </strong>
+                          <span className="member-email">{msg.pyme?.nombre}</span>
+                        </div>
                       </div>
+                      <span className="notif-entry-time">{tiempoRelativo(msg.createdAt)}</span>
                     </div>
-                    <span className="notif-entry-time">{tiempoRelativo(msg.createdAt)}</span>
-                  </div>
-                  <div className="notif-entry-meta">
-                    <Badge tone={msg.rolDestino ? 'default' : 'primary'}>
-                      {msg.rolDestino ? `Para ${ROL_LABELS[msg.rolDestino] || msg.rolDestino}` : 'Personal'}
-                    </Badge>
-                    {msg.prioridad === 'ALTA' && <Badge tone="danger">Alta prioridad</Badge>}
-                  </div>
-                  <div className="notif-entry-body">{msg.contenido}</div>
-                  {!msg.leido && (
-                    <div className="notif-entry-actions">
-                      <Button size="sm" variant="ghost" onClick={() => marcarLeido(msg)}>Marcar leído</Button>
+                    <div className="notif-entry-meta">
+                      <Badge tone={msg.rolDestino ? 'default' : 'primary'}>
+                        {msg.rolDestino ? `Para ${ROL_LABELS[msg.rolDestino] || msg.rolDestino}` : 'Personal'}
+                      </Badge>
+                      {msg.prioridad === 'ALTA' && <Badge tone="danger">Alta prioridad</Badge>}
                     </div>
-                  )}
-                </div>
-              ))
+                    <div className="notif-entry-body">{msg.contenido}</div>
+                    {!msg.leido && (
+                      <div className="notif-entry-actions">
+                        <Button size="sm" variant="ghost" onClick={() => marcarLeido(msg)}>Marcar leído</Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>

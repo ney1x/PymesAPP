@@ -306,12 +306,14 @@ export default function Equipo() {
 
       <div className="card animate-fade-in-up">
         <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
+          <div className="equipo-titulo-row">
             <span>Equipo de {pymeActual?.nombre}</span>
             {esOwner && !miembros.loading && miembrosOrdenados.length > 0 && (
-              <span className="muted" style={{ fontWeight: 400, marginLeft: 8, fontSize: 12.5 }}>
-                {conteoActivos} activo{conteoActivos === 1 ? '' : 's'}
-                {conteoPendientes > 0 ? ` · ${conteoPendientes} pendiente${conteoPendientes === 1 ? '' : 's'}` : ''}
+              <span className="equipo-conteo">
+                <Badge tone="success">{conteoActivos} activo{conteoActivos === 1 ? '' : 's'}</Badge>
+                {conteoPendientes > 0 && (
+                  <Badge tone="warning">{conteoPendientes} pendiente{conteoPendientes === 1 ? '' : 's'}</Badge>
+                )}
               </span>
             )}
           </div>
@@ -345,7 +347,7 @@ export default function Equipo() {
                   miembrosOrdenados.map((m, i) => (
                     <tr
                       key={m.id}
-                      className={`animate-fade-in${m.estado === 'RECHAZADA' ? ' member-row-rechazada' : ''}`}
+                      className={`animate-fade-in${m.estado === 'RECHAZADA' ? ' member-row-rechazada' : ''}${m.estado === 'PENDIENTE' ? ' member-row-pendiente' : ''}`}
                       style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
                     >
                       <td>

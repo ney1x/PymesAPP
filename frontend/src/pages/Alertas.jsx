@@ -84,6 +84,19 @@ export default function Alertas() {
     return Array.from(porProducto.values()).sort((a, b) => b.deficit - a.deficit);
   }, [bajoStock.data, reorden.data]);
 
+  // Compartido entre el spotlight (solo la #1) y cada fila de la lista
+  // completa — la misma regla de "cuándo mostrar cifra vs. pedir que la
+  // defina a mano" no puede bifurcarse entre los dos lugares donde se pinta.
+  const evaluarAlerta = (a) => {
+    const critico = a.stockActual === 0;
+    const mostrarCifra = a.comprar && a.cantidad > 0;
+    const sinCifraCalculable = !mostrarCifra && (a.bajoMinimo || a.comprar);
+    return { critico, mostrarCifra, sinCifraCalculable };
+  };
+
+  const peor = alertas[0];
+  const peorEval = peor ? evaluarAlerta(peor) : null;
+
   return (
     <div data-impeccable-seed="alertasredesign1">
       <PageHeader
@@ -102,6 +115,30 @@ export default function Alertas() {
       />
 
       {error && <ErrorBox error={error} />}
+
+      {!loading && peor && (
+        <div className="alerta-spotlight">
+          <span className="alerta-spotlight-label">
+            Prioridad #1{peorEval.critico && <span className="alerta-spotlight-agotado">Agotado</span>}
+          </span>
+          <div className="alerta-spotlight-body">
+            <strong className="alerta-spotlight-nombre">{peor.nombre}</strong>
+            <span className="alerta-spotlight-detalle">
+              Actual {peor.stockActual}
+              {peor.bajoMinimo && ` · Mínimo ${peor.stockMinimo}`}
+              {peor.comprar && ` · Punto de reorden ${Math.round(peor.puntoReorden)} · Lead time ${peor.leadTimeDias} días`}
+            </span>
+          </div>
+          {peorEval.mostrarCifra ? (
+            <div className="alerta-spotlight-cifra">
+              <strong>{Math.round(peor.cantidad)}</strong>
+              <span>uds a pedir ya</span>
+            </div>
+          ) : peorEval.sinCifraCalculable ? (
+            <span className="alerta-spotlight-fallback">Sin historial · definí la cantidad</span>
+          ) : null}
+        </div>
+      )}
 
       <div className="card card--static">
         <div className="card-title">Alertas de reposición</div>
@@ -123,12 +160,7 @@ export default function Alertas() {
               // se lo gana el mismo tratamiento que ya usa el sistema para
               // "esto necesita tu atención ya" (notif-entry.unread), no un
               // color nuevo.
-              const critico = a.stockActual === 0;
-              const mostrarCifra = a.comprar && a.cantidad > 0;
-              // comprar=true con cantidad=0 pasa sin historial de ventas
-              // (el modelo no tiene de dónde estimar) — nunca dejar la fila
-              // más urgente muda, avisar que hay que decidir a mano.
-              const sinCifraCalculable = !mostrarCifra && (a.bajoMinimo || a.comprar);
+              const { critico, mostrarCifra, sinCifraCalculable } = evaluarAlerta(a);
               return (
                 <li
                   className={`rank-item animate-slide-in-right${critico ? ' alerta-critica' : ''}`}

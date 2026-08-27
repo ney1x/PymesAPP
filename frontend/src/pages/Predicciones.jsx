@@ -88,6 +88,20 @@ export default function Predicciones() {
     fecha: p.createdAt,
   })) || [];
 
+  // Mismo criterio que el Dashboard (ver interpretarDemanda ahí): la demanda
+  // se lee relativa al promedio del propio listado, no como una cifra
+  // aislada — sobre eso se arma el veredicto de cada fila.
+  const demandaPromedio = mostrar.length
+    ? mostrar.reduce((sum, p) => sum + (Number(p.demandaPredicha) || 0), 0) / mostrar.length
+    : 0;
+
+  const interpretarDemanda = (demanda) => {
+    if (!demandaPromedio) return 'Revisar tendencia antes de comprar';
+    if (demanda > demandaPromedio) return 'Considerar aumentar stock';
+    if (demanda < demandaPromedio) return 'Evitar sobreabastecer';
+    return 'Mantener stock';
+  };
+
   const chartData = mostrar
     .filter((p) => !search || p.producto.nombre.toLowerCase().includes(search.toLowerCase()))
     .slice(0, 8)
@@ -174,10 +188,52 @@ export default function Predicciones() {
         // vacío — el fade-up marca justo el instante en que llega la
         // respuesta del modelo, no cada tecla de búsqueda (eso solo
         // actualiza el contenido de las mismas cards, sin remount).
-        <div className="grid-2">
-          {/* Gráfica */}
-          <div className="card animate-fade-in-up delay-1">
-            <div className="card-title">Gráfica</div>
+        <div className="prediccion-layout">
+          {/* Recomendaciones — el veredicto del modelo es el protagonista,
+              no una fila más de tabla. */}
+          <div className="card prediccion-insights animate-fade-in-up delay-1">
+            <div className="card-title">Recomendaciones por producto</div>
+            <p className="muted prediccion-insights-nota">
+              "Demanda" es el total estimado de unidades que se venderían en
+              el horizonte elegido para ese producto (no es una cifra diaria).
+              La recomendación compara cada producto contra el promedio del
+              listado actual.
+            </p>
+            {tablaDatos.length === 0 ? (
+              <EmptyState title="Sin resultados" />
+            ) : (
+              <ul className="list-card prediccion-insight-list">
+                {tablaDatos.map((p, i) => {
+                  const fecha = p.fecha ? new Date(p.fecha).toLocaleDateString('es-CO') : '—';
+                  const horizonteLabel = HORIZONTES.find((h) => h.value === p.horizonteDias)?.label
+                    || `${p.horizonteDias} días`;
+                  const filaDelay = Math.min(i, 7) * 40;
+                  return (
+                    <li key={p.id} className="prediccion-insight animate-slide-in-right" style={{ animationDelay: `${filaDelay}ms` }}>
+                      <div className="prediccion-insight-head">
+                        <span className="prediccion-insight-producto">{p.producto.nombre}</span>
+                        <span className="prediccion-confianza-pop" style={{ animationDelay: `${filaDelay + 120}ms` }}>
+                          {confianzaBadge(p.nivelConfianza)}
+                        </span>
+                      </div>
+                      <strong className="prediccion-insight-veredicto">
+                        {interpretarDemanda(Number(p.demandaPredicha) || 0)}
+                      </strong>
+                      <div className="prediccion-insight-stats">
+                        <span>{p.demandaPredicha} uds en {horizonteLabel.toLowerCase()}</span>
+                        <span>Rentabilidad estimada: {money(p.rentabilidadPredicha)}</span>
+                        <span>Generado {fecha}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* Gráfica — apoyo visual, no compite con la recomendación. */}
+          <div className="card prediccion-chart-card animate-fade-in-up delay-2">
+            <div className="card-title">Demanda comparada</div>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#dde1e6" />
@@ -195,56 +251,6 @@ export default function Predicciones() {
                 />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-
-          {/* Resultados por producto */}
-          <div className="card animate-fade-in-up delay-2">
-            <div className="card-title">Resultados por producto</div>
-            <p className="muted" style={{ marginTop: -4, marginBottom: 12 }}>
-              "Demanda" es el total estimado de unidades que se venderían en
-              el horizonte elegido para ese producto (no es una cifra diaria).
-            </p>
-            <div className="table-wrap" style={{ border: 'none', boxShadow: 'none' }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Producto</th>
-                    <th>Demanda estimada</th>
-                    <th>Confianza</th>
-                    <th>Generado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tablaDatos.length === 0 ? (
-                    <tr><td colSpan="4"><EmptyState title="Sin resultados" /></td></tr>
-                  ) : (
-                    tablaDatos.map((p, i) => {
-                      const fecha = p.fecha ? new Date(p.fecha).toLocaleDateString('es-CO') : '—';
-                      const horizonteLabel = HORIZONTES.find((h) => h.value === p.horizonteDias)?.label
-                        || `${p.horizonteDias} días`;
-                      const filaDelay = Math.min(i, 7) * 40;
-                      return (
-                        <tr key={p.id} className="animate-slide-in-right" style={{ animationDelay: `${filaDelay}ms` }}>
-                          <td><strong>{p.producto.nombre}</strong></td>
-                          <td>
-                            {p.demandaPredicha} uds
-                            <span className="muted" style={{ display: 'block', fontSize: 12 }}>
-                              en {horizonteLabel.toLowerCase()}
-                            </span>
-                          </td>
-                          <td>
-                            <span className="prediccion-confianza-pop" style={{ animationDelay: `${filaDelay + 120}ms` }}>
-                              {confianzaBadge(p.nivelConfianza)}
-                            </span>
-                          </td>
-                          <td>{fecha}</td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
           </div>
         </div>
       )}

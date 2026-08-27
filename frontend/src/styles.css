@@ -367,6 +367,13 @@ a:hover { color: var(--primary); }
 .btn-success:hover:not(:disabled) { background: #1e5236; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(42, 112, 72, 0.22); }
 .btn-success:active:not(:disabled) { box-shadow: 0 1px 2px rgba(42, 112, 72, 0.22); }
 
+/* Accent sólido — mismo par petrol/texto oscuro que .brand-logo, para la
+   única acción que debe leer fuerte sobre una superficie navy (barra de
+   cobro de Ventas). No es un color nuevo, es --primary llevado a botón. */
+.btn-accent { background: var(--primary); color: #241804; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22); }
+.btn-accent:hover:not(:disabled) { background: var(--primary-dark); color: #fff; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); }
+.btn-accent:active:not(:disabled) { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.32); }
+
 .btn-block { width: 100%; }
 
 /* Compacto — acciones dentro de tablas y listas densas. */
@@ -518,6 +525,149 @@ tbody tr:focus-visible { outline: 2px solid var(--petrol); outline-offset: -2px;
    no solo el badge — la cifra de stock actual pasa a rojo. */
 td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 
+/* ======================== INVENTARIO: CATÁLOGO ======================== */
+/* Búsqueda, filtros, stock y categorías como protagonistas — más densidad
+   de información que una tabla plana, sin tocar la paginación ni la
+   navegación por teclado que ya tenía la página. */
+
+.inv-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.inv-toolbar-stat {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.inv-category-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 16px;
+}
+
+.inv-category-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.inv-category-chip:hover { border-color: var(--navy); }
+.inv-category-chip:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; }
+
+.inv-category-chip-active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+
+.inv-category-chip-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.inv-category-chip-active .inv-category-chip-count { color: rgba(255, 255, 255, 0.7); }
+
+/* Catálogo: filas más compactas que una tabla genérica — cabe más
+   inventario por pantalla sin scroll. */
+.table-wrap--catalogo thead th { padding: 9px 14px; }
+.table-wrap--catalogo tbody td { padding: 8px 14px; }
+
+/* Fila seleccionada (clic o flechas del teclado): antes usaba --primary-soft,
+   que es exactamente el mismo valor que --warning-soft (ambos #f6e4c4,
+   mismo hex) — una fila seleccionada se leía igual que una advertencia de
+   stock bajo en la misma tabla. Pasa a la familia navy (ya es "esto está
+   activo" en el resto de la app — rail, hero de Dashboard) y suma el mismo
+   anillo que ya usa el foco real de teclado, en vez de un fondo plano solo. */
+.table-wrap--catalogo tbody tr {
+  transition: background-color 150ms ease;
+}
+
+.table-wrap--catalogo tbody tr.inv-row-selected {
+  background: var(--navy-soft);
+  outline: 2px solid var(--petrol);
+  outline-offset: -2px;
+}
+
+.inv-cell-codigo {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* La categoría necesita su propio contorno: sin esto, badge-default (fondo
+   surface-alt) se vuelve invisible en cuanto la fila pasa a :hover, porque
+   el fondo de la fila hover es ese mismo surface-alt. */
+.inv-badge-categoria .badge-default {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.inv-stock-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 150px;
+}
+
+.inv-stock-cell-value {
+  font-weight: 700;
+  min-width: 22px;
+  text-align: right;
+}
+
+.inv-stock-bar {
+  display: inline-block;
+  width: 48px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.inv-stock-bar-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  background: var(--success);
+  transform-origin: left;
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.inv-stock-bar-warning .inv-stock-bar-fill { background: var(--warning); }
+.inv-stock-bar-danger .inv-stock-bar-fill { background: var(--danger); }
+
+.inv-stock-cell-min {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .inv-toolbar-stat { margin-left: 0; width: 100%; }
+}
+
 /* ======================== TARJETAS ======================== */
 
 .stat-card {
@@ -596,8 +746,75 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   margin-top: auto;
 }
 
-.dashboard-kpis {
-  opacity: 0.92;
+/* Dashboard: banda de control — KPIs + tendencia en un solo panel navy,
+   en vez de una fila de stat-cards blancas seguida de otra card blanca con
+   el gráfico. El amber marca el número que más importa (margen). */
+.dashboard-hero {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 28px;
+  background: var(--navy);
+  border-radius: var(--radius);
+  padding: 22px 26px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+
+.dashboard-hero-stats {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+}
+
+.dashboard-hero-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard-hero-stat-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.dashboard-hero-stat-value {
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+
+.dashboard-hero-stat-value-accent { color: var(--petrol); }
+
+.dashboard-hero-stat-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.dashboard-hero-chart {
+  min-width: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  padding-left: 26px;
+}
+
+.dashboard-hero-chart-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 8px;
+}
+
+@media (max-width: 860px) {
+  .dashboard-hero { grid-template-columns: 1fr; }
+  .dashboard-hero-stats { flex-direction: row; flex-wrap: wrap; gap: 20px; }
+  .dashboard-hero-chart { border-left: none; padding-left: 0; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 16px; }
 }
 
 .card {
@@ -690,12 +907,47 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   font-size: 12px;
 }
 
+/* Mismo lenguaje que la card "Reponer ahora" del panel de decisiones —
+   la urgencia se lee igual en toda la pantalla, no es un tratamiento nuevo. */
 .dashboard-alert-card {
-  border-color: rgba(178, 58, 46, 0.2);
+  background: linear-gradient(180deg, var(--danger-soft), var(--surface));
+  border-color: rgba(178, 58, 46, 0.3);
+}
+
+.dashboard-alert-card .card-title { color: var(--danger); }
+
+.dashboard-alert-card-ok {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.dashboard-alert-card-ok .card-title { color: var(--text); }
+
+.dashboard-alert-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 6px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
 }
 
 .dashboard-alert-item {
   align-items: flex-start;
+  gap: 10px;
+}
+
+.dashboard-alert-icon {
+  flex-shrink: 0;
+  color: var(--danger);
+  margin-top: 2px;
 }
 
 .dashboard-alert-item .btn {
@@ -848,31 +1100,156 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   100% { opacity: 1; transform: translateX(0); }
 }
 
-/* ======================== VENTAS: PANEL EN VIVO ======================== */
+/* ======================== VENTAS: POS ======================== */
+/* Composición de caja registradora en vez de "dos cards iguales lado a
+   lado": un panel de operación con tres franjas apiladas (escaneo → carrito
+   → cobro, mismo orden que el flujo real de una venta) y, aparte, un
+   costado secundario más plano para el historial — nunca compitiendo por
+   atención con la operación en curso. */
 
-.venta-total-row {
+.venta-pos {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.venta-pos-main {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+/* Franja 1 — el escaneo es la acción protagonista: banda navy propia,
+   no un título gris más dentro de una card blanca. */
+.venta-scan-deck {
+  background: var(--navy);
+  padding: 18px 20px 16px;
+}
+
+.venta-scan-deck-head {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-  background: var(--primary-soft);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.venta-scan-deck-title {
+  font-size: 15px;
+  color: #fff;
+  margin: 0;
+}
+
+.venta-scan-deck .form-group > label {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.venta-scan-deck .venta-scan-input {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #fff;
+  font-size: 15px;
+}
+
+.venta-scan-deck .venta-scan-input::placeholder { color: rgba(255, 255, 255, 0.5); }
+
+.venta-scan-deck .venta-scan-input:focus {
+  border-color: var(--petrol);
+  background: rgba(255, 255, 255, 0.13);
+  box-shadow: 0 0 0 3px rgba(201, 122, 12, 0.35);
+}
+
+.venta-manual-add summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+  margin-top: 4px;
+}
+
+.venta-manual-add summary:hover { color: #fff; }
+
+.venta-manual-add-body {
+  margin-top: 12px;
+  padding: 14px 14px 2px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: var(--radius);
 }
 
-.venta-total-label {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--primary-dark);
+.venta-manual-add-body label { color: rgba(255, 255, 255, 0.68); }
+
+.venta-manual-add-body input,
+.venta-manual-add-body select {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
 }
 
-.venta-total-ticker {
+.venta-manual-add-body input:focus,
+.venta-manual-add-body select:focus {
+  border-color: var(--petrol);
+  background: rgba(255, 255, 255, 0.13);
+  box-shadow: 0 0 0 3px rgba(201, 122, 12, 0.35);
+}
+
+.venta-manual-add-body select option { color: var(--text); }
+
+/* Franja 2 — el carrito es el centro de la operación: papel de recibo real
+   (borde punteado arriba/abajo, igual que el resto de la app usa para
+   separar líneas de factura), no una segunda card idéntica a la primera. */
+.venta-cart-tape {
+  padding: 16px 20px 18px;
+  background: var(--surface);
+  border-top: 1px dashed var(--border-strong);
+  border-bottom: 1px dashed var(--border-strong);
+}
+
+.venta-cart-tape .list-card-preview {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.venta-cart-tape .rank-item { border-bottom: 1px dashed var(--border); }
+.venta-cart-tape .rank-item:last-child { border-bottom: none; }
+
+/* Franja 3 — el cobro: jerarquía fuerte a propósito, banda navy propia con
+   el total en el tamaño más grande de toda la pantalla y "Confirmar venta"
+   como único botón sólido en amber (accent) de la vista. */
+.venta-checkout-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--navy);
+}
+
+.venta-checkout-total {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.venta-checkout-total-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.venta-checkout-total-value {
   font-family: var(--font-display);
-  font-size: 32px;
+  font-size: 40px;
   font-weight: 700;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
-  color: var(--navy);
+  color: var(--petrol);
   animation: ventaTotalBump 320ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -880,6 +1257,36 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   0% { transform: scale(1); }
   45% { transform: scale(1.05); }
   100% { transform: scale(1); }
+}
+
+.venta-checkout-confirm {
+  flex-shrink: 0;
+  min-height: 52px;
+  padding: 0 28px;
+  font-size: 15px;
+  border-radius: 10px;
+}
+
+/* Costado — historial secundario: plano y tinte neutro a propósito, para
+   que nunca compita con la operación de venta en curso. */
+.venta-pos-recientes {
+  background: var(--surface-alt);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 24px;
+}
+
+.venta-pos-recientes-head {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+@media (max-width: 900px) {
+  .venta-pos { grid-template-columns: 1fr; }
 }
 
 .venta-stock-gauge { margin-bottom: 16px; }
@@ -1253,6 +1660,67 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   opacity: 0;
 }
 
+/* Predicciones: el veredicto del modelo es el contenido, la tabla de datos
+   crudos queda de apoyo — feed de recomendaciones en vez de filas de tabla. */
+.prediccion-layout {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.prediccion-insights-nota {
+  margin-top: -4px;
+  margin-bottom: 14px;
+}
+
+.prediccion-insight-list { gap: 0; }
+
+.prediccion-insight {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.prediccion-insight:last-child { border-bottom: none; }
+
+.prediccion-insight-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.prediccion-insight-producto {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.prediccion-insight-veredicto {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--navy);
+}
+
+.prediccion-insight-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+@media (max-width: 860px) {
+  .prediccion-layout { grid-template-columns: 1fr; }
+}
+
 /* Stagger delays */
 .delay-1 { animation-delay: 0ms; }
 .delay-2 { animation-delay: 80ms; }
@@ -1293,6 +1761,100 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 }
 
 .rank-item:focus-visible { outline: 2px solid var(--petrol); outline-offset: -2px; }
+
+/* Alertas: el peor déficit de la lista (ya ordenada) se saca aparte en una
+   banda navy — mismo lenguaje de "esto es lo que más importa en la
+   pantalla" que ya usan Ventas (cobro) y Dashboard (KPIs). El resto de la
+   lista sigue exactamente igual, esta fila #1 aparece dos veces a propósito
+   (spotlight + primera fila de la lista completa), igual que el Dashboard
+   repite su propio "Reponer ahora" sin problema. */
+.alerta-spotlight {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  background: var(--navy);
+  border-radius: var(--radius);
+  padding: 16px 22px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+
+.alerta-spotlight-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.alerta-spotlight-agotado {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.alerta-spotlight-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.alerta-spotlight-nombre {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.alerta-spotlight-detalle {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.alerta-spotlight-cifra {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+  flex-shrink: 0;
+}
+
+.alerta-spotlight-cifra strong {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--petrol);
+}
+
+.alerta-spotlight-cifra span { font-size: 11px; color: rgba(255, 255, 255, 0.55); }
+
+.alerta-spotlight-fallback {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+  text-align: right;
+  max-width: 160px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .alerta-spotlight-cifra, .alerta-spotlight-fallback { text-align: left; align-items: flex-start; }
+}
 
 /* Alertas: fila agotada, mismo tinte plano que .notif-entry.unread ya usa
    para "esto necesita tu atención" — se mantiene incluso en hover. */
@@ -1393,8 +1955,10 @@ a {
   .rail-dropdown-item,
   .pagination button,
   .sugerencia-btn,
-  .venta-total-ticker,
+  .venta-checkout-total-value,
   .venta-stock-gauge-fill,
+  .inv-stock-bar-fill,
+  .inv-category-chip,
   .venta-feed-item-new,
   .prediccion-confianza-pop,
   .recharts-wrapper,
@@ -1704,6 +2268,43 @@ a {
   vertical-align: middle;
 }
 
+/* Bandeja como timeline: una línea continua conecta los eventos ya resueltos
+   (decisiones, mensajes) en orden — el hilo que le falta a una lista plana
+   de tarjetas para leerse como actividad, no como una tabla de filas. Las
+   invitaciones pendientes (invite-card) quedan fuera a propósito: son una
+   cola de acciones por tomar, no un historial. */
+.notif-timeline { position: relative; }
+
+.notif-timeline::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--border);
+}
+
+.notif-timeline .notif-entry {
+  position: relative;
+  padding-left: 40px;
+}
+
+.notif-timeline-dot {
+  position: absolute;
+  left: 15px;
+  top: 14px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--surface);
+}
+
+.notif-timeline-dot-unread { background: var(--primary); }
+.notif-timeline-dot-success { background: var(--success); }
+.notif-timeline-dot-danger { background: var(--danger); }
+
 /* Tabs de la pagina de notificaciones: segmented control, no dos botones
    sueltos — el fondo del contenedor y el relleno solido del activo son lo
    que lo distingue de un par de <Button> con variant intercambiada. */
@@ -1814,6 +2415,76 @@ a {
 .invite-card-body { font-size: 13.5px; color: var(--text); }
 .invite-card-actions { display: flex; gap: 10px; margin-top: 2px; }
 
+/* ======================== MIS PYMES ======================== */
+/* Selector de negocios, no una tabla de filas — cada PYME es su propia
+   tarjeta con una marca de identidad (iniciales, navy/petrol alternado,
+   esquinas cuadradas para distinguirla del avatar circular de persona que
+   ya usan Equipo y Notificaciones). */
+
+.pyme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.pyme-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pyme-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pyme-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.pyme-avatar-navy { background: var(--navy); color: #fff; }
+.pyme-avatar-petrol { background: var(--petrol); color: #241804; }
+
+.pyme-card-nombre { font-size: 16px; }
+
+.pyme-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.pyme-card-meta span { display: flex; align-items: center; gap: 6px; }
+.pyme-card-meta svg { flex-shrink: 0; color: var(--muted); }
+
+.pyme-card-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* ======================== EQUIPO Y SEDES ======================== */
 
 .sede-pill-row {
@@ -1858,20 +2529,24 @@ a {
 
 .sede-pill-add:hover { border-color: var(--navy); color: var(--navy); background: var(--surface-alt); }
 
+.equipo-titulo-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.equipo-conteo { display: inline-flex; gap: 6px; }
+
 .member-cell { display: flex; align-items: center; gap: 11px; }
 
 .member-avatar {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: var(--petrol);
   color: #241804;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 12.5px;
   flex-shrink: 0;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--border);
 }
 
 .member-name-line { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
@@ -1889,24 +2564,56 @@ a {
 .member-roles-checkboxes {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 12px;
+  gap: 6px;
 }
 
+/* Selector de permisos, no una lista de checkboxes de formulario — mismo
+   patrón de chip toggle que ya usan los filtros de categoría en Inventario
+   (pastilla, borde, activo = relleno navy), aplicado acá a roles. */
 .member-rol-checkbox {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12.5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
+.member-rol-checkbox:hover { border-color: var(--navy); }
+
+.member-rol-checkbox:has(input:checked) {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+
+.member-rol-checkbox:has(input:disabled) { cursor: not-allowed; opacity: 0.65; }
+
+.member-rol-checkbox:focus-within { outline: 2px solid var(--petrol); outline-offset: 2px; }
+
 .member-rol-checkbox input[type='checkbox'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
   margin: 0;
+  opacity: 0;
 }
 
 tbody tr.member-row-rechazada { opacity: 0.55; }
 tbody tr.member-row-rechazada:hover { opacity: 0.85; }
+
+/* Pendiente necesita seguimiento del dueño — se marca, no se apaga como
+   rechazada (que ya no requiere ninguna acción). */
+tbody tr.member-row-pendiente { background: var(--warning-soft); }
+tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
 
 /* ======================== PERFIL ======================== */
 

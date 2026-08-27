@@ -17,6 +17,7 @@ export default function Inventario() {
   const [search, setSearch] = useState('');
   const [filtroPymeId, setFiltroPymeId] = useState('');
   const [filtroSedeId, setFiltroSedeId] = useState('');
+  const [filtroCategoria, setFiltroCategoria] = useState('');
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -68,7 +69,25 @@ export default function Inventario() {
     return Array.from(new Set([...comunes, ...usadas])).sort((a, b) => a.localeCompare(b));
   }, [inventarios, form.pymeId, pymes.data]);
 
+  // Conteo por categoría sobre el inventario ya filtrado por PYME/sede (antes
+  // de aplicar búsqueda o la propia categoría), para que la barra de chips
+  // muestre cuánto hay en cada una sin importar qué esté buscando el usuario.
+  const categoriasConteo = useMemo(() => {
+    const conteo = new Map();
+    inventarios.forEach((inv) => {
+      const cat = inv.producto.categoria || 'Sin categoría';
+      conteo.set(cat, (conteo.get(cat) || 0) + 1);
+    });
+    return Array.from(conteo.entries())
+      .map(([categoria, cantidad]) => ({ categoria, cantidad }))
+      .sort((a, b) => b.cantidad - a.cantidad || a.categoria.localeCompare(b.categoria));
+  }, [inventarios]);
+
   const filtered = inventarios.filter((inv) => {
+    if (filtroCategoria) {
+      const cat = inv.producto.categoria || 'Sin categoría';
+      if (cat !== filtroCategoria) return false;
+    }
     if (!search) return true;
     const s = search.toLowerCase();
     return (
@@ -308,7 +327,7 @@ export default function Inventario() {
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
+      <div className="inv-toolbar">
         <div className="search-box">
           <IconSearch size={15} />
           <input
@@ -322,7 +341,7 @@ export default function Inventario() {
         {tienePymes && (
           <select
             value={filtroPymeId}
-            onChange={(e) => { setFiltroPymeId(e.target.value); setFiltroSedeId(''); setPage(1); }}
+            onChange={(e) => { setFiltroPymeId(e.target.value); setFiltroSedeId(''); setFiltroCategoria(''); setPage(1); }}
           >
             <option value="">Todas mis PYMES</option>
             {pymes.data?.pymes?.map((p) => (
@@ -333,7 +352,7 @@ export default function Inventario() {
         {filtroPymeId && (sedes.data?.sedes?.length ?? 0) > 1 && (
           <select
             value={filtroSedeId}
-            onChange={(e) => { setFiltroSedeId(e.target.value); setPage(1); }}
+            onChange={(e) => { setFiltroSedeId(e.target.value); setFiltroCategoria(''); setPage(1); }}
           >
             <option value="">Todas las sedes</option>
             {sedes.data.sedes.map((s) => (
@@ -341,16 +360,41 @@ export default function Inventario() {
             ))}
           </select>
         )}
+        <span className="inv-toolbar-stat">
+          {filtered.length} producto{filtered.length === 1 ? '' : 's'} · {categoriasConteo.length} categoría{categoriasConteo.length === 1 ? '' : 's'}
+        </span>
       </div>
 
-      <div className="table-wrap animate-fade-in-up">
+      {categoriasConteo.length > 0 && (
+        <div className="inv-category-filter" role="group" aria-label="Filtrar por categoría">
+          <button
+            type="button"
+            className={`inv-category-chip${filtroCategoria === '' ? ' inv-category-chip-active' : ''}`}
+            onClick={() => { setFiltroCategoria(''); setPage(1); }}
+          >
+            Todas
+          </button>
+          {categoriasConteo.map(({ categoria, cantidad }) => (
+            <button
+              type="button"
+              key={categoria}
+              className={`inv-category-chip${filtroCategoria === categoria ? ' inv-category-chip-active' : ''}`}
+              onClick={() => { setFiltroCategoria(filtroCategoria === categoria ? '' : categoria); setPage(1); }}
+            >
+              {categoria} <span className="inv-category-chip-count">{cantidad}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="table-wrap table-wrap--catalogo animate-fade-in-up">
         <table>
           <thead>
             <tr>
               <th>Producto</th>
+              <th>Código</th>
               <th>Categoría</th>
-              <th>Stock actual</th>
-              <th>Stock mínimo</th>
+              <th>Stock</th>
               <th>Estado</th>
               {puedeVenderAlguna && <th>Vendido</th>}
               {puedeGestionarProductos && <th>Acciones</th>}
@@ -366,6 +410,10 @@ export default function Inventario() {
             ) : (
               paginated.map((inv, i) => {
                 const alerta = inv.stockActual <= inv.stockMinimo;
+                const enAlerta = inv.stockActual <= inv.stockMinimo * 1.5;
+                const techoStock = inv.stockMaximo || Math.max(inv.stockActual, inv.stockMinimo * 2, 1);
+                const stockPct = Math.max(0, Math.min(100, (inv.stockActual / techoStock) * 100));
+                const stockTone = alerta ? 'danger' : enAlerta ? 'warning' : 'ok';
                 const rol = rolPorPyme.get(inv.producto.pymeId);
                 const puedeVenderFila = puede(rol, 'crearVentas');
                 const puedeGestionarFila = puede(rol, 'gestionarProductos');
@@ -373,14 +421,22 @@ export default function Inventario() {
                   <tr
                     key={inv.id}
                     tabIndex={0}
-                    className="animate-fade-in"
+                    className={`animate-fade-in${focusedRowIndex === i ? ' inv-row-selected' : ''}`}
                     onClick={() => setFocusedRowIndex(i)}
-                    style={{ animationDelay: `${i * 40}ms`, backgroundColor: focusedRowIndex === i ? 'var(--primary-soft)' : undefined }}
+                    style={{ animationDelay: `${i * 40}ms` }}
                   >
                     <td><strong>{inv.producto.nombre}</strong></td>
-                    <td>{inv.producto.categoria || '—'}</td>
-                    <td className={alerta ? 'cell-stock-critico' : undefined}>{inv.stockActual}</td>
-                    <td>{inv.stockMinimo}</td>
+                    <td className="inv-cell-codigo">{inv.producto.codigo || '—'}</td>
+                    <td><span className="inv-badge-categoria"><Badge tone="default">{inv.producto.categoria || 'Sin categoría'}</Badge></span></td>
+                    <td>
+                      <div className="inv-stock-cell">
+                        <span className={`inv-stock-cell-value${alerta ? ' cell-stock-critico' : ''}`}>{inv.stockActual}</span>
+                        <span className={`inv-stock-bar inv-stock-bar-${stockTone}`} role="progressbar" aria-label={`Stock de ${inv.producto.nombre}`} aria-valuenow={inv.stockActual} aria-valuemin={0} aria-valuemax={techoStock}>
+                          <span className="inv-stock-bar-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
+                        </span>
+                        <span className="inv-stock-cell-min">mín. {inv.stockMinimo}</span>
+                      </div>
+                    </td>
                     <td>
                       {alerta ? (
                         <Badge tone="danger">Bajo stock</Badge>

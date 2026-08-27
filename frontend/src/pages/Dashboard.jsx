@@ -4,7 +4,8 @@ import { dashboardApi, pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { useAuth } from '../context/AuthContext';
 import { usePymeFilter } from '../context/PymeFilterContext';
-import { Spinner, ErrorBox, StatCard, PageHeader, EmptyState, money } from '../components/ui';
+import { Spinner, ErrorBox, PageHeader, EmptyState, money } from '../components/ui';
+import { IconAlert } from '../components/Icons';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
@@ -169,38 +170,51 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <div className="stat-grid dashboard-kpis">
-        {resumen.ingresos !== undefined && (
-          <StatCard label="Ingresos (histórico)" value={money(resumen.ingresos)} hint="Total vendido" />
-        )}
-        {resumen.margenBruto !== undefined && (
-          <StatCard label="Margen bruto" value={money(resumen.margenBruto)} hint="Utilidad estimada" tone="success" />
-        )}
-        <StatCard label="Unidades vendidas" value={resumen.unidadesVendidas} />
-      </div>
+      <section className="dashboard-hero animate-fade-in-up delay-1" aria-label="Métricas y tendencia de ventas">
+        <div className="dashboard-hero-stats">
+          {resumen.ingresos !== undefined && (
+            <div className="dashboard-hero-stat">
+              <span className="dashboard-hero-stat-label">Ingresos (histórico)</span>
+              <strong className="dashboard-hero-stat-value">{money(resumen.ingresos)}</strong>
+              <span className="dashboard-hero-stat-hint">Total vendido</span>
+            </div>
+          )}
+          {resumen.margenBruto !== undefined && (
+            <div className="dashboard-hero-stat">
+              <span className="dashboard-hero-stat-label">Margen bruto</span>
+              <strong className="dashboard-hero-stat-value dashboard-hero-stat-value-accent">{money(resumen.margenBruto)}</strong>
+              <span className="dashboard-hero-stat-hint">Utilidad estimada</span>
+            </div>
+          )}
+          <div className="dashboard-hero-stat">
+            <span className="dashboard-hero-stat-label">Unidades vendidas</span>
+            <strong className="dashboard-hero-stat-value">{resumen.unidadesVendidas}</strong>
+          </div>
+        </div>
+
+        <div className="dashboard-hero-chart">
+          <span className="dashboard-hero-chart-label">Ventas de los últimos 7 días</span>
+          {ventasPorDia.length === 0 ? (
+            <EmptyState
+              title="Sin ventas recientes"
+              message="Registra ventas para ver la tendencia de ingresos."
+            />
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={ventasPorDia}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.12)" vertical={false} />
+                <XAxis dataKey="fecha" tick={{ fontSize: 11, fill: 'rgba(255, 255, 255, 0.65)' }} axisLine={{ stroke: 'rgba(255, 255, 255, 0.2)' }} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: 'rgba(255, 255, 255, 0.65)' }} axisLine={false} tickLine={false} width={40} />
+                <Tooltip formatter={(v) => money(v)} labelStyle={{ color: '#151e2c' }} />
+                <Bar dataKey="ingresos" name="Ingresos" fill="#c97a0c" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </section>
 
       <div className="dashboard-columns">
         <div className="dashboard-column">
-          <div className="card animate-fade-in-up delay-1">
-            <div className="card-title">Ventas de los últimos 7 días</div>
-            {ventasPorDia.length === 0 ? (
-              <EmptyState
-                title="Sin ventas recientes"
-                message="Registra ventas para ver la tendencia de ingresos."
-              />
-            ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={ventasPorDia}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#dde1e6" />
-                  <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v) => money(v)} labelStyle={{ color: '#151e2c' }} />
-                  <Bar dataKey="ingresos" name="Ingresos" fill="#122a47" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
           {filtroPymeId && comparativaSedes.length > 1 && (
             <div className="card animate-fade-in-up delay-2">
               <div className="card-title">Comparativa entre sedes</div>
@@ -303,9 +317,12 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="card dashboard-alert-card animate-fade-in-up delay-4">
+          <div className={`card dashboard-alert-card animate-fade-in-up delay-4${productosBajoStock.length === 0 ? ' dashboard-alert-card-ok' : ''}`}>
             <div className="card-title">
-              Alertas de inventario
+              <span>
+                Alertas de inventario
+                {productosBajoStock.length > 0 && <span className="dashboard-alert-count">{productosBajoStock.length}</span>}
+              </span>
               <Link to="/inventario" className="btn btn-outline">Revisar</Link>
             </div>
             {productosBajoStock.length === 0 ? (
@@ -318,6 +335,7 @@ export default function Dashboard() {
                       e.preventDefault();
                     }
                   }} key={p.id}>
+                    <IconAlert size={15} className="dashboard-alert-icon" aria-hidden="true" />
                     <div className="rank-info">
                       <strong>{p.nombre}</strong>
                       <small>Reponer ahora</small>

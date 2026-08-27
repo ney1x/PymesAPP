@@ -2,7 +2,16 @@ import React, { useState, useRef } from 'react';
 import { pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, IconButton, EmptyState, date } from '../components/ui';
-import { IconPlus, IconEdit, IconTrash } from '../components/Icons';
+import { IconPlus, IconEdit, IconTrash, IconMapPin, IconPhone } from '../components/Icons';
+
+const iniciales = (nombre) =>
+  (nombre || '?')
+    .split(' ')
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
 const TIPO_LABELS = {
   MINIMARKET: 'Minimarket',
@@ -111,47 +120,42 @@ export default function Pymes() {
         actions={<Button onClick={openCreate}><IconPlus size={15} /> Nueva PYME</Button>}
       />
 
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Tipo</th>
-              <th>Ciudad</th>
-              <th>Teléfono</th>
-              <th>Productos</th>
-              <th>Creada</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!data?.pymes?.length ? (
-              <tr><td colSpan="7"><EmptyState title="Sin PYMES" message="Crea tu primera PYME para empezar." /></td></tr>
-            ) : (
-              data.pymes.map((p) => (
-                <tr key={p.id}>
-                  <td><strong>{p.nombre}</strong></td>
-                  <td><Badge tone="primary">{TIPO_LABELS[p.tipo] || p.tipo}</Badge></td>
-                  <td>{p.ciudad || '—'}</td>
-                  <td>{p.telefono || '—'}</td>
-                  <td>{p._count.productos}</td>
-                  <td>{date(p.createdAt)}</td>
-                  <td>
-                    <div className="row-actions">
-                      <IconButton variant="outline" label={`Editar ${p.nombre}`} tooltip="Editar" onClick={() => openEdit(p)}>
-                        <IconEdit size={14} aria-hidden="true" />
-                      </IconButton>
-                      <IconButton variant="danger-subtle" label={`Eliminar ${p.nombre}`} tooltip="Eliminar" onClick={() => handleDelete(p)}>
-                        <IconTrash size={14} aria-hidden="true" />
-                      </IconButton>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {!data?.pymes?.length ? (
+        <div className="card"><EmptyState title="Sin PYMES" message="Crea tu primera PYME para empezar." /></div>
+      ) : (
+        <div className="pyme-grid">
+          {data.pymes.map((p, i) => (
+            <div key={p.id} className="pyme-card animate-fade-in-up" style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}>
+              <div className="pyme-card-head">
+                <span className={`pyme-avatar pyme-avatar-${i % 2 === 0 ? 'navy' : 'petrol'}`} aria-hidden="true">
+                  {iniciales(p.nombre)}
+                </span>
+                <div className="row-actions">
+                  <IconButton variant="outline" label={`Editar ${p.nombre}`} tooltip="Editar" onClick={() => openEdit(p)}>
+                    <IconEdit size={14} aria-hidden="true" />
+                  </IconButton>
+                  <IconButton variant="danger-subtle" label={`Eliminar ${p.nombre}`} tooltip="Eliminar" onClick={() => handleDelete(p)}>
+                    <IconTrash size={14} aria-hidden="true" />
+                  </IconButton>
+                </div>
+              </div>
+
+              <strong className="pyme-card-nombre">{p.nombre}</strong>
+              <div><Badge tone="primary">{TIPO_LABELS[p.tipo] || p.tipo}</Badge></div>
+
+              <div className="pyme-card-meta">
+                {p.ciudad && <span><IconMapPin size={12} aria-hidden="true" /> {p.ciudad}</span>}
+                {p.telefono && <span><IconPhone size={12} aria-hidden="true" /> {p.telefono}</span>}
+              </div>
+
+              <div className="pyme-card-footer">
+                <span>{p._count.productos} producto{p._count.productos === 1 ? '' : 's'}</span>
+                <span>Creada {date(p.createdAt)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <Modal open={modalOpen} title={editing ? 'Editar PYME' : 'Nueva PYME'} onClose={() => setModalOpen(false)}>
         <form ref={formRef} onSubmit={handleSubmit}>

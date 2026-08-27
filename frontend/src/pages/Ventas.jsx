@@ -1,23 +1,23 @@
 /*
- * IMPECCABLE DIRECTION CONTRACT (revisado tras feedback de usuario)
- * THESIS: Ventas deja de ser "formulario arriba, historial abajo" y se
- *   vuelve un panel de venta en vivo: cada acción tiene una reacción visible
- *   al instante — total animado, stock que se vacía en tiempo real, historial
- *   con entrada animada y la venta recién hecha resaltada un momento.
+ * IMPECCABLE DIRECTION CONTRACT (bolder pass — POS/caja)
+ * THESIS: Ventas deja de leer como "card de formulario + card de tabla"
+ *   idéntica a cualquier otra pantalla del sistema, y pasa a leerse como una
+ *   caja registradora real: un único panel de operación en tres franjas
+ *   apiladas — escanear (navy) → carrito (papel/recibo) → cobrar (navy,
+ *   jerarquía máxima) — en el mismo orden en que ocurre la venta. El
+ *   historial reciente queda deliberadamente aparte y sin relieve, para que
+ *   nunca compita con la operación en curso.
  * OWN-WORLD: se hereda el sistema "Ledger digital" sin cambios — navy
- *   #122a47, cards blancas, badges por tono, Fraunces Display para números
- *   grandes. Ninguna paleta, tipografía ni componente nuevo.
- * STORY: el vendedor ve de un vistazo cuánto va a cobrar y cuánto stock le
- *   queda antes de confirmar, y ve su venta aparecer al instante en la lista
- *   — refuerza que cada venta cuenta y ya quedó registrada.
- * FIRST VIEWPORT: dos columnas se mantienen; izquierda el carrito (escaneo +
- *   líneas + total) con el total como número grande animado; derecha "Ventas
- *   recientes" como lista animada (no tabla).
- * FORM: dirección líder de la tirada de concept-seed (candidato #5 de la
- *   lista propia), seed key ventasredesign1. Recorte post-entrega: se quitó
- *   la franja de mini-barras de actividad (raise del reto "osciloscopio")
- *   por feedback directo del usuario — "difícil de entender" — sin sustituto,
- *   el resto de la dirección se mantiene intacto.
+ *   #122a47, amber/petrol #c97a0c, Fraunces Display para números grandes,
+ *   font-mono para montos tabulares. Ninguna paleta, tipografía ni radio
+ *   nuevo; el botón "accent" reutiliza --primary, el mismo par ya usado en
+ *   .brand-logo, sólo que ahora también como superficie de botón.
+ * STORY: el vendedor escanea, ve el carrito crecer como una cinta de papel,
+ *   y el total — el número más grande de toda la pantalla — le dice cuánto
+ *   cobrar antes de tocar el único botón sólido en amber de la vista.
+ * FIRST VIEWPORT: panel de operación (1.7fr) + costado de ventas recientes
+ *   (1fr) plano y sin sombra. En mobile (`<900px`) se apila: panel completo
+ *   primero, historial después.
  * FINISH: unreviewed and undocumented is unfinished; this build ends with
  *   the finish review, the verdict, DESIGN.md, and every shipping raster
  *   carrying its provenance.
@@ -333,187 +333,195 @@ export default function Ventas() {
         }
       />
 
-      <div className={puedeVender ? 'grid-2' : undefined}>
+      <div className={puedeVender ? 'venta-pos' : undefined}>
         {puedeVender && (
-        <div className="card">
-          <div className="card-title">Carrito de venta</div>
-
-          <ErrorBox error={actionError} />
-          {success && <div className="alert alert-success">{success}</div>}
-          {ventaConfirmada && (
-            <div className="venta-receipt-confirm" role="status">
-              <span className="venta-receipt-stamp" aria-hidden="true"><IconCheck size={16} /></span>
-              <div className="venta-receipt-body">
-                <strong className="venta-receipt-title">
-                  Venta registrada{ventaConfirmada.id ? ` · N.º ${ventaConfirmada.id}` : ''}
-                </strong>
-                <span className="venta-receipt-monto">{money(ventaConfirmada.total)}</span>
-                <ul className="venta-receipt-checklist">
-                  <li><IconCheck size={12} aria-hidden="true" /> Stock actualizado</li>
-                  <li><IconCheck size={12} aria-hidden="true" /> Predicción programada</li>
-                </ul>
-              </div>
-            </div>
-          )}
-
-          <div className="form-group">
-            <label htmlFor="scanInput">Escanear código de barras</label>
-            <div className="venta-scan-row">
-              <input
-                id="scanInput"
-                ref={scanInputRef}
-                className="venta-scan-input"
-                type="text"
-                autoFocus
-                placeholder="Enfocá acá y escaneá con la pistola..."
-                value={scanValue}
-                onChange={(e) => { setScanValue(e.target.value); setScanError(null); }}
-                onKeyDown={handleScanKeyDown}
-              />
+        <div className="venta-pos-main">
+          <div className="venta-scan-deck">
+            <div className="venta-scan-deck-head">
+              <h2 className="venta-scan-deck-title">Escanear producto</h2>
               <Button
                 type="button"
-                variant={camaraAbierta ? 'primary' : 'secondary'}
+                variant={camaraAbierta ? 'accent' : 'outline'}
                 aria-pressed={camaraAbierta}
                 onClick={() => { setScanError(null); setCamaraAbierta((v) => !v); }}
               >
                 <IconCamera size={16} aria-hidden="true" /> {camaraAbierta ? 'Cerrar cámara' : 'Cámara'}
               </Button>
             </div>
-            {scanError && <div className="alert alert-error" style={{ marginTop: 8 }}>{scanError}</div>}
 
-            {codigoSinAsignar && puedeGestionarProductos && (
-              <div className="venta-asignar-codigo">
-                <label htmlFor="productoParaAsignar">Asignar {codigoSinAsignar} a un producto existente</label>
-                <div className="venta-scan-row">
-                  <select
-                    id="productoParaAsignar"
-                    value={productoParaAsignar}
-                    onChange={(e) => setProductoParaAsignar(e.target.value)}
-                  >
-                    <option value="">Selecciona un producto</option>
-                    {productos.data?.productos?.map((p) => (
-                      <option key={p.id} value={p.id}>{p.nombre}{p.codigo ? ` (código actual: ${p.codigo})` : ''}</option>
-                    ))}
-                  </select>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    loading={asignando}
-                    disabled={!productoParaAsignar}
-                    onClick={handleAsignarCodigo}
-                  >
-                    Asignar código
-                  </Button>
-                </div>
+            <div className="form-group">
+              <label htmlFor="scanInput">Código de barras</label>
+              <div className="venta-scan-row">
+                <input
+                  id="scanInput"
+                  ref={scanInputRef}
+                  className="venta-scan-input"
+                  type="text"
+                  autoFocus
+                  placeholder="Enfocá acá y escaneá con la pistola..."
+                  value={scanValue}
+                  onChange={(e) => { setScanValue(e.target.value); setScanError(null); }}
+                  onKeyDown={handleScanKeyDown}
+                />
               </div>
-            )}
-          </div>
+              {scanError && <div className="alert alert-error" style={{ marginTop: 8 }}>{scanError}</div>}
 
-          <BarcodeScannerModal
-            inline
-            continuo
-            open={camaraAbierta}
-            onClose={() => { setCamaraAbierta(false); focusScan(); }}
-            onDetect={handleCameraDetect}
-          />
-
-          <details style={{ marginBottom: 16 }}>
-            <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--muted)' }}>Agregar manualmente</summary>
-            <div style={{ marginTop: 10 }}>
-              <div className="form-group">
-                <label htmlFor="productoId">Producto</label>
-                <select id="productoId" name="productoId" value={form.productoId} onChange={handleFormChange}>
-                  <option value="">Selecciona un producto</option>
-                  {productos.data?.productos?.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre} ({p.inventario?.stockActual ?? 0} uds)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="cantidad">Cantidad</label>
-                  <input
-                    id="cantidad"
-                    name="cantidad"
-                    type="number"
-                    min="1"
-                    max={tieneStock ? stockActual : undefined}
-                    value={form.cantidad}
-                    onChange={handleFormChange}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="precioUnitario">Precio unitario (COP)</label>
-                  <input id="precioUnitario" name="precioUnitario" type="number" min="0" step="0.01" value={form.precioUnitario} onChange={handleFormChange} />
-                </div>
-              </div>
-
-              {tieneStock && (
-                <div className={`venta-stock-gauge${stockTone !== 'ok' ? ` venta-stock-gauge-${stockTone}` : ''}`}>
-                  <div className="venta-stock-gauge-track" role="progressbar" aria-label="Stock restante tras agregar" aria-valuenow={stockRestante} aria-valuemin={0} aria-valuemax={stockActual}>
-                    <div className="venta-stock-gauge-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
-                  </div>
-                  <div className="venta-stock-gauge-label">
-                    <span>Quedan {stockRestante} uds tras agregar</span>
-                    <span>{stockActual} en stock</span>
+              {codigoSinAsignar && puedeGestionarProductos && (
+                <div className="venta-asignar-codigo">
+                  <label htmlFor="productoParaAsignar">Asignar {codigoSinAsignar} a un producto existente</label>
+                  <div className="venta-scan-row">
+                    <select
+                      id="productoParaAsignar"
+                      value={productoParaAsignar}
+                      onChange={(e) => setProductoParaAsignar(e.target.value)}
+                    >
+                      <option value="">Selecciona un producto</option>
+                      {productos.data?.productos?.map((p) => (
+                        <option key={p.id} value={p.id}>{p.nombre}{p.codigo ? ` (código actual: ${p.codigo})` : ''}</option>
+                      ))}
+                    </select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      loading={asignando}
+                      disabled={!productoParaAsignar}
+                      onClick={handleAsignarCodigo}
+                    >
+                      Asignar código
+                    </Button>
                   </div>
                 </div>
               )}
-
-              <Button type="button" variant="secondary" className="btn-block" onClick={handleAgregarManual} disabled={!form.productoId}>
-                Agregar al carrito
-              </Button>
             </div>
-          </details>
 
-          {carrito.length === 0 ? (
-            <EmptyState className="empty--compact" title="Carrito vacío" message="Escaneá un código o agregá un producto manualmente." />
-          ) : (
-            <ul className="list-card venta-carrito-lista">
-              {carrito.map((l) => (
-                <li key={l.productoId} className="rank-item venta-carrito-linea">
-                  <div className="rank-info">
-                    <strong>{l.nombre}</strong>
-                    <small>{money(l.precioUnitario)} c/u{l.codigo ? ` · ${l.codigo}` : ''}</small>
-                  </div>
-                  <div className="venta-carrito-cantidad">
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => actualizarCantidad(l.productoId, -1)} aria-label={`Quitar una unidad de ${l.nombre}`}><IconMinus size={14} aria-hidden="true" /></button>
-                    <span>{l.cantidad}</span>
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => actualizarCantidad(l.productoId, 1)} aria-label={`Agregar una unidad de ${l.nombre}`}><IconPlus size={14} aria-hidden="true" /></button>
-                  </div>
-                  <div className="dashboard-rank-metric">
-                    <strong>{money(l.cantidad * l.precioUnitario)}</strong>
-                  </div>
-                  <button type="button" className="venta-carrito-quitar" onClick={() => quitarLinea(l.productoId)} aria-label={`Quitar ${l.nombre} del carrito`}><IconClose size={14} aria-hidden="true" /></button>
-                </li>
-              ))}
-            </ul>
-          )}
+            <BarcodeScannerModal
+              inline
+              continuo
+              open={camaraAbierta}
+              onClose={() => { setCamaraAbierta(false); focusScan(); }}
+              onDetect={handleCameraDetect}
+            />
 
-          <div className="venta-total-row">
-            <span className="venta-total-label">Total a cobrar</span>
-            <strong key={totalCarrito} className="venta-total-ticker">{money(totalCarrito)}</strong>
+            <details className="venta-manual-add">
+              <summary>Agregar manualmente</summary>
+              <div className="venta-manual-add-body">
+                <div className="form-group">
+                  <label htmlFor="productoId">Producto</label>
+                  <select id="productoId" name="productoId" value={form.productoId} onChange={handleFormChange}>
+                    <option value="">Selecciona un producto</option>
+                    {productos.data?.productos?.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre} ({p.inventario?.stockActual ?? 0} uds)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="cantidad">Cantidad</label>
+                    <input
+                      id="cantidad"
+                      name="cantidad"
+                      type="number"
+                      min="1"
+                      max={tieneStock ? stockActual : undefined}
+                      value={form.cantidad}
+                      onChange={handleFormChange}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="precioUnitario">Precio unitario (COP)</label>
+                    <input id="precioUnitario" name="precioUnitario" type="number" min="0" step="0.01" value={form.precioUnitario} onChange={handleFormChange} />
+                  </div>
+                </div>
+
+                {tieneStock && (
+                  <div className={`venta-stock-gauge${stockTone !== 'ok' ? ` venta-stock-gauge-${stockTone}` : ''}`}>
+                    <div className="venta-stock-gauge-track" role="progressbar" aria-label="Stock restante tras agregar" aria-valuenow={stockRestante} aria-valuemin={0} aria-valuemax={stockActual}>
+                      <div className="venta-stock-gauge-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
+                    </div>
+                    <div className="venta-stock-gauge-label">
+                      <span>Quedan {stockRestante} uds tras agregar</span>
+                      <span>{stockActual} en stock</span>
+                    </div>
+                  </div>
+                )}
+
+                <Button type="button" variant="outline" className="btn-block" onClick={handleAgregarManual} disabled={!form.productoId}>
+                  Agregar al carrito
+                </Button>
+              </div>
+            </details>
           </div>
 
-          <Button
-            type="button"
-            loading={confirmando}
-            className="btn-block"
-            disabled={carrito.length === 0}
-            aria-busy={confirmando}
-            aria-label={confirmando ? 'Registrando venta...' : 'Confirmar venta'}
-            onClick={confirmarVenta}
-          >
-            Confirmar venta
-          </Button>
+          <div className="venta-cart-tape">
+            <ErrorBox error={actionError} />
+            {success && <div className="alert alert-success">{success}</div>}
+            {ventaConfirmada && (
+              <div className="venta-receipt-confirm" role="status">
+                <span className="venta-receipt-stamp" aria-hidden="true"><IconCheck size={16} /></span>
+                <div className="venta-receipt-body">
+                  <strong className="venta-receipt-title">
+                    Venta registrada{ventaConfirmada.id ? ` · N.º ${ventaConfirmada.id}` : ''}
+                  </strong>
+                  <span className="venta-receipt-monto">{money(ventaConfirmada.total)}</span>
+                  <ul className="venta-receipt-checklist">
+                    <li><IconCheck size={12} aria-hidden="true" /> Stock actualizado</li>
+                    <li><IconCheck size={12} aria-hidden="true" /> Predicción programada</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {carrito.length === 0 ? (
+              <EmptyState className="empty--compact" title="Carrito vacío" message="Escaneá un código o agregá un producto manualmente." />
+            ) : (
+              <ul className="list-card venta-carrito-lista list-card-preview">
+                {carrito.map((l) => (
+                  <li key={l.productoId} className="rank-item venta-carrito-linea">
+                    <div className="rank-info">
+                      <strong>{l.nombre}</strong>
+                      <small>{money(l.precioUnitario)} c/u{l.codigo ? ` · ${l.codigo}` : ''}</small>
+                    </div>
+                    <div className="venta-carrito-cantidad">
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => actualizarCantidad(l.productoId, -1)} aria-label={`Quitar una unidad de ${l.nombre}`}><IconMinus size={14} aria-hidden="true" /></button>
+                      <span>{l.cantidad}</span>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => actualizarCantidad(l.productoId, 1)} aria-label={`Agregar una unidad de ${l.nombre}`}><IconPlus size={14} aria-hidden="true" /></button>
+                    </div>
+                    <div className="dashboard-rank-metric">
+                      <strong>{money(l.cantidad * l.precioUnitario)}</strong>
+                    </div>
+                    <button type="button" className="venta-carrito-quitar" onClick={() => quitarLinea(l.productoId)} aria-label={`Quitar ${l.nombre} del carrito`}><IconClose size={14} aria-hidden="true" /></button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="venta-checkout-bar">
+            <div className="venta-checkout-total">
+              <span className="venta-checkout-total-label">Total a cobrar</span>
+              <strong key={totalCarrito} className="venta-checkout-total-value">{money(totalCarrito)}</strong>
+            </div>
+            <Button
+              type="button"
+              variant="accent"
+              loading={confirmando}
+              className="venta-checkout-confirm"
+              disabled={carrito.length === 0}
+              aria-busy={confirmando}
+              aria-label={confirmando ? 'Registrando venta...' : 'Confirmar venta'}
+              onClick={confirmarVenta}
+            >
+              Confirmar venta
+            </Button>
+          </div>
         </div>
         )}
 
-        <div className="card">
-          <div className="card-title">Ventas recientes</div>
+        <div className={puedeVender ? 'venta-pos-recientes' : 'card'}>
+          <div className={puedeVender ? 'venta-pos-recientes-head' : 'card-title'}>Ventas recientes</div>
 
           <div className="table-wrap" style={{ border: 'none', boxShadow: 'none' }}>
             {!facturas.data?.facturas?.length ? (
