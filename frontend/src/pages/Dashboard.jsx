@@ -4,7 +4,7 @@ import { dashboardApi, pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { useAuth } from '../context/AuthContext';
 import { usePymeFilter } from '../context/PymeFilterContext';
-import { Spinner, ErrorBox, PageHeader, EmptyState, money } from '../components/ui';
+import { Spinner, ErrorBox, PageHeader, EmptyState, money, moneyCompact } from '../components/ui';
 import { IconAlert } from '../components/Icons';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -201,10 +201,16 @@ export default function Dashboard() {
             />
           ) : (
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={ventasPorDia}>
+              <BarChart data={ventasPorDia} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.12)" vertical={false} />
                 <XAxis dataKey="fecha" tick={{ fontSize: 11, fill: 'rgba(255, 255, 255, 0.65)' }} axisLine={{ stroke: 'rgba(255, 255, 255, 0.2)' }} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: 'rgba(255, 255, 255, 0.65)' }} axisLine={false} tickLine={false} width={40} />
+                <YAxis
+                  tick={{ fontSize: 11, fill: 'rgba(255, 255, 255, 0.65)' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={64}
+                  tickFormatter={(v) => moneyCompact(v)}
+                />
                 <Tooltip formatter={(v) => money(v)} labelStyle={{ color: '#151e2c' }} />
                 <Bar dataKey="ingresos" name="Ingresos" fill="#c97a0c" radius={[4, 4, 0, 0]} />
               </BarChart>

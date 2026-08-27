@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, IconButton, EmptyState, date } from '../components/ui';
-import { IconPlus, IconEdit, IconTrash, IconMail, IconMapPin } from '../components/Icons';
+import { IconPlus, IconEdit, IconTrash, IconMail, IconMapPin, IconCheck, IconAlert } from '../components/Icons';
 
 const ESTADO_ORDEN = { PENDIENTE: 0, ACEPTADA: 1, RECHAZADA: 2 };
 
@@ -57,9 +57,9 @@ export default function Equipo() {
   const [mensajeError, setMensajeError] = useState(null);
   const [mensajeEnviado, setMensajeEnviado] = useState(false);
 
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3500);
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
   };
 
   const pymes = useAsync(() => pymesApi.list());
@@ -133,11 +133,18 @@ export default function Equipo() {
   const handleRolesChange = async (miembro, roles) => {
     if (roles.length === 0) return;
     try {
-      await pymesApi.miembros.update(pymeActual.id, miembro.id, { roles });
-      miembros.run();
+      const res = await pymesApi.miembros.update(pymeActual.id, miembro.id, { roles });
+      // Actualiza solo este miembro en el propio estado en vez de volver a
+      // pedir la lista completa: miembros.run() prende el spinner de carga,
+      // que reemplaza toda la tabla/tarjetas por un instante y devuelve el
+      // scroll arriba — justo lo que rompía tocar un rol a mitad de la lista.
+      miembros.setData((prev) => prev && {
+        ...prev,
+        miembros: prev.miembros.map((m) => (m.id === miembro.id ? { ...m, ...res.membresia } : m)),
+      });
       showToast('Rol actualizado');
     } catch (err) {
-      showToast(err.message);
+      showToast(err.message, 'error');
     }
   };
 
@@ -149,11 +156,14 @@ export default function Equipo() {
 
   const handleSedeAsignada = async (miembro, sedeId) => {
     try {
-      await pymesApi.miembros.update(pymeActual.id, miembro.id, { sedeId: sedeId ? Number(sedeId) : null });
-      miembros.run();
+      const res = await pymesApi.miembros.update(pymeActual.id, miembro.id, { sedeId: sedeId ? Number(sedeId) : null });
+      miembros.setData((prev) => prev && {
+        ...prev,
+        miembros: prev.miembros.map((m) => (m.id === miembro.id ? { ...m, ...res.membresia } : m)),
+      });
       showToast('Acceso a sede actualizado');
     } catch (err) {
-      showToast(err.message);
+      showToast(err.message, 'error');
     }
   };
 
@@ -161,10 +171,13 @@ export default function Equipo() {
     if (!window.confirm(`¿Quitar a ${miembro.user.nombre} del equipo?`)) return;
     try {
       await pymesApi.miembros.remove(pymeActual.id, miembro.id);
-      miembros.run();
+      miembros.setData((prev) => prev && {
+        ...prev,
+        miembros: prev.miembros.filter((m) => m.id !== miembro.id),
+      });
       showToast('Miembro eliminado');
     } catch (err) {
-      showToast(err.message);
+      showToast(err.message, 'error');
     }
   };
 
@@ -212,7 +225,7 @@ export default function Equipo() {
       sedes.run();
       showToast('Sede eliminada');
     } catch (err) {
-      showToast(err.message);
+      showToast(err.message, 'error');
     }
   };
 
@@ -273,7 +286,14 @@ export default function Equipo() {
         }
       />
 
-      {toast && <div className="alert alert-success">{toast}</div>}
+      {toast && (
+        <div className={`toast toast-${toast.type}`}>
+          <span className="toast-icon">
+            {toast.type === 'error' ? <IconAlert size={16} /> : <IconCheck size={16} />}
+          </span>
+          <span>{toast.msg}</span>
+        </div>
+      )}
 
       {sedes.loading ? <Spinner label="Cargando sedes..." /> : !sedes.data?.sedes?.length && !esOwner ? (
         <p className="muted" style={{ marginBottom: 28 }}>Esta PYME aún no tiene sedes registradas.</p>
@@ -305,7 +325,7 @@ export default function Equipo() {
       )}
 
       <div className="card animate-fade-in-up">
-        <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="card-title equipo-card-header">
           <div className="equipo-titulo-row">
             <span>Equipo de {pymeActual?.nombre}</span>
             {esOwner && !miembros.loading && miembrosOrdenados.length > 0 && (
@@ -318,7 +338,7 @@ export default function Equipo() {
             )}
           </div>
           {esOwner && (
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="equipo-header-actions">
               <Button variant="outline" onClick={abrirMensajeParaRol}><IconMail size={14} /> Mensaje por rol</Button>
               <Button onClick={openInvite}><IconPlus size={14} /> Invitar miembro</Button>
             </div>
@@ -327,24 +347,28 @@ export default function Equipo() {
 
         {!esOwner ? (
           <EmptyState title="Acceso restringido" message="Solo el dueño de la PYME puede gestionar el equipo." />
-        ) : miembros.loading ? <Spinner label="Cargando equipo..." /> : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Miembro</th>
-                  <th>Estado</th>
-                  <th>Rol</th>
-                  <th>Sede con acceso</th>
-                  <th>Desde</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!miembrosOrdenados.length ? (
-                  <tr><td colSpan="6"><EmptyState title="Sin miembros" message="Invita a tu primer colaborador." /></td></tr>
-                ) : (
-                  miembrosOrdenados.map((m, i) => (
+        ) : miembros.loading ? <Spinner label="Cargando equipo..." /> : !miembrosOrdenados.length ? (
+          <EmptyState title="Sin miembros" message="Invita a tu primer colaborador." />
+        ) : (
+          <>
+            {/* Desktop/tablet: tabla densa, uso con mouse. A 800px de ancho
+                mínimo (6 columnas) no cabe en un viewport móvil sin scroll
+                horizontal permanente — por eso existe la vista de tarjetas
+                de abajo, no es la misma tabla encogida. */}
+            <div className="table-wrap equipo-table-view">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Miembro</th>
+                    <th>Estado</th>
+                    <th>Rol</th>
+                    <th>Sede con acceso</th>
+                    <th>Desde</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {miembrosOrdenados.map((m, i) => (
                     <tr
                       key={m.id}
                       className={`animate-fade-in${m.estado === 'RECHAZADA' ? ' member-row-rechazada' : ''}${m.estado === 'PENDIENTE' ? ' member-row-pendiente' : ''}`}
@@ -411,11 +435,91 @@ export default function Equipo() {
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile: una tarjeta por persona. Mismos datos y handlers que
+                la tabla — solo cambia cómo se acomodan en un viewport
+                angosto. Botones con texto visible en vez de solo-ícono: en
+                touch no hay hover que muestre el tooltip. */}
+            <div className="equipo-card-view">
+              {miembrosOrdenados.map((m, i) => (
+                <div
+                  key={m.id}
+                  className={`equipo-member-card animate-fade-in${m.estado === 'RECHAZADA' ? ' member-row-rechazada' : ''}${m.estado === 'PENDIENTE' ? ' member-row-pendiente' : ''}`}
+                  style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+                >
+                  <div className="equipo-member-card-head">
+                    <div className="member-cell">
+                      <span className="member-avatar">{iniciales(m.user.nombre)}</span>
+                      <div className="member-name-line">
+                        <strong>{m.user.nombre}</strong>
+                        <span className="member-email">{m.user.email}</span>
+                      </div>
+                    </div>
+                    <Badge tone={ESTADO_TONE[m.estado]}>{ESTADO_LABELS[m.estado] || m.estado}</Badge>
+                  </div>
+
+                  <div className="equipo-member-card-section">
+                    <span className="equipo-member-card-label">Rol</span>
+                    {m.rol === 'OWNER' ? (
+                      <div><Badge tone={ROL_TONE[m.rol]}>{ROL_LABELS[m.rol]}</Badge></div>
+                    ) : (
+                      <div className="member-roles-checkboxes">
+                        {ROLES_ASIGNABLES.map((rol) => {
+                          const roles = [m.rol, ...m.rolesExtra.map((r) => r.rol)];
+                          const marcado = roles.includes(rol);
+                          return (
+                            <label key={rol} className="member-rol-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={marcado}
+                                disabled={marcado && roles.length === 1}
+                                onChange={() => toggleMiembroRol(m, rol)}
+                              />
+                              {ROL_LABELS[rol]}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="equipo-member-card-section">
+                    <span className="equipo-member-card-label">Sede con acceso</span>
+                    {m.rol === 'OWNER' ? (
+                      <span className="muted">Todas las sedes</span>
+                    ) : (
+                      <select value={m.sedeId ?? ''} onChange={(e) => handleSedeAsignada(m, e.target.value)}>
+                        <option value="">Todas las sedes</option>
+                        {sedes.data?.sedes?.map((s) => (
+                          <option key={s.id} value={s.id}>{s.nombre}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div className="equipo-member-card-footer">
+                    <span className="muted">Desde {date(m.createdAt)}</span>
+                    {m.rol !== 'OWNER' && (
+                      <div className="equipo-member-card-actions">
+                        {m.estado === 'ACEPTADA' && (
+                          <Button size="sm" variant="outline" onClick={() => abrirMensajeParaMiembro(m)}>
+                            <IconMail size={14} aria-hidden="true" /> Mensaje
+                          </Button>
+                        )}
+                        <Button size="sm" variant="danger-subtle" onClick={() => handleRemoveMiembro(m)}>
+                          <IconTrash size={14} aria-hidden="true" /> Quitar
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

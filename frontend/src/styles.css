@@ -668,6 +668,56 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   .inv-toolbar-stat { margin-left: 0; width: 100%; }
 }
 
+/* Inventario en móvil: mismo problema y misma solución que Equipo — 7
+   columnas necesitan ~860px reales, en un viewport angosto eso es solo
+   scroll horizontal. Por debajo de 768px, una tarjeta por producto (mismos
+   datos y handlers, incluida la venta rápida) en vez de la tabla encogida.
+   El toggle entre vistas vive en el media query compartido. */
+.inv-card-view { display: none; }
+
+.inv-product-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inv-product-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.inv-product-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.inv-product-card-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.inv-product-card .inv-stock-cell { min-width: 0; }
+
+.inv-product-card-vender {
+  display: flex;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.inv-product-card-vender input { flex: 1; min-width: 0; }
+.inv-product-card-vender .btn { flex-shrink: 0; }
+
 /* ======================== TARJETAS ======================== */
 
 .stat-card {
@@ -751,7 +801,7 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
    el gráfico. El amber marca el número que más importa (margen). */
 .dashboard-hero {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: minmax(150px, 220px) 1fr;
   gap: 28px;
   background: var(--navy);
   border-radius: var(--radius);
@@ -765,12 +815,14 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   flex-direction: column;
   justify-content: center;
   gap: 18px;
+  min-width: 0;
 }
 
 .dashboard-hero-stat {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .dashboard-hero-stat-label {
@@ -783,11 +835,14 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 
 .dashboard-hero-stat-value {
   font-family: var(--font-display);
-  font-size: 25px;
+  font-size: clamp(18px, 4vw, 25px);
   font-weight: 700;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
   color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dashboard-hero-stat-value-accent { color: var(--petrol); }
@@ -814,6 +869,8 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 @media (max-width: 860px) {
   .dashboard-hero { grid-template-columns: 1fr; }
   .dashboard-hero-stats { flex-direction: row; flex-wrap: wrap; gap: 20px; }
+  .dashboard-hero-stat { flex: 1 1 130px; min-width: 0; }
+  .dashboard-hero-stat-value { font-size: 20px; white-space: normal; overflow-wrap: break-word; }
   .dashboard-hero-chart { border-left: none; padding-left: 0; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 16px; }
 }
 
@@ -2117,6 +2174,23 @@ a {
 .auth-back:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; border-radius: 4px; }
 .auth-back:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Registro alinea el checklist a la izquierda con sangría, a diferencia
+   del logo+tagline centrado que usan Login/Recuperar — antes vivía como
+   estilo inline, lo que le habría ganado por especificidad a cualquier
+   ajuste de móvil hecho por CSS. */
+.auth-side-checklist { flex-direction: column; align-items: flex-start; padding-left: 80px; }
+
+/* Marca compacta de Registro para el header de marca en móvil — Registro no
+   tiene logo+nombre en su auth-side (solo el checklist de beneficios), así
+   que en desktop esto queda oculto y el checklist es lo único que se ve;
+   en móvil se invierte (media query de RESPONSIVE): se ve la marca, se
+   esconde el checklist, que no entra en una franja compacta. */
+.auth-side-register-brand {
+  display: none;
+  align-items: center;
+  gap: 12px;
+}
+
 /* Success messages in register */
 .success-msgs {
   display: flex;
@@ -2532,7 +2606,25 @@ a {
 .equipo-titulo-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .equipo-conteo { display: inline-flex; gap: 6px; }
 
-.member-cell { display: flex; align-items: center; gap: 11px; }
+/* El título+badges y el par de botones "Mensaje por rol"/"Invitar miembro"
+   compartían una sola fila flex sin wrap — a 577px ya estaban al límite
+   (302px de solo los dos botones, comprimiendo el título a 164px) y en un
+   teléfono real (320-390px, más angosto que eso) el par de botones no
+   entra ni solo: se sale del viewport. */
+.equipo-card-header { flex-wrap: wrap; }
+
+.equipo-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* min-width:0 es lo que le permite a un hijo flex encogerse por debajo de
+   su contenido — sin esto, un correo largo sin espacios (nada donde
+   partir la línea) empuja la celda entera más ancha que la tarjeta y saca
+   el badge de estado afuera del recuadro, como se vio en la tarjeta de
+   Equipo en un celular real. */
+.member-cell { display: flex; align-items: center; gap: 11px; min-width: 0; flex: 1; }
 
 .member-avatar {
   display: flex;
@@ -2550,6 +2642,12 @@ a {
 }
 
 .member-name-line { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.member-name-line strong,
+.member-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .member-name-line strong { font-size: 13.5px; }
 .member-email { color: var(--muted); font-size: 12px; }
 
@@ -2614,6 +2712,64 @@ tbody tr.member-row-rechazada:hover { opacity: 0.85; }
    rechazada (que ya no requiere ninguna acción). */
 tbody tr.member-row-pendiente { background: var(--warning-soft); }
 tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
+
+/* Equipo en móvil: la tabla de 6 columnas necesita ~800px reales para no
+   truncar nada — en un viewport angosto eso es puro scroll horizontal
+   permanente, no una adaptación real. Por debajo de 768px se cambia a una
+   tarjeta por persona (misma data, mismos handlers) en vez de encoger la
+   tabla. El toggle entre las dos vistas vive en el media query compartido
+   más abajo; acá solo el aspecto de la tarjeta. */
+.equipo-card-view { display: none; }
+
+.equipo-member-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.equipo-member-card.member-row-rechazada { opacity: 0.55; }
+.equipo-member-card.member-row-pendiente { background: var(--warning-soft); }
+
+.equipo-member-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.equipo-member-card-head .badge { flex-shrink: 0; }
+
+.equipo-member-card-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.equipo-member-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.equipo-member-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+}
+
+.equipo-member-card-actions { display: flex; gap: 8px; }
+
+.equipo-member-card-actions .btn { min-height: 44px; }
 
 /* ======================== PERFIL ======================== */
 
@@ -3070,8 +3226,34 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
 /* ======================== RESPONSIVE ======================== */
 
 @media (max-width: 768px) {
-  .auth-shell { grid-template-columns: 1fr; }
-  .auth-side { display: none; }
+  /* auth-shell tiene min-height:100vh y solo 2 filas — sin fijar sus
+     alturas, grid reparte el sobrante de la viewport entre ambas filas
+     "auto" en vez de dejarlas a su tamaño natural. Eso inflaba la franja
+     de marca a ~253px (un tercio de la pantalla) en vez de los ~100px que
+     necesita su contenido. auto 1fr: la franja mide lo que su contenido
+     pide, el formulario se queda con todo el resto. */
+  .auth-shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+
+  /* En vez de esconder el panel navy entero (display:none dejaba un
+     formulario blanco sin ninguna marca — "no se puede diferenciar en
+     qué app estás entrando"), se comprime a una franja de marca arriba
+     del formulario: logo + nombre en fila, sin la altura completa ni el
+     resto del contenido de escritorio (bajada, checklist de Registro). */
+  .auth-side {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 24px;
+    gap: 12px;
+  }
+  .auth-side p,
+  .success-msgs { display: none; }
+  .auth-side .brand-logo { width: 40px; height: 40px; font-size: 17px; }
+  .auth-side strong { font-size: 19px; }
+  .auth-side-register-brand { display: flex; }
+
+  .auth-form-wrap { padding: 32px 24px; }
+
   .grid-2 { grid-template-columns: 1fr; }
   .dashboard-columns { grid-template-columns: 1fr; }
   .dashboard-decision-grid { grid-template-columns: 1fr; }
@@ -3079,17 +3261,72 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
   .dashboard-alert-item { flex-direction: column; }
   .dashboard-alert-item .btn { margin-left: 0; }
   .form-row, .form-grid { grid-template-columns: 1fr; }
+  .page-actions { flex-wrap: wrap; }
+
+  .equipo-table-view { display: none; }
+  .equipo-card-view { display: flex; flex-direction: column; gap: 12px; }
+
+  /* Apiladas a ancho completo en vez de compartir una fila que no alcanza
+     — garantiza que nunca se salgan sin importar qué tan angosto sea el
+     teléfono real. */
+  .equipo-header-actions { flex-direction: column; width: 100%; }
+  .equipo-header-actions .btn { width: 100%; }
+
+  .inv-table-view { display: none; }
+  .inv-card-view { display: block; }
+
+  /* Objetivos de toque de verdad (≥44px) para el mismo chip de rol donde
+     sea que aparezca en un viewport angosto — la lista de equipo (arriba)
+     y también el formulario "Invitar miembro", que comparte el mismo
+     componente y si no, se quedaba en la altura compacta de escritorio. */
+  .member-rol-checkbox {
+    padding: 10px 14px;
+    font-size: 13px;
+    min-height: 44px;
+  }
+
+  /* Objetivo de toque de verdad (≥44px) para TODOS los botones/enlaces
+     .btn de la app en móvil — en escritorio se quedan en 36px (mouse),
+     que es ~8px corto del mínimo táctil recomendado. Un solo cambio acá
+     cubre cada botón de cada pantalla en vez de parchar uno por uno. */
+  .btn { min-height: 44px; }
+  .btn-sm { min-height: 40px; }
+  .btn-icon,
+  .btn-icon.btn-sm { width: 44px; min-height: 44px; }
+  .inv-category-chip,
+  .priority-chip,
+  .notif-tab,
+  .sede-pill-add { min-height: 44px; }
+
+  .pagination { flex-wrap: wrap; }
+  .pagination button { min-width: 40px; height: 40px; }
+
+  input:not([type='checkbox']):not([type='radio']),
+  select {
+    min-height: 44px;
+  }
 
   /* Rail colapsado a solo iconos */
-  .rail { width: 64px; padding: 14px 8px; }
+  /* overflow-y: auto en la regla base fuerza overflow-x a "auto" también
+     (regla del spec: si un eje no es visible, el otro deja de serlo aunque
+     no se haya pedido) — eso recorta el menú de perfil, que vuela hacia
+     afuera del rail de 64px, en su propio borde. El contenido colapsado
+     (solo iconos) es corto de sobra para no necesitar scroll interno acá,
+     así que el rail vuelve a overflow:visible en este breakpoint. */
+  .rail { width: 64px; padding: 14px 8px; overflow: visible; }
   .rail-brand { justify-content: center; padding: 4px 0 14px; }
   .rail-brand strong { display: none; }
-  .rail-item { justify-content: center; padding: 10px; }
+  .rail-item { justify-content: center; padding: 14px 10px; min-height: 44px; }
   .rail-item span { display: none; }
   .rail-profile-trigger { justify-content: center; padding: 8px 0; }
   .rail-profile-name,
   .rail-profile-trigger svg { display: none; }
-  .rail-dropdown { left: -4px; right: auto; min-width: 148px; }
+  /* 148px no alcanzaba para "Términos de uso" (icono + texto ~166px) — el
+     label quedaba cortado/ilegible en el menú del perfil en un celular
+     real. 200px lo deja con margen sin arriesgar salirse del viewport
+     (el rail colapsado mide apenas 64px, el menú vuela por encima). */
+  .rail-dropdown { left: -4px; right: auto; min-width: 200px; }
+  .rail-dropdown-item { white-space: nowrap; }
 
   .main { padding: 16px; }
 }

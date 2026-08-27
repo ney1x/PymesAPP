@@ -83,7 +83,11 @@ export default function Register() {
 
   return (
     <div className="auth-shell">
-      <div className="auth-side" style={{ flexDirection: 'column', alignItems: 'flex-start', paddingLeft: '80px' }}>
+      <div className="auth-side auth-side-checklist">
+        <div className="auth-side-register-brand">
+          <span className="brand-logo">IN</span>
+          <strong>Inventario</strong>
+        </div>
         <div className="success-msgs">
           <div className="success-msg">
             <span className="icon"><IconCheck size={13} /></span>

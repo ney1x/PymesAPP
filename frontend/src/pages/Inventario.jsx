@@ -387,112 +387,184 @@ export default function Inventario() {
         </div>
       )}
 
-      <div className="table-wrap table-wrap--catalogo animate-fade-in-up">
-        <table>
-          <thead>
-            <tr>
-              <th>Producto</th>
-              <th>Código</th>
-              <th>Categoría</th>
-              <th>Stock</th>
-              <th>Estado</th>
-              {puedeVenderAlguna && <th>Vendido</th>}
-              {puedeGestionarProductos && <th>Acciones</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {paginated.length === 0 ? (
-              <tr>
-                <td colSpan={5 + (puedeVenderAlguna ? 1 : 0) + (puedeGestionarProductos ? 1 : 0)}>
-                  <EmptyState title="Sin productos" message="Añade tu primer producto al inventario." />
-                </td>
-              </tr>
-            ) : (
-              paginated.map((inv, i) => {
-                const alerta = inv.stockActual <= inv.stockMinimo;
-                const enAlerta = inv.stockActual <= inv.stockMinimo * 1.5;
-                const techoStock = inv.stockMaximo || Math.max(inv.stockActual, inv.stockMinimo * 2, 1);
-                const stockPct = Math.max(0, Math.min(100, (inv.stockActual / techoStock) * 100));
-                const stockTone = alerta ? 'danger' : enAlerta ? 'warning' : 'ok';
-                const rol = rolPorPyme.get(inv.producto.pymeId);
-                const puedeVenderFila = puede(rol, 'crearVentas');
-                const puedeGestionarFila = puede(rol, 'gestionarProductos');
-                return (
-                  <tr
-                    key={inv.id}
-                    tabIndex={0}
-                    className={`animate-fade-in${focusedRowIndex === i ? ' inv-row-selected' : ''}`}
-                    onClick={() => setFocusedRowIndex(i)}
-                    style={{ animationDelay: `${i * 40}ms` }}
-                  >
-                    <td><strong>{inv.producto.nombre}</strong></td>
-                    <td className="inv-cell-codigo">{inv.producto.codigo || '—'}</td>
-                    <td><span className="inv-badge-categoria"><Badge tone="default">{inv.producto.categoria || 'Sin categoría'}</Badge></span></td>
-                    <td>
-                      <div className="inv-stock-cell">
-                        <span className={`inv-stock-cell-value${alerta ? ' cell-stock-critico' : ''}`}>{inv.stockActual}</span>
-                        <span className={`inv-stock-bar inv-stock-bar-${stockTone}`} role="progressbar" aria-label={`Stock de ${inv.producto.nombre}`} aria-valuenow={inv.stockActual} aria-valuemin={0} aria-valuemax={techoStock}>
-                          <span className="inv-stock-bar-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
-                        </span>
-                        <span className="inv-stock-cell-min">mín. {inv.stockMinimo}</span>
-                      </div>
-                    </td>
-                    <td>
-                      {alerta ? (
-                        <Badge tone="danger">Bajo stock</Badge>
-                      ) : (
-                        <Badge tone="success">OK</Badge>
+      {paginated.length === 0 ? (
+        <div className="card"><EmptyState title="Sin productos" message="Añade tu primer producto al inventario." /></div>
+      ) : (
+        <>
+          {/* Desktop/tablet: tabla densa, uso con mouse. Igual que Equipo,
+              7 columnas no caben en un viewport móvil sin scroll horizontal
+              permanente (~860px de contenido contra ~280px visibles). */}
+          <div className="table-wrap table-wrap--catalogo inv-table-view animate-fade-in-up">
+            <table>
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Código</th>
+                  <th>Categoría</th>
+                  <th>Stock</th>
+                  <th>Estado</th>
+                  {puedeVenderAlguna && <th>Vendido</th>}
+                  {puedeGestionarProductos && <th>Acciones</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {paginated.map((inv, i) => {
+                  const alerta = inv.stockActual <= inv.stockMinimo;
+                  const enAlerta = inv.stockActual <= inv.stockMinimo * 1.5;
+                  const techoStock = inv.stockMaximo || Math.max(inv.stockActual, inv.stockMinimo * 2, 1);
+                  const stockPct = Math.max(0, Math.min(100, (inv.stockActual / techoStock) * 100));
+                  const stockTone = alerta ? 'danger' : enAlerta ? 'warning' : 'ok';
+                  const rol = rolPorPyme.get(inv.producto.pymeId);
+                  const puedeVenderFila = puede(rol, 'crearVentas');
+                  const puedeGestionarFila = puede(rol, 'gestionarProductos');
+                  return (
+                    <tr
+                      key={inv.id}
+                      tabIndex={0}
+                      className={`animate-fade-in${focusedRowIndex === i ? ' inv-row-selected' : ''}`}
+                      onClick={() => setFocusedRowIndex(i)}
+                      style={{ animationDelay: `${i * 40}ms` }}
+                    >
+                      <td><strong>{inv.producto.nombre}</strong></td>
+                      <td className="inv-cell-codigo">{inv.producto.codigo || '—'}</td>
+                      <td><span className="inv-badge-categoria"><Badge tone="default">{inv.producto.categoria || 'Sin categoría'}</Badge></span></td>
+                      <td>
+                        <div className="inv-stock-cell">
+                          <span className={`inv-stock-cell-value${alerta ? ' cell-stock-critico' : ''}`}>{inv.stockActual}</span>
+                          <span className={`inv-stock-bar inv-stock-bar-${stockTone}`} role="progressbar" aria-label={`Stock de ${inv.producto.nombre}`} aria-valuenow={inv.stockActual} aria-valuemin={0} aria-valuemax={techoStock}>
+                            <span className="inv-stock-bar-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
+                          </span>
+                          <span className="inv-stock-cell-min">mín. {inv.stockMinimo}</span>
+                        </div>
+                      </td>
+                      <td>
+                        {alerta ? (
+                          <Badge tone="danger">Bajo stock</Badge>
+                        ) : (
+                          <Badge tone="success">OK</Badge>
+                        )}
+                      </td>
+                      {puedeVenderAlguna && (
+                        <td>
+                          {puedeVenderFila && (
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <input
+                                type="number"
+                                min="1"
+                                max={inv.stockActual}
+                                placeholder="uds"
+                                aria-label={`Cantidad a vender de ${inv.producto.nombre}`}
+                                style={{ width: 70 }}
+                                value={ventaInputs[inv.id] || ''}
+                                onChange={(e) => handleVenderChange(inv.id, e.target.value)}
+                                disabled={inv.stockActual <= 0}
+                              />
+                              <Button
+                                variant="success"
+                                size="sm"
+                                loading={vendiendoId === inv.id}
+                                disabled={inv.stockActual <= 0 || !ventaInputs[inv.id]}
+                                onClick={() => handleVender(inv)}
+                              >
+                                Vender
+                              </Button>
+                            </div>
+                          )}
+                        </td>
                       )}
-                    </td>
-                    {puedeVenderAlguna && (
-                      <td>
-                        {puedeVenderFila && (
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <input
-                              type="number"
-                              min="1"
-                              max={inv.stockActual}
-                              placeholder="uds"
-                              aria-label={`Cantidad a vender de ${inv.producto.nombre}`}
-                              style={{ width: 70 }}
-                              value={ventaInputs[inv.id] || ''}
-                              onChange={(e) => handleVenderChange(inv.id, e.target.value)}
-                              disabled={inv.stockActual <= 0}
-                            />
-                            <Button
-                              variant="success"
-                              size="sm"
-                              loading={vendiendoId === inv.id}
-                              disabled={inv.stockActual <= 0 || !ventaInputs[inv.id]}
-                              onClick={() => handleVender(inv)}
-                            >
-                              Vender
-                            </Button>
-                          </div>
-                        )}
-                      </td>
+                      {puedeGestionarProductos && (
+                        <td>
+                          {puedeGestionarFila && (
+                            <div className="row-actions">
+                              <IconButton variant="outline" label={`Editar ${inv.producto.nombre}`} tooltip="Editar" onClick={() => openEdit(inv)}>
+                                <IconEdit size={14} aria-hidden="true" />
+                              </IconButton>
+                              <IconButton variant="danger-subtle" label={`Eliminar ${inv.producto.nombre}`} tooltip="Eliminar" onClick={() => handleDelete(inv)}>
+                                <IconTrash size={14} aria-hidden="true" />
+                              </IconButton>
+                            </div>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile: una tarjeta por producto. Mismos datos y handlers que
+              la tabla (incluida la venta rápida inline). */}
+          <div className="inv-card-view">
+            {paginated.map((inv, i) => {
+              const alerta = inv.stockActual <= inv.stockMinimo;
+              const enAlerta = inv.stockActual <= inv.stockMinimo * 1.5;
+              const techoStock = inv.stockMaximo || Math.max(inv.stockActual, inv.stockMinimo * 2, 1);
+              const stockPct = Math.max(0, Math.min(100, (inv.stockActual / techoStock) * 100));
+              const stockTone = alerta ? 'danger' : enAlerta ? 'warning' : 'ok';
+              const rol = rolPorPyme.get(inv.producto.pymeId);
+              const puedeVenderFila = puede(rol, 'crearVentas');
+              const puedeGestionarFila = puede(rol, 'gestionarProductos');
+              return (
+                <div key={inv.id} className="inv-product-card animate-fade-in" style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}>
+                  <div className="inv-product-card-head">
+                    <div className="inv-product-card-title">
+                      <strong>{inv.producto.nombre}</strong>
+                      <span className="inv-cell-codigo">{inv.producto.codigo || '—'}</span>
+                    </div>
+                    {puedeGestionarFila && (
+                      <div className="row-actions">
+                        <IconButton variant="outline" label={`Editar ${inv.producto.nombre}`} tooltip="Editar" onClick={() => openEdit(inv)}>
+                          <IconEdit size={14} aria-hidden="true" />
+                        </IconButton>
+                        <IconButton variant="danger-subtle" label={`Eliminar ${inv.producto.nombre}`} tooltip="Eliminar" onClick={() => handleDelete(inv)}>
+                          <IconTrash size={14} aria-hidden="true" />
+                        </IconButton>
+                      </div>
                     )}
-                    {puedeGestionarProductos && (
-                      <td>
-                        {puedeGestionarFila && (
-                          <div className="row-actions">
-                            <IconButton variant="outline" label={`Editar ${inv.producto.nombre}`} tooltip="Editar" onClick={() => openEdit(inv)}>
-                              <IconEdit size={14} aria-hidden="true" />
-                            </IconButton>
-                            <IconButton variant="danger-subtle" label={`Eliminar ${inv.producto.nombre}`} tooltip="Eliminar" onClick={() => handleDelete(inv)}>
-                              <IconTrash size={14} aria-hidden="true" />
-                            </IconButton>
-                          </div>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </div>
+
+                  <div className="inv-product-card-badges">
+                    <span className="inv-badge-categoria"><Badge tone="default">{inv.producto.categoria || 'Sin categoría'}</Badge></span>
+                    {alerta ? <Badge tone="danger">Bajo stock</Badge> : <Badge tone="success">OK</Badge>}
+                  </div>
+
+                  <div className="inv-stock-cell">
+                    <span className={`inv-stock-cell-value${alerta ? ' cell-stock-critico' : ''}`}>{inv.stockActual}</span>
+                    <span className={`inv-stock-bar inv-stock-bar-${stockTone}`} role="progressbar" aria-label={`Stock de ${inv.producto.nombre}`} aria-valuenow={inv.stockActual} aria-valuemin={0} aria-valuemax={techoStock}>
+                      <span className="inv-stock-bar-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
+                    </span>
+                    <span className="inv-stock-cell-min">mín. {inv.stockMinimo}</span>
+                  </div>
+
+                  {puedeVenderFila && (
+                    <div className="inv-product-card-vender">
+                      <input
+                        type="number"
+                        min="1"
+                        max={inv.stockActual}
+                        placeholder="uds"
+                        aria-label={`Cantidad a vender de ${inv.producto.nombre}`}
+                        value={ventaInputs[inv.id] || ''}
+                        onChange={(e) => handleVenderChange(inv.id, e.target.value)}
+                        disabled={inv.stockActual <= 0}
+                      />
+                      <Button
+                        variant="success"
+                        loading={vendiendoId === inv.id}
+                        disabled={inv.stockActual <= 0 || !ventaInputs[inv.id]}
+                        onClick={() => handleVender(inv)}
+                      >
+                        Vender
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {filtered.length > PAGE_SIZE && (
         <div className="pagination" style={{ justifyContent: 'center', marginTop: 16 }}>
