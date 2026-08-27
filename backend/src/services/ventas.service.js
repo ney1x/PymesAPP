@@ -1,9 +1,7 @@
 const prisma = require('../lib/prisma');
 const ApiError = require('../utils/ApiError');
-const inventarioService = require('./inventario.service');
-const prediccionesService = require('./predicciones.service');
-const iaSync = require('../lib/iaSync');
-const { accesoWhere, tieneAcceso, resolverSedeId } = require('./acceso.util');
+const facturasService = require('./facturas.service');
+const { accesoWhere, resolverSedeId } = require('./acceso.util');
 const { exigirCapacidad, tieneCapacidad, pymeIdsConCapacidad, ocultarCostoVenta } = require('./permisos');
 
 const list = async (user, { pymeId, sedeId, desde, hasta } = {}) => {
@@ -40,72 +38,20 @@ const list = async (user, { pymeId, sedeId, desde, hasta } = {}) => {
   return ventas.map((v) => (permitidos.has(v.pymeId) ? v : ocultarCostoVenta(v)));
 };
 
+// Venta de una sola línea (botón rápido "Vender" de Inventario.jsx,
+// asistente de IA) — envuelve internamente en una factura de una línea vía
+// facturasService, así toda venta queda agrupada bajo una factura sin
+// excepción. Mismo contrato de respuesta que antes (devuelve la `venta`,
+// no la factura) para no romper a quien ya llama esto.
 const create = async (user, data) => {
   const { productoId, pymeId, cantidad, precioUnitario } = data;
 
-  const producto = await prisma.producto.findUnique({
-    where: { id: Number(productoId) },
-    include: { pyme: true },
+  const factura = await facturasService.create(user, {
+    pymeId,
+    lineas: [{ productoId, cantidad, precioUnitario }],
   });
 
-  if (!producto) throw new ApiError(404, 'Producto no encontrado');
-  if (!(await tieneAcceso(producto, user))) {
-    throw new ApiError(403, 'No tiene acceso a este producto');
-  }
-  await exigirCapacidad(user, pymeId ? Number(pymeId) : producto.pymeId, 'crearVentas');
-
-  const inventario = await prisma.inventario.findUnique({ where: { productoId: producto.id } });
-  if (inventario && cantidad > inventario.stockActual) {
-    throw new ApiError(400, `Stock insuficiente: quedan ${inventario.stockActual} unidades`);
-  }
-
-  const pymeIdReal = pymeId ? Number(pymeId) : producto.pymeId;
-
-  const venta = await prisma.$transaction(async (tx) => {
-    const created = await tx.venta.create({
-      data: {
-        pymeId: pymeIdReal,
-        sedeId: producto.sedeId,
-        productoId: producto.id,
-        cantidad,
-        precioUnitario,
-        costoUnitario: producto.costo,
-        total: precioUnitario * cantidad,
-      },
-    });
-
-    await tx.inventario.updateMany({
-      where: { productoId: producto.id },
-      data: { stockActual: { decrement: cantidad } },
-    });
-
-    return created;
-  });
-
-  // Espejo hacia el motor de IA. No debe impedir registrar la venta si falla.
-  try {
-    const sede = producto.sedeId ? await prisma.sede.findUnique({ where: { id: producto.sedeId } }) : null;
-    await iaSync.syncVenta({
-      producto,
-      pyme: producto.pyme,
-      sede,
-      cantidad,
-      precioUnitario,
-      fecha: venta.fecha,
-    });
-  } catch (err) {
-    console.error('[iaSync]', err.message);
-  }
-
-  // Disparar predicción en segundo plano sin bloquear la respuesta. Usa la
-  // versión interna (sin chequeo de capacidad 'generarPredicciones'): es un
-  // efecto de sistema post-venta, no una acción directa del usuario.
-  prediccionesService
-    .generarParaProductoInterno(user, producto.id)
-    .catch((err) => console.error('[prediccion]', err.message));
-
-  if (!(await tieneCapacidad(user, pymeIdReal, 'verCostoProducto'))) ocultarCostoVenta(venta);
-  return venta;
+  return factura.ventas[0];
 };
 
 const historialProducto = async (productoId, dias = 30) => {

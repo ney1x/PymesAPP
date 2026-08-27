@@ -755,6 +755,99 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 .alert-success { background: var(--success-soft); color: var(--success); border: 1px solid #bfe1cc; }
 .alert-info { background: var(--primary-soft); color: var(--primary-dark); border: 1px solid #ecceA0; }
 
+/* Confirmación de venta: se lee como un talón de recibo recién sellado —
+   el borde inferior punteado retoma la perforación de .venta-factura-detalle
+   en vez de inventar un motivo nuevo. Se repite muchas veces por turno, así
+   que el sello es corto y se retira solo (ver useEffect en Ventas.jsx). */
+.venta-receipt-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 16px 14px;
+  margin-bottom: 16px;
+  background: var(--success-soft);
+  border: 1px solid #bfe1cc;
+  border-bottom: 1px dashed #9ecbae;
+  border-radius: var(--radius);
+  animation: ventaReceiptSlide 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ventaReceiptSlide {
+  0% { opacity: 0; transform: translateY(-6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.venta-receipt-stamp {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--success);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--success-soft), 0 0 0 3px var(--success);
+  animation: ventaReceiptStamp 380ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ventaReceiptStamp {
+  0% { transform: scale(0.4) rotate(-25deg); opacity: 0; }
+  55% { transform: scale(1.12) rotate(-3deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-6deg); opacity: 1; }
+}
+
+.venta-receipt-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.venta-receipt-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--success);
+  letter-spacing: -0.005em;
+}
+
+.venta-receipt-monto {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  font-variant-numeric: tabular-nums;
+}
+
+.venta-receipt-checklist {
+  list-style: none;
+  margin: 3px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.venta-receipt-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+  opacity: 0;
+  animation: ventaReceiptCheckIn 220ms ease-out forwards;
+}
+
+.venta-receipt-checklist li:nth-child(1) { animation-delay: 160ms; }
+.venta-receipt-checklist li:nth-child(2) { animation-delay: 260ms; }
+
+.venta-receipt-checklist svg { color: var(--success); flex-shrink: 0; }
+
+@keyframes ventaReceiptCheckIn {
+  0% { opacity: 0; transform: translateX(-4px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
 /* ======================== VENTAS: PANEL EN VIVO ======================== */
 
 .venta-total-row {
@@ -818,6 +911,39 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   font-size: 12px;
   color: var(--muted);
   margin-top: 6px;
+}
+
+.venta-factura-titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.venta-factura-chevron {
+  color: var(--muted);
+  transition: transform 150ms ease;
+}
+
+.venta-factura-chevron-abierto {
+  transform: rotate(90deg);
+}
+
+.venta-factura-detalle {
+  width: 100%;
+  margin: 8px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.venta-factura-detalle li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted);
+  padding-left: 4px;
 }
 
 .venta-feed-item-new {
@@ -891,6 +1017,11 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   user-select: none;
 }
 
+.venta-scanner-guide:focus-visible {
+  outline: 3px solid var(--petrol);
+  outline-offset: 3px;
+}
+
 .venta-scanner-corner {
   position: absolute;
   width: 36px;
@@ -898,20 +1029,20 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   border: 3px solid rgba(255, 255, 255, 0.92);
   touch-action: none;
   cursor: nwse-resize;
-  transition: border-color 200ms ease, width 200ms ease, height 200ms ease;
+  /* transform en vez de width/height: evita reflow en cada cambio de estado */
+  transition: border-color 200ms ease, transform 200ms ease;
 }
 
-.venta-scanner-corner--tl { top: -4px; left: -4px; border-right: none; border-bottom: none; border-top-left-radius: 14px; }
-.venta-scanner-corner--tr { top: -4px; right: -4px; border-left: none; border-bottom: none; border-top-right-radius: 14px; cursor: nesw-resize; }
-.venta-scanner-corner--bl { bottom: -4px; left: -4px; border-right: none; border-top: none; border-bottom-left-radius: 14px; cursor: nesw-resize; }
-.venta-scanner-corner--br { bottom: -4px; right: -4px; border-left: none; border-top: none; border-bottom-right-radius: 14px; }
+.venta-scanner-corner--tl { top: -4px; left: -4px; border-right: none; border-bottom: none; border-top-left-radius: 14px; transform-origin: top left; }
+.venta-scanner-corner--tr { top: -4px; right: -4px; border-left: none; border-bottom: none; border-top-right-radius: 14px; cursor: nesw-resize; transform-origin: top right; }
+.venta-scanner-corner--bl { bottom: -4px; left: -4px; border-right: none; border-top: none; border-bottom-left-radius: 14px; cursor: nesw-resize; transform-origin: bottom left; }
+.venta-scanner-corner--br { bottom: -4px; right: -4px; border-left: none; border-top: none; border-bottom-right-radius: 14px; transform-origin: bottom right; }
 
-.venta-scanner-frame--ajustar .venta-scanner-corner { border-color: #f5a524; }
+.venta-scanner-frame--ajustar .venta-scanner-corner { border-color: var(--warning); }
 
 .venta-scanner-frame--listo .venta-scanner-corner {
-  border-color: #2ecc71;
-  width: 42px;
-  height: 42px;
+  border-color: var(--success);
+  transform: scale(1.17);
   animation: ventaScannerPulso 550ms ease-in-out infinite alternate;
 }
 
@@ -945,8 +1076,8 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 }
 
 .venta-scanner-overlay polygon {
-  fill: rgba(46, 204, 113, 0.15);
-  stroke: rgba(46, 204, 113, 0.9);
+  fill: color-mix(in srgb, var(--success) 15%, transparent);
+  stroke: var(--success);
   stroke-width: 2;
 }
 
@@ -958,7 +1089,7 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   margin: 0;
   padding: 8px 16px;
   border-radius: 999px;
-  background: rgba(18, 42, 71, 0.85);
+  background: color-mix(in srgb, var(--navy) 85%, transparent);
   color: #fff;
   font-size: 13.5px;
   font-weight: 600;
@@ -969,8 +1100,8 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   animation: ventaScannerMensajeFade 200ms ease-out;
 }
 
-.venta-scanner-mensaje--ajustar { background: rgba(180, 105, 12, 0.9); }
-.venta-scanner-mensaje--listo { background: rgba(30, 130, 76, 0.92); }
+.venta-scanner-mensaje--ajustar { background: color-mix(in srgb, var(--warning) 92%, transparent); }
+.venta-scanner-mensaje--listo { background: color-mix(in srgb, var(--success) 92%, transparent); }
 
 @keyframes ventaScannerMensajeFade {
   from { opacity: 0; transform: translate(-50%, 4px); }
@@ -1019,6 +1150,13 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 
 .venta-carrito-cantidad span { min-width: 20px; text-align: center; font-weight: 600; }
 
+/* 44x44 mínimo táctil (WCAG 2.5.5 / material) — esta pantalla se usa a
+   una mano con el celular, son los controles más tocados del carrito. */
+.venta-carrito-cantidad button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
 .venta-carrito-quitar {
   border: none;
   background: none;
@@ -1028,6 +1166,11 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   cursor: pointer;
   padding: 4px 6px;
   border-radius: 6px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .venta-carrito-quitar:hover { color: var(--danger); background: var(--danger-soft); }
@@ -1258,7 +1401,10 @@ a {
   .modal-overlay,
   .modal,
   .venta-scanner-corner,
-  .venta-scanner-mensaje {
+  .venta-scanner-mensaje,
+  .venta-receipt-confirm,
+  .venta-receipt-stamp,
+  .venta-receipt-checklist li {
     animation: none !important;
     transition: none !important;
   }
@@ -1276,7 +1422,8 @@ a {
   .animate-fade-in-up,
   .animate-fade-in,
   .animate-slide-in-right,
-  .prediccion-confianza-pop {
+  .prediccion-confianza-pop,
+  .venta-receipt-checklist li {
     opacity: 1 !important;
     transform: none !important;
   }
@@ -1296,6 +1443,19 @@ a {
   background: var(--surface-alt);
   color: var(--muted);
 }
+/* Sin esto, el h3/p caen al margen por defecto del navegador (~1em cada
+   uno) — se suma al padding del contenedor sin que nadie lo haya decidido. */
+.empty h3 { margin: 0 0 4px; font-size: 15px; }
+.empty p { margin: 0; }
+
+/* Variante para cuando el vacío es UN módulo entre varios en una tarjeta
+   (p. ej. el carrito de Ventas), no la página entera — el padding por
+   defecto asume que es lo único ahí y desentona al lado de secciones
+   apretadas de formulario. */
+.empty--compact { padding: 20px 16px; }
+.empty--compact .empty-icon { width: 34px; height: 34px; margin-bottom: 8px; }
+.empty--compact h3 { font-size: 13.5px; }
+.empty--compact p { font-size: 12.5px; }
 
 /* ======================== MODAL ======================== */
 

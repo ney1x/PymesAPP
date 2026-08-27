@@ -69,6 +69,11 @@ export const ventasApi = {
   create: (data) => client.post('/ventas', data),
 };
 
+export const facturasApi = {
+  list: (params) => client.get('/facturas', { params }),
+  create: (data) => client.post('/facturas', data),
+};
+
 export const prediccionesApi = {
   list: (params) => client.get('/predicciones', { params }),
   generarTodo: (params) => client.post('/predicciones/generar', null, { params }),

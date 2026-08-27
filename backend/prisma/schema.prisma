@@ -171,6 +171,7 @@ model pyme {
   mensajes    mensaje[]
   user        user             @relation(fields: [userId], references: [id], map: "Pyme_userId_fkey")
   ventas      venta[]
+  facturas    factura[]
 
   @@index([userId], map: "Pyme_userId_idx")
 }
@@ -210,6 +211,7 @@ model sede {
   pyme        pyme             @relation(fields: [pymeId], references: [id], map: "Sede_pymeId_fkey")
   productos   producto[]
   ventas      venta[]
+  facturas    factura[]
   inventarios inventario[]
   membresias  pyme_membresia[]
 
@@ -300,6 +302,7 @@ model venta {
   pymeId         Int
   sedeId         Int?
   productoId     Int
+  facturaId      Int?
   cantidad       Int
   precioUnitario Float
   costoUnitario  Float
@@ -308,10 +311,29 @@ model venta {
   producto       producto @relation(fields: [productoId], references: [id], map: "Venta_productoId_fkey")
   pyme           pyme     @relation(fields: [pymeId], references: [id], map: "Venta_pymeId_fkey")
   sede           sede?    @relation(fields: [sedeId], references: [id], map: "Venta_sedeId_fkey")
+  factura        factura? @relation(fields: [facturaId], references: [id], map: "Venta_facturaId_fkey")
 
   @@index([productoId, fecha], map: "Venta_productoId_fecha_idx")
   @@index([pymeId, fecha], map: "Venta_pymeId_fecha_idx")
   @@index([sedeId, fecha], map: "Venta_sedeId_fecha_idx")
+  @@index([facturaId], map: "Venta_facturaId_idx")
+}
+
+// Agrupa una o más `venta` registradas en la misma transacción de cobro
+// (carrito de Ventas.jsx, botón rápido de Inventario, o el asistente de
+// IA) — toda venta pertenece a una factura, incluso las de un solo producto.
+model factura {
+  id     Int      @id @default(autoincrement())
+  pymeId Int
+  sedeId Int?
+  total  Float
+  fecha  DateTime @default(now())
+  ventas venta[]
+  pyme   pyme     @relation(fields: [pymeId], references: [id], map: "Factura_pymeId_fkey")
+  sede   sede?    @relation(fields: [sedeId], references: [id], map: "Factura_sedeId_fkey")
+
+  @@index([pymeId, fecha], map: "Factura_pymeId_fecha_idx")
+  @@index([sedeId, fecha], map: "Factura_sedeId_fecha_idx")
 }
 
 /// Motor de IA (IA_INVENTARIO) - propiedad de db/repository.py, Node no la usa.

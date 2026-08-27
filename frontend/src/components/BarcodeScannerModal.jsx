@@ -132,6 +132,32 @@ export default function BarcodeScannerModal({ open, onClose, onDetect, inline = 
     arrastreRef.current = null;
   };
 
+  // Equivalente por teclado del arrastre: flechas mueven, Shift+flecha
+  // redimensiona (ancla la esquina inferior-derecha, igual que arrastrar esa
+  // esquina con el mouse). Las 4 esquinas visuales siguen siendo solo
+  // táctiles/mouse — un único widget enfocable con soporte de teclado
+  // completo es el patrón estándar para esto (ver ARIA APG "slider"), no
+  // hace falta que cada esquina sea su propio tab-stop.
+  const PASO_TECLADO_RECUADRO = 0.03;
+
+  const manejarTecladoRecuadro = (e) => {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    e.preventDefault();
+    const paso = PASO_TECLADO_RECUADRO;
+    const dx = e.key === 'ArrowRight' ? paso : e.key === 'ArrowLeft' ? -paso : 0;
+    const dy = e.key === 'ArrowDown' ? paso : e.key === 'ArrowUp' ? -paso : 0;
+
+    setRecuadro((actual) =>
+      e.shiftKey
+        ? redimensionarRecuadro(actual, 'br', dx, dy)
+        : {
+            ...actual,
+            x: clamp(actual.x + dx, 0, 1 - actual.width),
+            y: clamp(actual.y + dy, 0, 1 - actual.height),
+          }
+    );
+  };
+
   const poligonoDetectado = useMemo(() => {
     if (!cuadroDetectado || cuadroDetectado.puntos.length !== 4) return null;
     if (espejo || rotacion !== 0) return null; // ver comentario arriba
@@ -175,9 +201,14 @@ export default function BarcodeScannerModal({ open, onClose, onDetect, inline = 
           onPointerMove={moverArrastre}
           onPointerUp={terminarArrastre}
           onPointerCancel={terminarArrastre}
+          onKeyDown={manejarTecladoRecuadro}
           role="slider"
-          aria-label="Área de escaneo — arrastrá para mover, o las esquinas para redimensionar"
-          aria-valuetext={`${Math.round(recuadro.width * 100)}% de ancho`}
+          aria-label="Área de escaneo"
+          aria-orientation="horizontal"
+          aria-valuemin={Math.round(TAMANO_MIN_RECUADRO * 100)}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(recuadro.width * 100)}
+          aria-valuetext={`${Math.round(recuadro.width * 100)}% de ancho, ${Math.round(recuadro.height * 100)}% de alto. Flechas para mover, Shift y flecha para redimensionar.`}
           tabIndex={0}
         >
           {['tl', 'tr', 'bl', 'br'].map((esquina) => (

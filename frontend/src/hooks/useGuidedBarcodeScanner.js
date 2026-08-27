@@ -60,7 +60,7 @@ export const MENSAJES = {
   [ESTADOS.CONFIRMADO]: '✓ Agregado — buscando el siguiente...',
 };
 
-const PAUSA_CONFIRMACION_MS = 1100; // en modo continuo: cuánto se muestra "agregado" antes de retomar el escaneo solo
+const PAUSA_CONFIRMACION_MS = 1500; // en modo continuo: cuánto se muestra "agregado" antes de retomar el escaneo solo
 
 function mensajeDeError(err) {
   if (err?.name === 'NotAllowedError') {

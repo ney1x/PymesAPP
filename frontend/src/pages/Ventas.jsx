@@ -23,15 +23,15 @@
  *   carrying its provenance.
  *
  * Carrito de venta (código de barras): la pistola USB emula teclado — tipea
- * el código y termina en Enter. No hay endpoint de "factura": cada línea del
- * carrito confirmada dispara su propio ventasApi.create() (mismo endpoint de
- * siempre), la agrupación visual es puramente de esta pantalla.
+ * el código y termina en Enter. Al confirmar, el carrito entero se manda de
+ * una vez a facturasApi.create() — una factura con todas las líneas, no una
+ * venta suelta por línea.
  */
-import React, { useState, useRef } from 'react';
-import { ventasApi, productosApi, pymesApi } from '../api';
+import React, { useState, useRef, useEffect } from 'react';
+import { facturasApi, productosApi, pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, PageHeader, Button, EmptyState, money, date } from '../components/ui';
-import { IconCamera } from '../components/Icons';
+import { IconCamera, IconPlus, IconMinus, IconClose, IconChevronRight, IconCheck } from '../components/Icons';
 import BarcodeScannerModal from '../components/BarcodeScannerModal';
 import { puedeEnAlguna } from '../constants/permisos';
 
@@ -49,8 +49,18 @@ export default function Ventas() {
   const [confirmando, setConfirmando] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [ventaNuevaIds, setVentaNuevaIds] = useState(new Set());
+  const [ventaConfirmada, setVentaConfirmada] = useState(null); // { id, total } — recibo recién sellado
+  const [facturaNuevaId, setFacturaNuevaId] = useState(null);
+  const [facturasExpandidas, setFacturasExpandidas] = useState(new Set());
   const scanInputRef = useRef(null);
+
+  // El sello de "venta registrada" se retira solo: es una acción que se repite
+  // decenas de veces por turno, no debe acumularse ni pedir que lo cierren.
+  useEffect(() => {
+    if (!ventaConfirmada) return undefined;
+    const t = setTimeout(() => setVentaConfirmada(null), 4200);
+    return () => clearTimeout(t);
+  }, [ventaConfirmada]);
 
   const pymes = useAsync(() => pymesApi.list());
   const puedeVender = puedeEnAlguna(pymes.data?.pymes, 'crearVentas');
@@ -63,10 +73,27 @@ export default function Ventas() {
     () => productosApi.list({ ...(filtroPymeId ? { pymeId: filtroPymeId } : {}), ...(filtroSedeId ? { sedeId: filtroSedeId } : {}) }),
     [filtroPymeId, filtroSedeId]
   );
-  const ventas = useAsync(
-    () => ventasApi.list({ ...(filtroPymeId ? { pymeId: filtroPymeId } : {}), ...(filtroSedeId ? { sedeId: filtroSedeId } : {}) }),
+  const facturas = useAsync(
+    () => {
+      const desde = new Date();
+      desde.setDate(desde.getDate() - 7);
+      return facturasApi.list({
+        desde: desde.toISOString(),
+        ...(filtroPymeId ? { pymeId: filtroPymeId } : {}),
+        ...(filtroSedeId ? { sedeId: filtroSedeId } : {}),
+      });
+    },
     [filtroPymeId, filtroSedeId]
   );
+
+  const toggleFactura = (id) => {
+    setFacturasExpandidas((actual) => {
+      const copia = new Set(actual);
+      if (copia.has(id)) copia.delete(id);
+      else copia.add(id);
+      return copia;
+    });
+  };
 
   const handleFiltroPyme = (value) => {
     setFiltroPymeId(value);
@@ -137,6 +164,7 @@ export default function Ventas() {
     setScanError(null);
     setCodigoSinAsignar(null);
     setSuccess(null);
+    setVentaConfirmada(null);
     agregarLinea(producto, 1);
   };
 
@@ -239,37 +267,27 @@ export default function Ventas() {
     setConfirmando(true);
     setActionError(null);
     setSuccess(null);
+    setVentaConfirmada(null);
 
-    const nuevosIds = new Set();
-    const pendientes = [...carrito];
-
-    while (pendientes.length > 0) {
-      const linea = pendientes[0];
-      try {
-        const res = await ventasApi.create({
-          productoId: linea.productoId,
-          cantidad: linea.cantidad,
-          precioUnitario: linea.precioUnitario,
-        });
-        if (res?.venta?.id) nuevosIds.add(res.venta.id);
-        pendientes.shift();
-        setCarrito((actual) => actual.filter((l) => l.productoId !== linea.productoId));
-      } catch (err) {
-        setActionError(
-          `${err.message} — se detuvo en "${linea.nombre}". Las líneas anteriores ya quedaron registradas.`
-        );
-        break;
-      }
+    try {
+      const res = await facturasApi.create({
+        lineas: carrito.map((l) => ({
+          productoId: l.productoId,
+          cantidad: l.cantidad,
+          precioUnitario: l.precioUnitario,
+        })),
+      });
+      setVentaConfirmada({ id: res?.factura?.id ?? null, total: res?.factura?.total ?? totalCarrito });
+      setFacturaNuevaId(res?.factura?.id ?? null);
+      setCarrito([]);
+      facturas.run();
+      productos.run(); // el stock mostrado (carrito, gauge) debe reflejar la venta recién hecha
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setConfirmando(false);
+      focusScan();
     }
-
-    if (pendientes.length === 0) {
-      setSuccess('Venta registrada. El stock se actualizó y se programó la predicción.');
-    }
-    setVentaNuevaIds(nuevosIds);
-    ventas.run();
-    productos.run(); // el stock mostrado (carrito, gauge) debe reflejar la venta recién hecha
-    setConfirmando(false);
-    focusScan();
   };
 
   const productoSeleccionado = productos.data?.productos?.find((p) => String(p.id) === form.productoId);
@@ -278,6 +296,15 @@ export default function Ventas() {
   const stockRestante = tieneStock ? Math.max(0, stockActual - Number(form.cantidad || 0)) : 0;
   const stockPct = tieneStock && stockActual > 0 ? Math.max(0, Math.min(100, (stockRestante / stockActual) * 100)) : 0;
   const stockTone = stockPct <= 15 ? 'danger' : stockPct <= 40 ? 'warning' : 'ok';
+
+  // Mismo criterio que el resto de la app (ver Inventario.jsx): un spinner
+  // de página completa mientras carga lo esencial, para no confundir "todavía
+  // está cargando" con "no hay nada" (el EmptyState de abajo se ve idéntico).
+  if (pymes.loading || productos.loading || facturas.loading) {
+    return <Spinner label="Cargando ventas..." />;
+  }
+  if (productos.error) return <ErrorBox error={productos.error} />;
+  if (facturas.error) return <ErrorBox error={facturas.error} />;
 
   return (
     <div data-impeccable-seed="ventasredesign1">
@@ -313,6 +340,21 @@ export default function Ventas() {
 
           <ErrorBox error={actionError} />
           {success && <div className="alert alert-success">{success}</div>}
+          {ventaConfirmada && (
+            <div className="venta-receipt-confirm" role="status">
+              <span className="venta-receipt-stamp" aria-hidden="true"><IconCheck size={16} /></span>
+              <div className="venta-receipt-body">
+                <strong className="venta-receipt-title">
+                  Venta registrada{ventaConfirmada.id ? ` · N.º ${ventaConfirmada.id}` : ''}
+                </strong>
+                <span className="venta-receipt-monto">{money(ventaConfirmada.total)}</span>
+                <ul className="venta-receipt-checklist">
+                  <li><IconCheck size={12} aria-hidden="true" /> Stock actualizado</li>
+                  <li><IconCheck size={12} aria-hidden="true" /> Predicción programada</li>
+                </ul>
+              </div>
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="scanInput">Escanear código de barras</label>
@@ -428,7 +470,7 @@ export default function Ventas() {
           </details>
 
           {carrito.length === 0 ? (
-            <EmptyState title="Carrito vacío" message="Escaneá un código o agregá un producto manualmente." />
+            <EmptyState className="empty--compact" title="Carrito vacío" message="Escaneá un código o agregá un producto manualmente." />
           ) : (
             <ul className="list-card venta-carrito-lista">
               {carrito.map((l) => (
@@ -438,14 +480,14 @@ export default function Ventas() {
                     <small>{money(l.precioUnitario)} c/u{l.codigo ? ` · ${l.codigo}` : ''}</small>
                   </div>
                   <div className="venta-carrito-cantidad">
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => actualizarCantidad(l.productoId, -1)} aria-label={`Quitar una unidad de ${l.nombre}`}>−</button>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => actualizarCantidad(l.productoId, -1)} aria-label={`Quitar una unidad de ${l.nombre}`}><IconMinus size={14} aria-hidden="true" /></button>
                     <span>{l.cantidad}</span>
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => actualizarCantidad(l.productoId, 1)} aria-label={`Agregar una unidad de ${l.nombre}`}>+</button>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => actualizarCantidad(l.productoId, 1)} aria-label={`Agregar una unidad de ${l.nombre}`}><IconPlus size={14} aria-hidden="true" /></button>
                   </div>
                   <div className="dashboard-rank-metric">
                     <strong>{money(l.cantidad * l.precioUnitario)}</strong>
                   </div>
-                  <button type="button" className="venta-carrito-quitar" onClick={() => quitarLinea(l.productoId)} aria-label={`Quitar ${l.nombre} del carrito`}>×</button>
+                  <button type="button" className="venta-carrito-quitar" onClick={() => quitarLinea(l.productoId)} aria-label={`Quitar ${l.nombre} del carrito`}><IconClose size={14} aria-hidden="true" /></button>
                 </li>
               ))}
             </ul>
@@ -474,25 +516,62 @@ export default function Ventas() {
           <div className="card-title">Ventas recientes</div>
 
           <div className="table-wrap" style={{ border: 'none', boxShadow: 'none' }}>
-            {!ventas.data?.ventas?.length ? (
+            {!facturas.data?.facturas?.length ? (
               <EmptyState title="Sin ventas" message="Registra tu primera venta." />
             ) : (
               <ul className="list-card">
-                {ventas.data.ventas.slice(0, 15).map((v, i) => (
-                  <li
-                    key={v.id}
-                    className={`rank-item animate-slide-in-right${ventaNuevaIds.has(v.id) ? ' venta-feed-item-new' : ''}`}
-                    style={{ animationDelay: `${Math.min(i, 6) * 40}ms` }}
-                  >
-                    <div className="rank-info">
-                      <strong>{v.producto.nombre}</strong>
-                      <small>{date(v.fecha)} · {v.cantidad} uds</small>
-                    </div>
-                    <div className="dashboard-rank-metric">
-                      <strong>{money(v.total)}</strong>
-                    </div>
-                  </li>
-                ))}
+                {facturas.data.facturas.slice(0, 200).map((f, i) => {
+                  const expandida = facturasExpandidas.has(f.id);
+                  const cantidadProductos = f.ventas.length;
+                  const esExpandible = cantidadProductos > 1;
+                  return (
+                    <li
+                      key={f.id}
+                      className={`rank-item animate-slide-in-right${f.id === facturaNuevaId ? ' venta-feed-item-new' : ''}`}
+                      style={{ animationDelay: `${Math.min(i, 6) * 40}ms`, flexDirection: 'column', alignItems: 'stretch', cursor: esExpandible ? 'pointer' : 'default' }}
+                      onClick={esExpandible ? () => toggleFactura(f.id) : undefined}
+                      onKeyDown={esExpandible ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleFactura(f.id);
+                        }
+                      } : undefined}
+                      role={esExpandible ? 'button' : undefined}
+                      tabIndex={esExpandible ? 0 : undefined}
+                      aria-expanded={esExpandible ? expandida : undefined}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                        <div className="rank-info">
+                          <strong className="venta-factura-titulo">
+                            {esExpandible ? `${cantidadProductos} productos` : f.ventas[0]?.producto.nombre}
+                            {esExpandible && (
+                              <IconChevronRight
+                                size={14}
+                                aria-hidden="true"
+                                className={`venta-factura-chevron${expandida ? ' venta-factura-chevron-abierto' : ''}`}
+                              />
+                            )}
+                          </strong>
+                          <small>{date(f.fecha)} · {f.ventas.reduce((acc, v) => acc + v.cantidad, 0)} uds</small>
+                        </div>
+                        <div className="dashboard-rank-metric">
+                          <strong>{money(f.total)}</strong>
+                        </div>
+                      </div>
+
+                      {cantidadProductos > 1 && expandida && (
+                        <ul className="venta-factura-detalle">
+                          {f.ventas.map((v) => (
+                            <li key={v.id}>
+                              <span>{v.producto.nombre} × {v.cantidad}</span>
+                              <span>{money(v.total)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

@@ -45,9 +45,9 @@ export function ErrorBox({ error }) {
   return <div className="alert alert-error">{error}</div>;
 }
 
-export function EmptyState({ title = 'Sin información', message = 'Aún no hay datos para mostrar.' }) {
+export function EmptyState({ title = 'Sin información', message = 'Aún no hay datos para mostrar.', className }) {
   return (
-    <div className="empty">
+    <div className={`empty${className ? ` ${className}` : ''}`}>
       <span className="empty-icon"><IconArchive size={22} /></span>
       <h3>{title}</h3>
       <p className="muted">{message}</p>
