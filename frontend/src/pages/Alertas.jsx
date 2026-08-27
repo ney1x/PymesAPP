@@ -163,7 +163,7 @@ export default function Alertas() {
               const { critico, mostrarCifra, sinCifraCalculable } = evaluarAlerta(a);
               return (
                 <li
-                  className={`rank-item animate-slide-in-right${critico ? ' alerta-critica' : ''}`}
+                  className={`rank-item alerta-row animate-slide-in-right${critico ? ' alerta-critica' : ''}`}
                   key={a.id}
                   style={{ animationDelay: `${Math.min(i, 7) * 40}ms` }}
                 >
@@ -175,7 +175,7 @@ export default function Alertas() {
                       {a.comprar && ` · Punto de reorden ${Math.round(a.puntoReorden)} · Lead time ${a.leadTimeDias} días`}
                     </small>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                  <div className="alerta-row-meta">
                     {a.bajoMinimo && <Badge tone="danger">Bajo stock</Badge>}
                     {mostrarCifra && (
                       <div className="alerta-comprar-cifra">

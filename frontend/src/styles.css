@@ -1026,7 +1026,7 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   flex-shrink: 0;
 }
 
-.rank-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.rank-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .rank-info small { color: var(--muted); font-size: 12px; }
 
 /* ======================== BADGES ======================== */
@@ -1945,6 +1945,35 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   font-style: italic;
   text-align: right;
   max-width: 140px;
+}
+
+.alerta-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Mobile: el rail se achica a solo íconos pero igual deja poco ancho para
+   la fila — a lo largo (título | badge + cifra) el título terminaba
+   partido palabra por palabra. Se apila: título arriba a lo ancho,
+   badge/cifra abajo en su propia línea. */
+@media (max-width: 640px) {
+  .alerta-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .alerta-row .rank-info {
+    flex-basis: 100%;
+  }
+  .alerta-row .alerta-row-meta {
+    flex-basis: 100%;
+    justify-content: space-between;
+    margin-top: 4px;
+  }
+  .alerta-comprar-fallback {
+    max-width: none;
+  }
 }
 
 /* Alertas es de solo lectura, fila por fila — nada responde al click.
