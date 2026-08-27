@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import { inventarioApi, productosApi, pymesApi, ventasApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, Badge, Modal, Button, IconButton, EmptyState } from '../components/ui';
-import { IconPlus, IconEdit, IconTrash, IconSearch, IconCheck, IconAlert } from '../components/Icons';
+import { IconPlus, IconEdit, IconTrash, IconSearch, IconCheck, IconAlert, IconCamera } from '../components/Icons';
 import { categoriasComunesPorTipo } from '../constants/categorias';
 import ImportarProductosModal from '../components/ImportarProductosModal';
+import BarcodeScannerModal from '../components/BarcodeScannerModal';
 import { puede, puedeEnAlguna } from '../constants/permisos';
 
 const PAGE_SIZE = 10;
@@ -21,10 +22,11 @@ export default function Inventario() {
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({
-    nombre: '', categoria: '', precioVenta: '', costo: '',
+    nombre: '', codigo: '', categoria: '', precioVenta: '', costo: '',
     stockActual: 0, stockMinimo: 5, leadTimeDias: 7, stockSeguridad: 0,
   });
   const [otraCategoria, setOtraCategoria] = useState(false);
+  const [camaraAbierta, setCamaraAbierta] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [toast, setToast] = useState(null);
@@ -118,11 +120,12 @@ export default function Inventario() {
   const openCreate = () => {
     setEditing(null);
     setForm({
-      nombre: '', categoria: '', precioVenta: '', costo: '',
+      nombre: '', codigo: `PROD-${Date.now()}`, categoria: '', precioVenta: '', costo: '',
       stockActual: 0, stockMinimo: 5, leadTimeDias: 7, stockSeguridad: 0,
       pymeId: pymes.data?.pymes?.[0]?.id || '',
     });
     setOtraCategoria(false);
+    setCamaraAbierta(false);
     setActionError(null);
     setModalOpen(true);
   };
@@ -142,6 +145,7 @@ export default function Inventario() {
       pymeId: inv.producto.pymeId,
     });
     setOtraCategoria(false);
+    setCamaraAbierta(false);
     setActionError(null);
     setModalOpen(true);
   };
@@ -205,7 +209,7 @@ export default function Inventario() {
         await productosApi.update(editing.producto.id, {
           pymeId: Number(form.pymeId),
           nombre: form.nombre,
-          codigo: form.codigo,
+          codigo: form.codigo?.trim(),
           categoria: form.categoria,
           precioVenta: Number(form.precioVenta),
           costo: Number(form.costo),
@@ -227,7 +231,7 @@ export default function Inventario() {
         await productosApi.create({
           pymeId: Number(pymeId),
           nombre: form.nombre,
-          codigo: `PROD-${Date.now()}`,
+          codigo: form.codigo?.trim() || `PROD-${Date.now()}`,
           categoria: form.categoria,
           precioVenta: Number(form.precioVenta),
           costo: Number(form.costo),
@@ -501,6 +505,35 @@ export default function Inventario() {
           <div className="form-group">
             <label htmlFor="inv-nombre">Nombre</label>
             <input id="inv-nombre" name="nombre" required value={form.nombre} onChange={handleChange} placeholder="Nombre del producto" />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="inv-codigo">Código de barras</label>
+            <div className="venta-scan-row">
+              <input
+                id="inv-codigo"
+                name="codigo"
+                required
+                value={form.codigo}
+                onChange={handleChange}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                placeholder="Escaneá o escribí el código"
+              />
+              <Button type="button" variant="secondary" onClick={() => setCamaraAbierta((v) => !v)}>
+                <IconCamera size={16} aria-hidden="true" /> Cámara
+              </Button>
+            </div>
+            {!editing && (
+              <p className="muted" style={{ marginTop: 4, marginBottom: 0, fontSize: 12.5 }}>
+                Se rellenó uno automático — reemplazalo escaneando el código real del producto si lo tiene.
+              </p>
+            )}
+            <BarcodeScannerModal
+              inline
+              open={camaraAbierta}
+              onClose={() => setCamaraAbierta(false)}
+              onDetect={(codigo) => { setForm((f) => ({ ...f, codigo })); setCamaraAbierta(false); }}
+            />
           </div>
 
           <div className="form-group">

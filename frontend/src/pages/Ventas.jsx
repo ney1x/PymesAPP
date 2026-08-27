@@ -31,6 +31,8 @@ import React, { useState, useRef } from 'react';
 import { ventasApi, productosApi, pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, PageHeader, Button, EmptyState, money, date } from '../components/ui';
+import { IconCamera } from '../components/Icons';
+import BarcodeScannerModal from '../components/BarcodeScannerModal';
 import { puedeEnAlguna } from '../constants/permisos';
 
 export default function Ventas() {
@@ -40,6 +42,10 @@ export default function Ventas() {
   const [carrito, setCarrito] = useState([]); // [{ productoId, nombre, codigo, cantidad, precioUnitario, stockActual }]
   const [scanValue, setScanValue] = useState('');
   const [scanError, setScanError] = useState(null);
+  const [codigoSinAsignar, setCodigoSinAsignar] = useState(null); // último código escaneado sin producto — habilita "Asignar a un producto"
+  const [productoParaAsignar, setProductoParaAsignar] = useState('');
+  const [asignando, setAsignando] = useState(false);
+  const [camaraAbierta, setCamaraAbierta] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -48,6 +54,7 @@ export default function Ventas() {
 
   const pymes = useAsync(() => pymesApi.list());
   const puedeVender = puedeEnAlguna(pymes.data?.pymes, 'crearVentas');
+  const puedeGestionarProductos = puedeEnAlguna(pymes.data?.pymes, 'gestionarProductos');
   const sedes = useAsync(
     () => (filtroPymeId ? pymesApi.sedes.list(filtroPymeId) : Promise.resolve({ sedes: [] })),
     [filtroPymeId]
@@ -113,25 +120,78 @@ export default function Ventas() {
     });
   };
 
-  const handleScanKeyDown = (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-
-    const codigo = scanValue.trim();
-    setScanValue('');
+  // Compartido entre la pistola (Enter en el input) y la cámara (código
+  // detectado por @zxing/browser) — ambos terminan en el mismo lookup +
+  // línea de carrito, solo cambia de dónde sale el texto del código.
+  const procesarCodigoEscaneado = (codigoCrudo) => {
+    const codigo = codigoCrudo.trim();
     if (!codigo) return;
 
     const producto = productos.data?.productos?.find((p) => p.codigo === codigo);
     if (!producto) {
       setScanError(`Código no reconocido: ${codigo}`);
-      focusScan();
+      setCodigoSinAsignar(codigo);
       return;
     }
 
     setScanError(null);
+    setCodigoSinAsignar(null);
     setSuccess(null);
     agregarLinea(producto, 1);
+  };
+
+  const handleAsignarCodigo = async () => {
+    if (!codigoSinAsignar || !productoParaAsignar) return;
+    const producto = productos.data?.productos?.find((p) => String(p.id) === productoParaAsignar);
+    if (!producto) return;
+
+    if (typeof producto.costo !== 'number' || typeof producto.precioVenta !== 'number') {
+      setScanError('No tenés permiso para ver el costo de este producto, así que no se puede asignar el código desde acá. Hacelo desde Productos.');
+      return;
+    }
+
+    setAsignando(true);
+    try {
+      await productosApi.update(producto.id, {
+        pymeId: producto.pymeId,
+        sedeId: producto.sedeId,
+        nombre: producto.nombre,
+        codigo: codigoSinAsignar,
+        categoria: producto.categoria,
+        precioVenta: producto.precioVenta,
+        costo: producto.costo,
+        leadTimeDias: producto.leadTimeDias,
+        stockSeguridad: producto.stockSeguridad,
+        estado: producto.estado,
+      });
+      setScanError(null);
+      setSuccess(`Código ${codigoSinAsignar} asignado a ${producto.nombre}.`);
+      agregarLinea({ ...producto, codigo: codigoSinAsignar }, 1);
+      setCodigoSinAsignar(null);
+      setProductoParaAsignar('');
+      productos.run();
+    } catch (err) {
+      setScanError(err.message);
+    } finally {
+      setAsignando(false);
+    }
+  };
+
+  const handleScanKeyDown = (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+
+    const codigo = scanValue;
+    setScanValue('');
+    procesarCodigoEscaneado(codigo);
     focusScan();
+  };
+
+  const handleCameraDetect = (codigo) => {
+    // La cámara queda abierta (modo continuo del escáner) — se puede seguir
+    // escaneando ítem tras ítem sin volver a abrirla; el carrito de abajo
+    // se actualiza en vivo con cada uno.
+    procesarCodigoEscaneado(codigo);
   };
 
   const actualizarCantidad = (productoId, delta) => {
@@ -256,19 +316,64 @@ export default function Ventas() {
 
           <div className="form-group">
             <label htmlFor="scanInput">Escanear código de barras</label>
-            <input
-              id="scanInput"
-              ref={scanInputRef}
-              className="venta-scan-input"
-              type="text"
-              autoFocus
-              placeholder="Enfocá acá y escaneá con la pistola..."
-              value={scanValue}
-              onChange={(e) => { setScanValue(e.target.value); setScanError(null); }}
-              onKeyDown={handleScanKeyDown}
-            />
+            <div className="venta-scan-row">
+              <input
+                id="scanInput"
+                ref={scanInputRef}
+                className="venta-scan-input"
+                type="text"
+                autoFocus
+                placeholder="Enfocá acá y escaneá con la pistola..."
+                value={scanValue}
+                onChange={(e) => { setScanValue(e.target.value); setScanError(null); }}
+                onKeyDown={handleScanKeyDown}
+              />
+              <Button
+                type="button"
+                variant={camaraAbierta ? 'primary' : 'secondary'}
+                aria-pressed={camaraAbierta}
+                onClick={() => { setScanError(null); setCamaraAbierta((v) => !v); }}
+              >
+                <IconCamera size={16} aria-hidden="true" /> {camaraAbierta ? 'Cerrar cámara' : 'Cámara'}
+              </Button>
+            </div>
             {scanError && <div className="alert alert-error" style={{ marginTop: 8 }}>{scanError}</div>}
+
+            {codigoSinAsignar && puedeGestionarProductos && (
+              <div className="venta-asignar-codigo">
+                <label htmlFor="productoParaAsignar">Asignar {codigoSinAsignar} a un producto existente</label>
+                <div className="venta-scan-row">
+                  <select
+                    id="productoParaAsignar"
+                    value={productoParaAsignar}
+                    onChange={(e) => setProductoParaAsignar(e.target.value)}
+                  >
+                    <option value="">Selecciona un producto</option>
+                    {productos.data?.productos?.map((p) => (
+                      <option key={p.id} value={p.id}>{p.nombre}{p.codigo ? ` (código actual: ${p.codigo})` : ''}</option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    loading={asignando}
+                    disabled={!productoParaAsignar}
+                    onClick={handleAsignarCodigo}
+                  >
+                    Asignar código
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
+
+          <BarcodeScannerModal
+            inline
+            continuo
+            open={camaraAbierta}
+            onClose={() => { setCamaraAbierta(false); focusScan(); }}
+            onDetect={handleCameraDetect}
+          />
 
           <details style={{ marginBottom: 16 }}>
             <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--muted)' }}>Agregar manualmente</summary>

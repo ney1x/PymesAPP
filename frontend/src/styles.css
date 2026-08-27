@@ -829,11 +829,177 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   100% { background-color: transparent; }
 }
 
+.venta-asignar-codigo {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--primary-soft);
+  border-radius: var(--radius);
+}
+
+.venta-asignar-codigo label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--primary-dark);
+  margin-bottom: 6px;
+}
+
+.venta-asignar-codigo .venta-scan-row select { flex: 1; min-width: 0; }
+
+.venta-scan-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.venta-scan-row .venta-scan-input { flex: 1; min-width: 0; }
+.venta-scan-row .btn { flex-shrink: 0; }
+
 .venta-scan-input {
   font-family: var(--font-display);
   font-size: 18px;
   border: 2px dashed var(--border);
   background: var(--surface-alt);
+}
+
+.venta-scanner-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: 55vh;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #000;
+}
+
+.venta-scanner-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 200ms ease;
+}
+
+.venta-scanner-guide {
+  position: absolute;
+  /* left/top/width/height llegan por inline style (recuadro arrastrable) */
+  border-radius: 16px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.45);
+  overflow: visible;
+  cursor: move;
+  touch-action: none; /* si no, el navegador interpreta el drag como scroll/zoom de la página */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.venta-scanner-corner {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.92);
+  touch-action: none;
+  cursor: nwse-resize;
+  transition: border-color 200ms ease, width 200ms ease, height 200ms ease;
+}
+
+.venta-scanner-corner--tl { top: -4px; left: -4px; border-right: none; border-bottom: none; border-top-left-radius: 14px; }
+.venta-scanner-corner--tr { top: -4px; right: -4px; border-left: none; border-bottom: none; border-top-right-radius: 14px; cursor: nesw-resize; }
+.venta-scanner-corner--bl { bottom: -4px; left: -4px; border-right: none; border-top: none; border-bottom-left-radius: 14px; cursor: nesw-resize; }
+.venta-scanner-corner--br { bottom: -4px; right: -4px; border-left: none; border-top: none; border-bottom-right-radius: 14px; }
+
+.venta-scanner-frame--ajustar .venta-scanner-corner { border-color: #f5a524; }
+
+.venta-scanner-frame--listo .venta-scanner-corner {
+  border-color: #2ecc71;
+  width: 42px;
+  height: 42px;
+  animation: ventaScannerPulso 550ms ease-in-out infinite alternate;
+}
+
+@keyframes ventaScannerPulso {
+  from { opacity: 1; }
+  to { opacity: 0.55; }
+}
+
+.venta-scanner-scanline {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent);
+  animation: ventaScannerBarrido 1900ms ease-in-out infinite;
+}
+
+@keyframes ventaScannerBarrido {
+  0% { top: 6%; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { top: 94%; opacity: 0; }
+}
+
+.venta-scanner-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.venta-scanner-overlay polygon {
+  fill: rgba(46, 204, 113, 0.15);
+  stroke: rgba(46, 204, 113, 0.9);
+  stroke-width: 2;
+}
+
+.venta-scanner-mensaje {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(18, 42, 71, 0.85);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: ventaScannerMensajeFade 200ms ease-out;
+}
+
+.venta-scanner-mensaje--ajustar { background: rgba(180, 105, 12, 0.9); }
+.venta-scanner-mensaje--listo { background: rgba(30, 130, 76, 0.92); }
+
+@keyframes ventaScannerMensajeFade {
+  from { opacity: 0; transform: translate(-50%, 4px); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+
+.venta-scanner-inline {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+
+.venta-scanner-inline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.venta-scanner-controls {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
 }
 
 .venta-scan-input:focus {
@@ -1090,9 +1256,17 @@ a {
   .prediccion-confianza-pop,
   .recharts-wrapper,
   .modal-overlay,
-  .modal {
+  .modal,
+  .venta-scanner-corner,
+  .venta-scanner-mensaje {
     animation: none !important;
     transition: none !important;
+  }
+
+  /* Puramente decorativa (barrido de escaneo) — sin un estado final
+     significativo al que "volver", se oculta directamente. */
+  .venta-scanner-scanline {
+    display: none;
   }
 
   /* Las clases de arriba fijan opacity/transform de arranque como estado

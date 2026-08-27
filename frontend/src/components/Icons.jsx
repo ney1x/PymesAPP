@@ -144,3 +144,23 @@ export const IconEye = (p) => (
 export const IconTrash2 = (p) => (
   <Svg {...p}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></Svg>
 );
+
+export const IconCamera = (p) => (
+  <Svg {...p}><path d="M4 8h3l2-2h6l2 2h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" /><circle cx="12" cy="14" r="3.5" /></Svg>
+);
+
+export const IconFlipCamera = (p) => (
+  <Svg {...p}><path d="M4 8h3l2-2h6l2 2h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" /><path d="M9 14.2a3 3 0 1 1 1 2.3" /><path d="M9 17v-2.5h2.5" /></Svg>
+);
+
+export const IconRotate = (p) => (
+  <Svg {...p}><rect x="5" y="5" width="11" height="11" rx="1.5" /><path d="M20 10a5 5 0 0 0-5-5h-1" /><path d="M17.5 3.5 20 5l-2.5 1.5" /></Svg>
+);
+
+export const IconMirror = (p) => (
+  <Svg {...p}><path d="M12 2v20" /><path d="M6 8 3 12l3 4" /><path d="M18 8l3 4-3 4" /></Svg>
+);
+
+export const IconFlash = (p) => (
+  <Svg {...p}><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" /></Svg>
+);
