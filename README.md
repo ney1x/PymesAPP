@@ -1,18 +1,18 @@
 # Plataforma Inteligente de Gestión de Inventarios para PYMES
 
-Sistema web para la administración de inventarios de pequeñas y medianas empresas, con un asistente conversacional impulsado por IA (Ollama + tool calling) y un motor de Machine Learning (LightGBM) para predicción de demanda.
+Sistema web para la administración de inventarios de pequeñas y medianas empresas, con un asistente conversacional impulsado por IA (Ollama + tool calling) y un motor de Machine Learning (varios modelos LightGBM en cascada, con fallback a Random Forest y heurística) para predicción de demanda.
 
 ---
 
 # Características principales
 
 - Autenticación mediante JWT, con verificación de correo al registrarse y recuperación de contraseña por código (ambos vía correo electrónico).
-- Gestión de PYMES, cada una con múltiples sedes.
-- Equipo y roles: invitá miembros por correo, asignales rol (Vendedor, Inventario, Analista, o combinados) y limitá su acceso a una sede específica. Cada rol tiene permisos distintos sobre productos, inventario, ventas y reportes financieros (ver [Roles y permisos](#roles-y-permisos)).
+- Gestión de PYMES, cada una con múltiples sedes. Un miembro invitado puede abandonar una PYME por su cuenta cuando quiera, sin depender del dueño; editar o eliminar una PYME es exclusivo del dueño (`OWNER`) — los demás roles ven su propio rol en vez de esos controles.
+- Equipo y roles: invitá miembros por correo, asignales rol (Vendedor, Inventario, Analista, o combinados) y limitá su acceso a una sede específica. Cada rol tiene permisos distintos sobre productos, inventario, ventas y reportes financieros, y además tiene bloqueadas pantallas completas que no le corresponden — no solo funciones puntuales (ver [Roles y permisos](#roles-y-permisos)).
 - Mensajería interna entre miembros del equipo (a una persona puntual o a todos los de un rol) y centro de notificaciones (invitaciones, respuestas, mensajes).
 - Gestión de productos, con importación y exportación masiva por Excel/CSV.
 - Gestión de inventario, con alertas de stock bajo y tablero de reposición ordenado por urgencia.
-- Registro de ventas.
+- Registro de ventas, con cálculo automático de vuelto a partir de con cuánto pagó el cliente — la venta no se puede confirmar si el monto pagado no alcanza para cubrir el total.
 - Asistente conversacional con IA para consultar el negocio en lenguaje natural: stock, ventas, rentabilidad, rankings, reordenes, resumen y predicciones.
 - Predicción automática de demanda mediante IA.
 - Dashboard con indicadores.
@@ -48,7 +48,7 @@ Sistema web para la administración de inventarios de pequeñas y medianas empre
 | ORM | Prisma |
 | Base de datos | MySQL 8 |
 | Asistente conversacional | Ollama (Qwen3:8B) + tool calling |
-| Predicción de demanda | Python + FastAPI + LightGBM |
+| Predicción de demanda | Python + FastAPI + LightGBM (cascada de modelos, con respaldo a Random Forest y heurística) |
 | Contenedores | Docker + Docker Compose |
 
 ---
@@ -134,22 +134,18 @@ El backend expone un asistente de chat (`POST /api/chat`, `DELETE /api/chat/hist
 
 ---
 
-# Motor de predicción de demanda (LightGBM)
+# Motor de predicción de demanda
 
-El sistema utiliza un modelo **LightGBM** entrenado inicialmente con el dataset **M5 Forecasting**.
+El motor prueba varios modelos en cascada por cada predicción, del más específico al más genérico. Ningún paso bloquea el flujo: si uno falla o no aplica, cae automáticamente al siguiente.
 
-El motor genera predicciones de demanda utilizando:
+1. **Store Sales V2 / PFS dos etapas** (LightGBM, entrenados con datasets de Kaggle re-escalados a LatAm — Store Sales Ecuador y Predict Future Sales). Es el primer intento: PFS dos etapas si el producto tiene suficiente historial propio (mejor para evitar quiebres de stock), si no Store Sales V2 (mejor exactitud con poco historial). Detalle completo del reentrenamiento, datasets y métricas en [`ml-service/retrain/RESULTADOS.md`](ml-service/retrain/RESULTADOS.md).
+2. **Motor LightGBM vendorizado (`IA_INVENTARIO`)**, entrenado originalmente sobre el dataset **M5 Forecasting**. Se mantiene como respaldo cuando no hay historial suficiente para el paso 1 — requiere que el producto/tienda existan en el esquema del motor IA y al menos 28 días de historial diario.
+3. **Random Forest** entrenado con datos propios (si el archivo del modelo existe).
+4. **Heurística** (promedio móvil), cuando no hay datos suficientes para ningún modelo.
 
-- histórico de ventas
-- medias móviles
-- lags
-- variaciones de precio
-- calendario
-- variables temporales
+El motor usa histórico de ventas, medias móviles, lags, variaciones de precio, calendario y variables temporales, según el modelo. `backend/src/lib/iaSync.js` espeja cada venta real hacia el esquema que leen estos modelos, así que se alimentan de datos reales de la PYME (categoría, precio) además del historial de ventas.
 
-Si el modelo LightGBM no está disponible, el servicio recurre automáticamente a un modelo Random Forest entrenado con datos propios y, en último caso, a un promedio móvil cuando no hay suficiente histórico.
-
-Actualmente el modelo se encuentra integrado al botón **Generar Predicción** de la aplicación y a la herramienta `predecir_demanda` del asistente conversacional.
+Actualmente el motor se encuentra integrado al botón **Generar Predicción** de la aplicación y a la herramienta `predecir_demanda` del asistente conversacional.
 
 ---
 
@@ -197,10 +193,21 @@ Cada miembro de una PYME tiene un rol (o varios combinados) que determina qué p
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Dueño (OWNER)** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Vendedor** | — | — | ✅ | — | — | — | — | — |
-| **Inventario** | ✅ | ✅ | — | ✅ | — | ✅ | — | — |
+| **Inventario** | ✅ | ✅ | — | ✅ | — | — | — | — |
 | **Analista** | — | — | — | ✅ | ✅ | ✅ | — | — |
 
 El acceso a cada rol puede además limitarse a una sede específica dentro de la PYME.
+
+Además de estos permisos por función, cada rol tiene **pantallas completas bloqueadas** (no solo botones o campos puntuales — la pantalla ni siquiera se muestra en el menú, y el backend rechaza el acceso directo por URL):
+
+| Rol | Dashboard | Inventario | Ventas | Predicción |
+|---|:---:|:---:|:---:|:---:|
+| **Dueño (OWNER)** | ✅ | ✅ | ✅ | ✅ |
+| **Vendedor** | — | — | ✅ | — |
+| **Inventario** | — | ✅ | — | — |
+| **Analista** | ✅ | ✅ | ✅ | ✅ |
+
+La idea es que Ventas sea la única pantalla protagonista para un Vendedor, e Inventario la única para el rol Inventario — sin secciones de solo lectura que no les aportan nada.
 
 ---
 
@@ -283,6 +290,8 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
+> `requirements.txt` instala el motor vendorizado en modo editable desde una ruta local fija (`-e file:///C:/Users/USER/Desktop/IA_INVENTARIO`), pensada solo para este equipo de desarrollo — en cualquier otra máquina esa línea va a fallar. Docker no tiene este problema: usa `requirements.docker.txt`, que instala la copia vendorizada dentro del propio repo (`vendor/ia-inventario/`). Para desarrollar en otra máquina sin Docker, hay que apuntar esa línea a una ruta local válida o instalar `./vendor/ia-inventario` en su lugar.
+
 ---
 
 # Estado actual del proyecto
@@ -290,17 +299,18 @@ uvicorn app.main:app --reload
 ## Completado
 
 - Autenticación con verificación de correo al registrarse y recuperación de contraseña por código.
-- Gestión de PYMES multi-sede.
+- Gestión de PYMES multi-sede, con salida voluntaria de un miembro invitado sin depender del dueño.
 - Equipo: invitaciones, roles combinables (Vendedor / Inventario / Analista) y permisos por sede.
+- Restricción de pantallas completas por rol (Dashboard / Inventario / Ventas / Predicción), no solo de funciones puntuales — bloqueada también del lado del backend, no solo escondida en el menú.
 - Mensajería interna (personal o por rol) y centro de notificaciones.
 - Gestión de productos, con importación/exportación por Excel/CSV.
 - Inventario, con alertas de stock y tablero de reposición por urgencia.
-- Registro de ventas.
+- Registro de ventas, con cálculo de vuelto y bloqueo si el pago no alcanza.
 - Dashboard.
 - Perfil de usuario editable.
 - Asistente conversacional con IA (Ollama + Qwen3:8B + tool calling) para stock, ventas, rentabilidad, rankings, reordenes, resumen y predicciones.
-- Integración Backend ↔ IA (predicción).
-- Integración LightGBM.
+- Integración Backend ↔ IA: sincronización automática (best-effort) de cada venta registrada hacia el esquema del motor de IA, además de la integración de predicción.
+- Reentrenamiento del motor de predicción con datasets reescalados a LatAm (Store Sales Ecuador + Predict Future Sales), integrado como primera prioridad delante del motor vendorizado M5 (ver [Motor de predicción de demanda](#motor-de-predicción-de-demanda)).
 - Integración MySQL.
 - Despliegue mediante Docker (incluye Ollama con soporte GPU).
 - Predicción desde la interfaz web.
@@ -309,9 +319,8 @@ uvicorn app.main:app --reload
 
 # Trabajo futuro
 
-- Reentrenamiento del modelo utilizando datos reales de PYMES.
-- Sincronización automática entre las ventas registradas y el motor de IA.
-- Mejorar la precisión del modelo con histórico propio.
+- Seguir mejorando la precisión del modelo con histórico real y propio de las PYMES que usen la app (sigue siendo la mejora de fondo más importante — ver conclusión en [`ml-service/retrain/RESULTADOS.md`](ml-service/retrain/RESULTADOS.md)).
+- Feriados y promociones reales de Latam para el modelo Store Sales V2 (hoy quedan con placeholder neutro, no hay tabla poblada en el esquema real).
 - Reportes avanzados y analítica de negocio.
 - Tests automatizados para el resto del backend (hoy solo hay pruebas puntuales del asistente de chat, sin `npm test` configurado).
 
@@ -335,7 +344,6 @@ o, para desarrollo:
 
 # Autores
 
-Adriano Aragon
-Ney Salazar
+Adriano Aragon, Santiago Perez, Pablo Arrieta, Ney Salazar
 
 Sistema Inteligente para Gestión y Predicción de Inventarios en PYMES utilizando Machine Learning.
