@@ -16,6 +16,7 @@ export const pymesApi = {
   create: (data) => client.post('/pymes', data),
   update: (id, data) => client.put(`/pymes/${id}`, data),
   remove: (id) => client.delete(`/pymes/${id}`),
+  leave: (id) => client.delete(`/pymes/${id}/membresia`),
   miembros: {
     list: (pymeId) => client.get(`/pymes/${pymeId}/miembros`),
     invite: (pymeId, data) => client.post(`/pymes/${pymeId}/miembros`, data),

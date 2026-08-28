@@ -67,6 +67,13 @@ body {
   font-size: 14.5px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  /* Red de seguridad: nada debería forzar overflow horizontal de página en
+     ningún viewport, pero si algo lo hace igual (un valor sin wrap, un
+     ancho fijo mal puesto), esto lo contiene acá en vez de dejar que la
+     página entera scrollee de costado y el rail sticky quede pisando
+     contenido que se corrió bajo él. Los overflow:auto internos (p.ej.
+     .table-wrap) siguen scrolleando normal, esto solo topa el body. */
+  overflow-x: hidden;
 }
 
 h1 { font-family: var(--font-display); font-size: 24px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.01em; }
@@ -1055,6 +1062,26 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 .rank-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .rank-info small { color: var(--muted); font-size: 12px; }
 
+/* La <li> de una venta reciente apila el resumen (venta-factura-row) arriba
+   del detalle desplegable (venta-factura-detalle) abajo — antes esto era
+   un inline style, lo que hacía imposible reordenar la fila-resumen por
+   media query en el breakpoint de mobile más abajo (un inline style le
+   gana a cualquier regla de hoja de estilos que no sea !important). Esta
+   regla tiene que quedar ANTES del media query que la angosta: a igual
+   especificidad, gana la que aparece después en el archivo — puesta acá
+   arriba, el override mobile de más abajo sí la pisa quando corresponde. */
+.venta-factura-item {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.venta-factura-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
 /* ======================== BADGES ======================== */
 
 .badge {
@@ -1463,6 +1490,21 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   .venta-carrito-linea .rank-info { flex: 1 1 100%; }
   .venta-carrito-linea .dashboard-rank-metric { margin-left: 0; }
   .venta-carrito-linea .venta-carrito-cantidad { margin-right: auto; }
+
+  /* Fila de una venta reciente (nombre/fecha/uds a la izquierda, precio +
+     pagó/vuelto a la derecha): en un teléfono real "Pagó $20.000 · Vuelto
+     $6.500" no tiene dónde entrar al lado del nombre del producto sin
+     chocar — se apila, precio y detalle de pago quedan alineados a la
+     izquierda debajo, ya no compitiendo por el mismo ancho. */
+  .venta-factura-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .venta-factura-row .dashboard-rank-metric {
+    margin-left: 0;
+    text-align: left;
+  }
 }
 
 .venta-stock-gauge { margin-bottom: 16px; }
@@ -1524,9 +1566,23 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 .venta-factura-detalle li {
   display: flex;
   justify-content: space-between;
+  gap: 8px;
   font-size: 13px;
   color: var(--muted);
   padding-left: 4px;
+}
+
+/* Mismo riesgo que venta-factura-row: sin esto, un nombre de producto largo
+   no se achica (min-width:auto por defecto en un hijo flex) y empuja el
+   monto o lo superpone en un teléfono angosto. */
+.venta-factura-detalle li span:first-child {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.venta-factura-detalle li span:last-child {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .venta-feed-item-new {
@@ -3529,7 +3585,6 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
   .rail-pyme-switch { padding: 0 2px 10px; }
   .rail-pyme-switch label { display: none; }
   .rail-pyme-switch select { padding: 6px 2px; font-size: 10px; text-align: center; }
-  .rail-item { justify-content: center; padding: 14px 10px; min-height: 44px; }
   .rail-item { justify-content: center; padding: 14px 10px; min-height: 44px; }
   .rail-item span { display: none; }
   .rail-profile-trigger { justify-content: center; padding: 8px 0; }

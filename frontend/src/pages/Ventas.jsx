@@ -625,8 +625,8 @@ export default function Ventas() {
                   return (
                     <li
                       key={f.id}
-                      className={`rank-item animate-slide-in-right${f.id === facturaNuevaId ? ' venta-feed-item-new' : ''}`}
-                      style={{ animationDelay: `${Math.min(i, 6) * 40}ms`, flexDirection: 'column', alignItems: 'stretch', cursor: esExpandible ? 'pointer' : 'default' }}
+                      className={`rank-item venta-factura-item animate-slide-in-right${f.id === facturaNuevaId ? ' venta-feed-item-new' : ''}`}
+                      style={{ animationDelay: `${Math.min(i, 6) * 40}ms`, cursor: esExpandible ? 'pointer' : 'default' }}
                       onClick={esExpandible ? () => toggleFactura(f.id) : undefined}
                       onKeyDown={esExpandible ? (e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
@@ -638,7 +638,7 @@ export default function Ventas() {
                       tabIndex={esExpandible ? 0 : undefined}
                       aria-expanded={esExpandible ? expandida : undefined}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                      <div className="venta-factura-row">
                         <div className="rank-info">
                           <strong className="venta-factura-titulo">
                             {esExpandible ? `${cantidadProductos} productos` : f.ventas[0]?.producto.nombre}

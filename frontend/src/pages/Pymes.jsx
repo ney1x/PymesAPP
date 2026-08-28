@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, IconButton, EmptyState, date } from '../components/ui';
-import { IconPlus, IconEdit, IconTrash, IconMapPin, IconPhone } from '../components/Icons';
+import { IconPlus, IconEdit, IconTrash, IconMapPin, IconPhone, IconLogout } from '../components/Icons';
 import { puede } from '../constants/permisos';
 
 const ROL_LABELS = { OWNER: 'Dueño', VENDEDOR: 'Vendedor', INVENTARIO: 'Inventario', ANALISTA: 'Analista' };
@@ -113,6 +113,17 @@ export default function Pymes() {
     }
   };
 
+  const handleLeave = async (pyme) => {
+    if (!window.confirm(`¿Abandonar "${pyme.nombre}"? Vas a perder el acceso hasta que te vuelvan a invitar.`)) return;
+    try {
+      await pymesApi.leave(pyme.id);
+      run();
+      showToast(`Saliste de ${pyme.nombre}`);
+    } catch (err) {
+      showToast(err.message);
+    }
+  };
+
   if (loading) return <Spinner label="Cargando PYMES..." />;
   if (error) return <ErrorBox error={error} />;
 
@@ -134,13 +145,19 @@ export default function Pymes() {
               <div key={p.id} className="pyme-card animate-fade-in-up" style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}>
                 <div className="pyme-card-head">
                   <span className="pyme-avatar" aria-hidden="true">{iniciales(p.nombre)}</span>
-                  {esOwner && (
+                  {esOwner ? (
                     <div className="row-actions">
                       <IconButton variant="outline" label={`Editar ${p.nombre}`} tooltip="Editar" onClick={() => openEdit(p)}>
                         <IconEdit size={14} aria-hidden="true" />
                       </IconButton>
                       <IconButton variant="danger-subtle" label={`Eliminar ${p.nombre}`} tooltip="Eliminar" onClick={() => handleDelete(p)}>
                         <IconTrash size={14} aria-hidden="true" />
+                      </IconButton>
+                    </div>
+                  ) : (
+                    <div className="row-actions">
+                      <IconButton variant="danger-subtle" label={`Abandonar ${p.nombre}`} tooltip="Abandonar" onClick={() => handleLeave(p)}>
+                        <IconLogout size={14} aria-hidden="true" />
                       </IconButton>
                     </div>
                   )}
