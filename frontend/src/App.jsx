@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import { PymeFilterProvider } from './context/PymeFilterContext';
 import { NotificacionesProvider } from './context/NotificacionesContext';
 import ProtectedRoute from './routes/ProtectedRoute';
+import RequiereCapacidad from './routes/RequiereCapacidad';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -32,11 +33,19 @@ export default function App() {
               <Route element={<ProtectedRoute />}>
                 <Route element={<Layout />}>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route element={<RequiereCapacidad capacidad="verDashboard" />}>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                  </Route>
                   <Route path="/pymes" element={<Pymes />} />
-                  <Route path="/inventario" element={<Inventario />} />
-                  <Route path="/ventas" element={<Ventas />} />
-                  <Route path="/predicciones" element={<Predicciones />} />
+                  <Route element={<RequiereCapacidad capacidad="verInventario" />}>
+                    <Route path="/inventario" element={<Inventario />} />
+                  </Route>
+                  <Route element={<RequiereCapacidad capacidad="verVentas" />}>
+                    <Route path="/ventas" element={<Ventas />} />
+                  </Route>
+                  <Route element={<RequiereCapacidad capacidad="verPredicciones" />}>
+                    <Route path="/predicciones" element={<Predicciones />} />
+                  </Route>
                   <Route path="/equipo" element={<Equipo />} />
                   <Route path="/notificaciones" element={<Notificaciones />} />
                   <Route path="/alertas" element={<Alertas />} />

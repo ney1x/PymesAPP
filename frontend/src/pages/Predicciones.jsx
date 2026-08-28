@@ -4,7 +4,7 @@ import { useAsync } from '../hooks/useAsync';
 import { usePymeFilter } from '../context/PymeFilterContext';
 import { Spinner, ErrorBox, PageHeader, Badge, Button, EmptyState, money } from '../components/ui';
 import { IconSearch } from '../components/Icons';
-import { puedeEnAlguna } from '../constants/permisos';
+import { puede, puedeEnAlguna } from '../constants/permisos';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
@@ -16,7 +16,7 @@ const HORIZONTES = [
 ];
 
 export default function Predicciones() {
-  const { pymeSeleccionada: filtroPymeId, setPymeSeleccionada: setFiltroPymeId } = usePymeFilter();
+  const { pymeSeleccionada: filtroPymeId } = usePymeFilter();
   const [filtroSedeId, setFiltroSedeId] = useState('');
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState(null);
@@ -30,7 +30,10 @@ export default function Predicciones() {
     && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   const pymes = useAsync(() => pymesApi.list());
-  const puedeGenerar = puedeEnAlguna(pymes.data?.pymes, 'generarPredicciones');
+  const pymeActual = pymes.data?.pymes?.find((p) => String(p.id) === String(filtroPymeId));
+  const puedeGenerar = filtroPymeId
+    ? puede(pymeActual?.miRoles, 'generarPredicciones')
+    : puedeEnAlguna(pymes.data?.pymes, 'generarPredicciones');
   const sedes = useAsync(
     () => (filtroPymeId ? pymesApi.sedes.list(filtroPymeId) : Promise.resolve({ sedes: [] })),
     [filtroPymeId]
@@ -40,10 +43,10 @@ export default function Predicciones() {
     [filtroPymeId, filtroSedeId]
   );
 
-  const handleFiltroPyme = (value) => {
-    setFiltroPymeId(value);
+  // La PYME se elige desde el switcher del rail (Layout.jsx), no acá.
+  useEffect(() => {
     setFiltroSedeId('');
-  };
+  }, [filtroPymeId]);
 
   // Un ranking recien generado queda "pegado" en memoria hasta la proxima
   // generacion (mostrar usa `ranking || historico...`) — si el usuario
@@ -120,18 +123,6 @@ export default function Predicciones() {
         subtitle="El modelo analiza tu histórico de ventas y predice la demanda futura."
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {(pymes.data?.pymes?.length ?? 0) > 0 && (
-              <select
-                value={filtroPymeId}
-                onChange={(e) => handleFiltroPyme(e.target.value)}
-                disabled={generating}
-              >
-                <option value="">Todas mis PYMES</option>
-                {pymes.data?.pymes?.map((p) => (
-                  <option key={p.id} value={p.id}>{p.nombre}</option>
-                ))}
-              </select>
-            )}
             {filtroPymeId && (sedes.data?.sedes?.length ?? 0) > 1 && (
               <select
                 value={filtroSedeId}

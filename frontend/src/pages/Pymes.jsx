@@ -3,6 +3,10 @@ import { pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, PageHeader, Badge, Modal, Button, IconButton, EmptyState, date } from '../components/ui';
 import { IconPlus, IconEdit, IconTrash, IconMapPin, IconPhone } from '../components/Icons';
+import { puede } from '../constants/permisos';
+
+const ROL_LABELS = { OWNER: 'Dueño', VENDEDOR: 'Vendedor', INVENTARIO: 'Inventario', ANALISTA: 'Analista' };
+const ROL_TONE = { OWNER: 'primary', VENDEDOR: 'success', INVENTARIO: 'warning', ANALISTA: 'default' };
 
 const iniciales = (nombre) =>
   (nombre || '?')
@@ -124,36 +128,49 @@ export default function Pymes() {
         <div className="card"><EmptyState title="Sin PYMES" message="Crea tu primera PYME para empezar." /></div>
       ) : (
         <div className="pyme-grid">
-          {data.pymes.map((p, i) => (
-            <div key={p.id} className="pyme-card animate-fade-in-up" style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}>
-              <div className="pyme-card-head">
-                <span className={`pyme-avatar pyme-avatar-${i % 2 === 0 ? 'navy' : 'petrol'}`} aria-hidden="true">
-                  {iniciales(p.nombre)}
-                </span>
-                <div className="row-actions">
-                  <IconButton variant="outline" label={`Editar ${p.nombre}`} tooltip="Editar" onClick={() => openEdit(p)}>
-                    <IconEdit size={14} aria-hidden="true" />
-                  </IconButton>
-                  <IconButton variant="danger-subtle" label={`Eliminar ${p.nombre}`} tooltip="Eliminar" onClick={() => handleDelete(p)}>
-                    <IconTrash size={14} aria-hidden="true" />
-                  </IconButton>
+          {data.pymes.map((p, i) => {
+            const esOwner = puede(p.miRoles, 'gestionarPyme');
+            return (
+              <div key={p.id} className="pyme-card animate-fade-in-up" style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}>
+                <div className="pyme-card-head">
+                  <span className="pyme-avatar" aria-hidden="true">{iniciales(p.nombre)}</span>
+                  {esOwner && (
+                    <div className="row-actions">
+                      <IconButton variant="outline" label={`Editar ${p.nombre}`} tooltip="Editar" onClick={() => openEdit(p)}>
+                        <IconEdit size={14} aria-hidden="true" />
+                      </IconButton>
+                      <IconButton variant="danger-subtle" label={`Eliminar ${p.nombre}`} tooltip="Eliminar" onClick={() => handleDelete(p)}>
+                        <IconTrash size={14} aria-hidden="true" />
+                      </IconButton>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pyme-card-body">
+                  <strong className="pyme-card-nombre">{p.nombre}</strong>
+
+                  <div className="pyme-card-badges">
+                    <Badge tone="primary">{TIPO_LABELS[p.tipo] || p.tipo}</Badge>
+                    {!esOwner && (p.miRoles || []).map((rol) => (
+                      <Badge key={rol} tone={ROL_TONE[rol] || 'default'}>{ROL_LABELS[rol] || rol}</Badge>
+                    ))}
+                  </div>
+
+                  {(p.ciudad || p.telefono) && (
+                    <div className="pyme-card-meta">
+                      {p.ciudad && <span><IconMapPin size={12} aria-hidden="true" /> {p.ciudad}</span>}
+                      {p.telefono && <span><IconPhone size={12} aria-hidden="true" /> {p.telefono}</span>}
+                    </div>
+                  )}
+
+                  <div className="pyme-card-footer">
+                    <span>{p._count.productos} producto{p._count.productos === 1 ? '' : 's'} · {p._count.ventas} venta{p._count.ventas === 1 ? '' : 's'}</span>
+                    <span>Creada {date(p.createdAt)}</span>
+                  </div>
                 </div>
               </div>
-
-              <strong className="pyme-card-nombre">{p.nombre}</strong>
-              <div><Badge tone="primary">{TIPO_LABELS[p.tipo] || p.tipo}</Badge></div>
-
-              <div className="pyme-card-meta">
-                {p.ciudad && <span><IconMapPin size={12} aria-hidden="true" /> {p.ciudad}</span>}
-                {p.telefono && <span><IconPhone size={12} aria-hidden="true" /> {p.telefono}</span>}
-              </div>
-
-              <div className="pyme-card-footer">
-                <span>{p._count.productos} producto{p._count.productos === 1 ? '' : 's'}</span>
-                <span>Creada {date(p.createdAt)}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

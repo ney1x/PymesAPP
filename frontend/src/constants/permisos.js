@@ -15,6 +15,9 @@ export const CAPACIDADES = {
     verReportesFinancieros: true,
     verPredicciones: true,
     generarPredicciones: true,
+    verDashboard: true,
+    verInventario: true,
+    verVentas: true,
   },
   VENDEDOR: {
     gestionarPyme: false,
@@ -27,6 +30,9 @@ export const CAPACIDADES = {
     verReportesFinancieros: false,
     verPredicciones: false,
     generarPredicciones: false,
+    verDashboard: false,
+    verInventario: false,
+    verVentas: true,
   },
   INVENTARIO: {
     gestionarPyme: false,
@@ -37,8 +43,11 @@ export const CAPACIDADES = {
     crearVentas: false,
     verCostoProducto: true,
     verReportesFinancieros: false,
-    verPredicciones: true,
+    verPredicciones: false,
     generarPredicciones: false,
+    verDashboard: false,
+    verInventario: true,
+    verVentas: false,
   },
   ANALISTA: {
     gestionarPyme: false,
@@ -51,6 +60,9 @@ export const CAPACIDADES = {
     verReportesFinancieros: true,
     verPredicciones: true,
     generarPredicciones: false,
+    verDashboard: true,
+    verInventario: true,
+    verVentas: true,
   },
 };
 

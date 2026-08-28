@@ -6,13 +6,14 @@ import { ChatWidget } from './ChatWidget';
 import NotificationBell from './NotificationBell';
 import { pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
-import { puedeEnAlguna } from '../constants/permisos';
+import { puede, puedeEnAlguna } from '../constants/permisos';
+import { usePymeFilter } from '../context/PymeFilterContext';
 
 const NAV_LEFT = [
   { to: '/pymes', label: 'Mis PYMES', icon: IconStore },
-  { to: '/dashboard', label: 'Dashboard', icon: IconGrid },
-  { to: '/inventario', label: 'Inventario', icon: IconBox },
-  { to: '/ventas', label: 'Ventas', icon: IconTrendUp },
+  { to: '/dashboard', label: 'Dashboard', icon: IconGrid, requiere: 'verDashboard' },
+  { to: '/inventario', label: 'Inventario', icon: IconBox, requiere: 'verInventario' },
+  { to: '/ventas', label: 'Ventas', icon: IconTrendUp, requiere: 'verVentas' },
   { to: '/predicciones', label: 'Predicción', icon: IconChart, requiere: 'verPredicciones' },
   { to: '/equipo', label: 'Equipo', icon: IconUsers, requiere: 'gestionarMiembros' },
 ];
@@ -27,10 +28,29 @@ export default function Layout() {
   const [profileOpen, setProfileOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const pymes = useAsync(() => pymesApi.list());
+  const { pymeSeleccionada, setPymeSeleccionada } = usePymeFilter();
 
-  const navItems = NAV_LEFT.filter(
-    (item) => !item.requiere || puedeEnAlguna(pymes.data?.pymes, item.requiere)
-  );
+  // Selector de PYME vive acá (rail, siempre visible) y no dentro de cada
+  // página — así nunca desaparece si la página de adentro tira error (p.ej.
+  // un 403 de una PYME donde no tenés esta pantalla): siempre podés volver a
+  // elegir otra sin quedar atrapado. Con una PYME puntual elegida, cada link
+  // se habilita según el rol en ESA PYME, no un OR entre todas — evita que
+  // alguien vea una pantalla habilitada por una PYME distinta a la que tiene
+  // filtrada (el hueco real detrás del bug de sorrypepa).
+  useEffect(() => {
+    if (!pymeSeleccionada && pymes.data?.pymes?.length === 1) {
+      setPymeSeleccionada(String(pymes.data.pymes[0].id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pymes.data]);
+
+  const pymeActual = pymes.data?.pymes?.find((p) => String(p.id) === String(pymeSeleccionada));
+
+  const navItems = NAV_LEFT.filter((item) => {
+    if (!item.requiere) return true;
+    if (pymeSeleccionada) return puede(pymeActual?.miRoles, item.requiere);
+    return puedeEnAlguna(pymes.data?.pymes, item.requiere);
+  });
 
   const handleLogout = () => {
     setProfileOpen(false);
@@ -82,6 +102,22 @@ export default function Layout() {
           <span className="brand-logo">IN</span>
           <strong>Inventario</strong>
         </button>
+
+        {(pymes.data?.pymes?.length ?? 0) > 0 && (
+          <div className="rail-pyme-switch">
+            <label htmlFor="railPymeSelect">PYME</label>
+            <select
+              id="railPymeSelect"
+              value={pymeSeleccionada}
+              onChange={(e) => setPymeSeleccionada(e.target.value)}
+            >
+              <option value="">Todas mis PYMES</option>
+              {pymes.data.pymes.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="rail-nav">
           {navItems.map((item) => (
@@ -166,7 +202,7 @@ export default function Layout() {
 
       <div className="content-col">
         <main className="main" id="main-content" role="main">
-          <Outlet />
+          <Outlet context={{ pymes }} />
         </main>
       </div>
 

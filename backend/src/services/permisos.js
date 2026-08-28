@@ -16,7 +16,13 @@ const CAPACIDADES = {
     verReportesFinancieros: true,
     verPredicciones: true,
     generarPredicciones: true,
+    verDashboard: true,
+    verInventario: true,
+    verVentas: true,
   },
+  // VENDEDOR: su única pantalla operativa es Ventas — sin dashboard (no le
+  // aporta nada) ni inventario (ahí solo gestiona/consulta stock, que no es
+  // su tarea; vender vive únicamente en Ventas.jsx).
   VENDEDOR: {
     gestionarPyme: false,
     gestionarMiembros: false,
@@ -28,9 +34,13 @@ const CAPACIDADES = {
     verReportesFinancieros: false,
     verPredicciones: false,
     generarPredicciones: false,
+    verDashboard: false,
+    verInventario: false,
+    verVentas: true,
   },
   // INVENTARIO ve costo de producto (lo necesita para poder editarlo) pero no
-  // reportes financieros agregados (margen bruto, rentabilidad, ingresos).
+  // reportes financieros agregados (margen bruto, rentabilidad, ingresos),
+  // ni dashboard, ventas o predicción — su pantalla es Inventario.
   INVENTARIO: {
     gestionarPyme: false,
     gestionarMiembros: false,
@@ -40,8 +50,11 @@ const CAPACIDADES = {
     crearVentas: false,
     verCostoProducto: true,
     verReportesFinancieros: false,
-    verPredicciones: true,
+    verPredicciones: false,
     generarPredicciones: false,
+    verDashboard: false,
+    verInventario: true,
+    verVentas: false,
   },
   ANALISTA: {
     gestionarPyme: false,
@@ -54,6 +67,9 @@ const CAPACIDADES = {
     verReportesFinancieros: true,
     verPredicciones: true,
     generarPredicciones: false,
+    verDashboard: true,
+    verInventario: true,
+    verVentas: true,
   },
 };
 

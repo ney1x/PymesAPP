@@ -163,6 +163,42 @@ a:hover { color: var(--primary); }
   flex-shrink: 0;
 }
 
+/* Selector de PYME global — vive en el rail (siempre visible, nunca
+   desaparece si la página de adentro tira error) y decide qué links de
+   navegación se habilitan según el rol en esa PYME puntual. */
+.rail-pyme-switch {
+  padding: 0 8px 14px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.rail-pyme-switch label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 5px;
+}
+
+.rail-pyme-switch select {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #fff;
+  font-size: 12.5px;
+  padding: 7px 10px;
+}
+
+.rail-pyme-switch select:focus {
+  border-color: var(--petrol);
+  background: rgba(255, 255, 255, 0.13);
+  box-shadow: 0 0 0 3px rgba(201, 122, 12, 0.35);
+}
+
+.rail-pyme-switch select option { color: var(--text); }
+
 .rail-nav {
   display: flex;
   flex-direction: column;
@@ -707,16 +743,6 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 }
 
 .inv-product-card .inv-stock-cell { min-width: 0; }
-
-.inv-product-card-vender {
-  display: flex;
-  gap: 8px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
-
-.inv-product-card-vender input { flex: 1; min-width: 0; }
-.inv-product-card-vender .btn { flex-shrink: 0; }
 
 /* ======================== TARJETAS ======================== */
 
@@ -2123,6 +2149,7 @@ a {
   .animate-fade-in,
   .animate-slide-in-right,
   .card,
+  .pyme-card,
   .stat-card,
   .rank-item,
   .badge,
@@ -2623,15 +2650,26 @@ a {
   gap: 16px;
 }
 
+/* Cada PYME lee como un registro de ledger real, no un tile de SaaS
+   genérico: franja navy de cabecera (mismo lenguaje que venta-scan-deck en
+   Ventas.jsx) con el monograma y las acciones de dueño, cuerpo en papel
+   claro con el resto. El hover reusa exactamente el mismo levante que
+   .card:hover en toda la app — no un tratamiento nuevo para esta pantalla. */
 .pyme-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 18px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms ease;
+}
+
+.pyme-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(18, 42, 71, 0.08);
+  border-color: var(--petrol);
 }
 
 .pyme-card-head {
@@ -2639,25 +2677,71 @@ a {
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+  padding: 16px 18px;
+  background: var(--navy);
 }
 
+/* Mismo tratamiento que .brand-logo / .rail-avatar: petrol + texto oscuro
+   es el monograma de identidad en toda la app, no un color por índice. */
 .pyme-avatar {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 10px;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
+  background: var(--petrol);
+  color: #241804;
   flex-shrink: 0;
 }
 
-.pyme-avatar-navy { background: var(--navy); color: #fff; }
-.pyme-avatar-petrol { background: var(--petrol); color: #241804; }
+/* Los botones de editar/eliminar quedan sobre navy acá, no sobre superficie
+   clara — mismo patrón que los inputs de venta-scan-deck en Ventas.jsx
+   (blanco translúcido en vez del outline gris pensado para fondo claro). */
+.pyme-card-head .row-actions .btn-outline {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
 
-.pyme-card-nombre { font-size: 16px; }
+.pyme-card-head .row-actions .btn-outline:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: #fff;
+  color: #fff;
+}
+
+.pyme-card-head .row-actions .btn-danger-subtle {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffb4a8;
+}
+
+.pyme-card-head .row-actions .btn-danger-subtle:hover:not(:disabled) {
+  background: var(--danger);
+  color: #fff;
+}
+
+.pyme-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px 18px;
+  flex: 1;
+}
+
+.pyme-card-nombre {
+  font-family: var(--font-display);
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+.pyme-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 
 .pyme-card-meta {
   display: flex;
@@ -3438,6 +3522,14 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
   .rail { width: 64px; padding: 14px 8px; overflow: visible; }
   .rail-brand { justify-content: center; padding: 4px 0 14px; }
   .rail-brand strong { display: none; }
+  /* El select nativo sigue abriendo su lista completa sin importar el
+     ancho del trigger (la overlay del navegador no depende del ancho de
+     acá) — angosto y sin label queda legible al tocar, aunque el valor ya
+     elegido se vea recortado en el trigger de 64px. */
+  .rail-pyme-switch { padding: 0 2px 10px; }
+  .rail-pyme-switch label { display: none; }
+  .rail-pyme-switch select { padding: 6px 2px; font-size: 10px; text-align: center; }
+  .rail-item { justify-content: center; padding: 14px 10px; min-height: 44px; }
   .rail-item { justify-content: center; padding: 14px 10px; min-height: 44px; }
   .rail-item span { display: none; }
   .rail-profile-trigger { justify-content: center; padding: 8px 0; }

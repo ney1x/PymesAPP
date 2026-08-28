@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { inventarioApi, productosApi, pymesApi, ventasApi } from '../api';
+import { inventarioApi, productosApi, pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, Badge, Modal, Button, IconButton, EmptyState } from '../components/ui';
 import { IconPlus, IconEdit, IconTrash, IconSearch, IconCheck, IconAlert, IconCamera } from '../components/Icons';
@@ -8,14 +8,15 @@ import { categoriasComunesPorTipo } from '../constants/categorias';
 import ImportarProductosModal from '../components/ImportarProductosModal';
 import BarcodeScannerModal from '../components/BarcodeScannerModal';
 import { puede, puedeEnAlguna } from '../constants/permisos';
+import { usePymeFilter } from '../context/PymeFilterContext';
 
 const PAGE_SIZE = 10;
 
 const OTRA_CATEGORIA = '__otra__';
 
 export default function Inventario() {
+  const { pymeSeleccionada: filtroPymeId } = usePymeFilter();
   const [search, setSearch] = useState('');
-  const [filtroPymeId, setFiltroPymeId] = useState('');
   const [filtroSedeId, setFiltroSedeId] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [page, setPage] = useState(1);
@@ -31,8 +32,6 @@ export default function Inventario() {
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [toast, setToast] = useState(null);
-  const [ventaInputs, setVentaInputs] = useState({});
-  const [vendiendoId, setVendiendoId] = useState(null);
   const [focusedRowIndex, setFocusedRowIndex] = useState(-1);
   const [deleting, setDeleting] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
@@ -49,6 +48,13 @@ export default function Inventario() {
     [filtroPymeId, filtroSedeId]
   );
 
+  // La PYME se elige desde el switcher del rail (Layout.jsx), no acá.
+  useEffect(() => {
+    setFiltroSedeId('');
+    setFiltroCategoria('');
+    setPage(1);
+  }, [filtroPymeId]);
+
   const inventarios = data?.inventarios || [];
   const tienePymes = (pymes.data?.pymes?.length ?? 0) > 0;
   const rolPorPyme = useMemo(
@@ -56,7 +62,6 @@ export default function Inventario() {
     [pymes.data]
   );
   const puedeGestionarProductos = puedeEnAlguna(pymes.data?.pymes, 'gestionarProductos');
-  const puedeVenderAlguna = puedeEnAlguna(pymes.data?.pymes, 'crearVentas');
 
   const categoriasDisponibles = useMemo(() => {
     const pymeId = form.pymeId ? Number(form.pymeId) : null;
@@ -177,35 +182,6 @@ export default function Inventario() {
       return;
     }
     setForm({ ...form, [name]: value });
-  };
-
-  const handleVenderChange = (invId, value) => {
-    setVentaInputs({ ...ventaInputs, [invId]: value });
-  };
-
-  const handleVender = async (inv) => {
-    const cantidad = Number(ventaInputs[inv.id]);
-    if (!cantidad || cantidad <= 0) return;
-    if (cantidad > inv.stockActual) {
-      showToast(`No puedes vender ${cantidad} unidades, solo quedan ${inv.stockActual}.`, 'error');
-      return;
-    }
-    if (vendiendoId === inv.id) return; // prevent double click
-    setVendiendoId(inv.id);
-    try {
-      await ventasApi.create({
-        productoId: inv.producto.id,
-        cantidad,
-        precioUnitario: inv.producto.precioVenta,
-      });
-      setVentaInputs({ ...ventaInputs, [inv.id]: '' });
-      showToast(`Venta registrada: ${cantidad} uds de ${inv.producto.nombre}`);
-      run();
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setVendiendoId(null);
-    }
   };
 
   const handleCategoriaSelect = (e) => {
@@ -338,17 +314,6 @@ export default function Inventario() {
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           />
         </div>
-        {tienePymes && (
-          <select
-            value={filtroPymeId}
-            onChange={(e) => { setFiltroPymeId(e.target.value); setFiltroSedeId(''); setFiltroCategoria(''); setPage(1); }}
-          >
-            <option value="">Todas mis PYMES</option>
-            {pymes.data?.pymes?.map((p) => (
-              <option key={p.id} value={p.id}>{p.nombre}</option>
-            ))}
-          </select>
-        )}
         {filtroPymeId && (sedes.data?.sedes?.length ?? 0) > 1 && (
           <select
             value={filtroSedeId}
@@ -403,7 +368,6 @@ export default function Inventario() {
                   <th>Categoría</th>
                   <th>Stock</th>
                   <th>Estado</th>
-                  {puedeVenderAlguna && <th>Vendido</th>}
                   {puedeGestionarProductos && <th>Acciones</th>}
                 </tr>
               </thead>
@@ -415,7 +379,6 @@ export default function Inventario() {
                   const stockPct = Math.max(0, Math.min(100, (inv.stockActual / techoStock) * 100));
                   const stockTone = alerta ? 'danger' : enAlerta ? 'warning' : 'ok';
                   const rol = rolPorPyme.get(inv.producto.pymeId);
-                  const puedeVenderFila = puede(rol, 'crearVentas');
                   const puedeGestionarFila = puede(rol, 'gestionarProductos');
                   return (
                     <tr
@@ -444,34 +407,6 @@ export default function Inventario() {
                           <Badge tone="success">OK</Badge>
                         )}
                       </td>
-                      {puedeVenderAlguna && (
-                        <td>
-                          {puedeVenderFila && (
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <input
-                                type="number"
-                                min="1"
-                                max={inv.stockActual}
-                                placeholder="uds"
-                                aria-label={`Cantidad a vender de ${inv.producto.nombre}`}
-                                style={{ width: 70 }}
-                                value={ventaInputs[inv.id] || ''}
-                                onChange={(e) => handleVenderChange(inv.id, e.target.value)}
-                                disabled={inv.stockActual <= 0}
-                              />
-                              <Button
-                                variant="success"
-                                size="sm"
-                                loading={vendiendoId === inv.id}
-                                disabled={inv.stockActual <= 0 || !ventaInputs[inv.id]}
-                                onClick={() => handleVender(inv)}
-                              >
-                                Vender
-                              </Button>
-                            </div>
-                          )}
-                        </td>
-                      )}
                       {puedeGestionarProductos && (
                         <td>
                           {puedeGestionarFila && (
@@ -503,7 +438,6 @@ export default function Inventario() {
               const stockPct = Math.max(0, Math.min(100, (inv.stockActual / techoStock) * 100));
               const stockTone = alerta ? 'danger' : enAlerta ? 'warning' : 'ok';
               const rol = rolPorPyme.get(inv.producto.pymeId);
-              const puedeVenderFila = puede(rol, 'crearVentas');
               const puedeGestionarFila = puede(rol, 'gestionarProductos');
               return (
                 <div key={inv.id} className="inv-product-card animate-fade-in" style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}>
@@ -537,28 +471,6 @@ export default function Inventario() {
                     <span className="inv-stock-cell-min">mín. {inv.stockMinimo}</span>
                   </div>
 
-                  {puedeVenderFila && (
-                    <div className="inv-product-card-vender">
-                      <input
-                        type="number"
-                        min="1"
-                        max={inv.stockActual}
-                        placeholder="uds"
-                        aria-label={`Cantidad a vender de ${inv.producto.nombre}`}
-                        value={ventaInputs[inv.id] || ''}
-                        onChange={(e) => handleVenderChange(inv.id, e.target.value)}
-                        disabled={inv.stockActual <= 0}
-                      />
-                      <Button
-                        variant="success"
-                        loading={vendiendoId === inv.id}
-                        disabled={inv.stockActual <= 0 || !ventaInputs[inv.id]}
-                        onClick={() => handleVender(inv)}
-                      >
-                        Vender
-                      </Button>
-                    </div>
-                  )}
                 </div>
               );
             })}

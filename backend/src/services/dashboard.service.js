@@ -1,13 +1,25 @@
 const prisma = require('../lib/prisma');
 const { accesoWhere, resolverSedeId } = require('./acceso.util');
-const { tieneCapacidad, capacidadEnTodas } = require('./permisos');
+const { tieneCapacidad, capacidadEnTodas, exigirCapacidad, pymeIdsConCapacidad } = require('./permisos');
 const ventasService = require('./ventas.service');
 
 const sum = (arr) => arr.reduce((acc, v) => acc + v, 0);
 
 const get = async (user, { pymeId, sedeId } = {}) => {
+  // Igual que en facturas/predicciones: pymeId puntual sin permiso es 403
+  // real, no solo el link de nav escondido — antes esta pantalla no
+  // chequeaba nada acá y un VENDEDOR podía pedir /dashboard?pymeId=X de una
+  // PYME donde no tiene verDashboard y le llegaban igual alertas de stock
+  // con nombre/cantidad reales.
+  if (pymeId) await exigirCapacidad(user, pymeId, 'verDashboard');
+  const idsConDashboard = pymeId ? null : await pymeIdsConCapacidad(user, 'verDashboard');
+
   const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
-  const wherePyme = { ...(await accesoWhere(user)), ...(pymeId ? { pymeId: Number(pymeId) } : {}) };
+  const wherePyme = {
+    ...(await accesoWhere(user)),
+    ...(pymeId ? { pymeId: Number(pymeId) } : {}),
+    ...(idsConDashboard ? { pymeId: { in: idsConDashboard } } : {}),
+  };
   const whereVentaInventario = { ...wherePyme, ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}) };
 
   // Se resuelve antes del Promise.all: comparativaSedes exige la capacidad

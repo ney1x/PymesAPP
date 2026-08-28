@@ -33,7 +33,8 @@ import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, PageHeader, Button, EmptyState, money, date } from '../components/ui';
 import { IconCamera, IconPlus, IconMinus, IconClose, IconChevronRight, IconCheck } from '../components/Icons';
 import BarcodeScannerModal from '../components/BarcodeScannerModal';
-import { puedeEnAlguna } from '../constants/permisos';
+import { puede } from '../constants/permisos';
+import { usePymeFilter } from '../context/PymeFilterContext';
 
 // Wheel sobre un input[type=number] es inconsistente entre navegadores: a
 // veces cambia el valor Y scrollea la página al mismo tiempo. Se engancha
@@ -56,7 +57,7 @@ function useWheelStep(ref, step, onStep) {
 }
 
 export default function Ventas() {
-  const [filtroPymeId, setFiltroPymeId] = useState('');
+  const { pymeSeleccionada: filtroPymeId } = usePymeFilter();
   const [filtroSedeId, setFiltroSedeId] = useState('');
   const [form, setForm] = useState({ productoId: '', cantidad: 1, precioUnitario: '' });
   const [carrito, setCarrito] = useState([]); // [{ productoId, nombre, codigo, cantidad, precioUnitario, stockActual }]
@@ -87,8 +88,19 @@ export default function Ventas() {
   }, [ventaConfirmada]);
 
   const pymes = useAsync(() => pymesApi.list());
-  const puedeVender = puedeEnAlguna(pymes.data?.pymes, 'crearVentas');
-  const puedeGestionarProductos = puedeEnAlguna(pymes.data?.pymes, 'gestionarProductos');
+
+  // Vender es una acción de UNA pyme puntual (la factura entera se resuelve
+  // a un solo pymeId — ver facturasService.create en el backend), así que
+  // "puedo vender" no puede ser un OR entre todas mis pymes: alguien
+  // ANALISTA en "Hola" y VENDEDOR en "Tienda la esquina" vería el panel de
+  // venta con productos de las dos mezclados en "todas mis pymes", y la
+  // pantalla se comporta como si pudiera vender ahí también. Se resuelve
+  // contra la PYME puntual elegida en el switcher del rail (Layout.jsx) —
+  // si está en "Todas mis PYMES", no se muestra.
+  const pymesConVenta = (pymes.data?.pymes || []).filter((p) => puede(p.miRoles, 'crearVentas'));
+  const pymeFiltrada = pymes.data?.pymes?.find((p) => String(p.id) === String(filtroPymeId));
+  const puedeVender = !!filtroPymeId && puede(pymeFiltrada?.miRoles, 'crearVentas');
+  const puedeGestionarProductos = !!filtroPymeId && puede(pymeFiltrada?.miRoles, 'gestionarProductos');
   const sedes = useAsync(
     () => (filtroPymeId ? pymesApi.sedes.list(filtroPymeId) : Promise.resolve({ sedes: [] })),
     [filtroPymeId]
@@ -119,12 +131,14 @@ export default function Ventas() {
     });
   };
 
-  const handleFiltroPyme = (value) => {
-    setFiltroPymeId(value);
+  // La PYME se elige desde el switcher del rail (Layout.jsx), no acá — al
+  // cambiar, un carrito/form armado contra la PYME anterior ya no aplica
+  // (productos de otra PYME, otro pymeId de destino para la factura).
+  useEffect(() => {
     setFiltroSedeId('');
     setForm({ productoId: '', cantidad: 1, precioUnitario: '' });
     setCarrito([]);
-  };
+  }, [filtroPymeId]);
 
   const focusScan = () => {
     // el foco vuelve solo al campo de escaneo tras cada lectura/acción, para
@@ -357,28 +371,23 @@ export default function Ventas() {
         title="Registrar venta"
         subtitle="Escaneá o agregá productos al carrito; cada venta actualiza el inventario y alimenta el modelo de predicción."
         actions={
-          (pymes.data?.pymes?.length ?? 0) > 0 && (
-            <>
-              <select value={filtroPymeId} onChange={(e) => handleFiltroPyme(e.target.value)}>
-                <option value="">Todas mis PYMES</option>
-                {pymes.data?.pymes?.map((p) => (
-                  <option key={p.id} value={p.id}>{p.nombre}</option>
-                ))}
-              </select>
-              {filtroPymeId && (sedes.data?.sedes?.length ?? 0) > 1 && (
-                <select value={filtroSedeId} onChange={(e) => setFiltroSedeId(e.target.value)}>
-                  <option value="">Todas las sedes</option>
-                  {sedes.data.sedes.map((s) => (
-                    <option key={s.id} value={s.id}>{s.nombre}</option>
-                  ))}
-                </select>
-              )}
-            </>
+          filtroPymeId && (sedes.data?.sedes?.length ?? 0) > 1 && (
+            <select value={filtroSedeId} onChange={(e) => setFiltroSedeId(e.target.value)}>
+              <option value="">Todas las sedes</option>
+              {sedes.data.sedes.map((s) => (
+                <option key={s.id} value={s.id}>{s.nombre}</option>
+              ))}
+            </select>
           )
         }
       />
 
       <div className={puedeVender ? 'venta-pos' : undefined}>
+        {!filtroPymeId && pymesConVenta.length > 1 && (
+          <div className="alert alert-info" style={{ marginBottom: 16 }}>
+            Elegí una PYME puntual en el selector de la izquierda para poder vender — con "Todas mis PYMES" solo se muestra el historial.
+          </div>
+        )}
         {puedeVender && (
         <div className="venta-pos-main">
           <div className="venta-scan-deck">

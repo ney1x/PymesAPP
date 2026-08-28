@@ -12,9 +12,8 @@ import {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { pymeSeleccionada: filtroPymeId, setPymeSeleccionada: setFiltroPymeId } = usePymeFilter();
+  const { pymeSeleccionada: filtroPymeId } = usePymeFilter();
   const [filtroSedeId, setFiltroSedeId] = useState('');
-  const pymes = useAsync(() => pymesApi.list());
   const sedes = useAsync(
     () => (filtroPymeId ? pymesApi.sedes.list(filtroPymeId) : Promise.resolve({ sedes: [] })),
     [filtroPymeId]
@@ -24,10 +23,11 @@ export default function Dashboard() {
     [filtroPymeId, filtroSedeId]
   );
 
-  const handleFiltroPyme = (value) => {
-    setFiltroPymeId(value);
+  // La PYME se elige desde el switcher del rail (Layout.jsx), no acá — al
+  // cambiar, la sede filtrada de la PYME anterior ya no aplica.
+  useEffect(() => {
     setFiltroSedeId('');
-  };
+  }, [filtroPymeId]);
   const [focusedRowIndex, setFocusedRowIndex] = useState(-1);
   const focusedList = useRef('table');
 
@@ -102,23 +102,13 @@ export default function Dashboard() {
         title={`Hola, ${user?.nombre?.split(' ')[0] || 'comerciante'}`}
         subtitle="Decisiones clave para tu negocio hoy."
         actions={
-          (pymes.data?.pymes?.length ?? 0) > 0 && (
-            <>
-              <select value={filtroPymeId} onChange={(e) => handleFiltroPyme(e.target.value)}>
-                <option value="">Todas mis PYMES</option>
-                {pymes.data?.pymes?.map((p) => (
-                  <option key={p.id} value={p.id}>{p.nombre}</option>
-                ))}
-              </select>
-              {filtroPymeId && (sedes.data?.sedes?.length ?? 0) > 1 && (
-                <select value={filtroSedeId} onChange={(e) => setFiltroSedeId(e.target.value)}>
-                  <option value="">Todas las sedes</option>
-                  {sedes.data.sedes.map((s) => (
-                    <option key={s.id} value={s.id}>{s.nombre}</option>
-                  ))}
-                </select>
-              )}
-            </>
+          filtroPymeId && (sedes.data?.sedes?.length ?? 0) > 1 && (
+            <select value={filtroSedeId} onChange={(e) => setFiltroSedeId(e.target.value)}>
+              <option value="">Todas las sedes</option>
+              {sedes.data.sedes.map((s) => (
+                <option key={s.id} value={s.id}>{s.nombre}</option>
+              ))}
+            </select>
           )
         }
       />

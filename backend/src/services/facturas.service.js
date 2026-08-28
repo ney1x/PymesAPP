@@ -10,10 +10,18 @@ const ocultarCostoFactura = (factura) => ({ ...factura, ventas: factura.ventas.m
 const list = async (user, { pymeId, sedeId, desde, hasta } = {}) => {
   const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
 
+  // Mismo criterio que predicciones.service.js: con pymeId puntual, sin la
+  // capacidad es 403 (bloquea de verdad, no solo esconde el link de nav);
+  // en "todas mis pymes" se filtra a las que sí la dan, en vez de tirar
+  // error — así el historial agregado no se cae por una sola PYME sin permiso.
+  if (pymeId) await exigirCapacidad(user, pymeId, 'verVentas');
+  const idsConVista = pymeId ? null : await pymeIdsConCapacidad(user, 'verVentas');
+
   const where = {
     ...(await accesoWhere(user)),
     ...(pymeId ? { pymeId: Number(pymeId) } : {}),
     ...(sedeIdFinal ? { sedeId: sedeIdFinal } : {}),
+    ...(idsConVista ? { pymeId: { in: idsConVista } } : {}),
     ...(desde || hasta
       ? {
           fecha: {
