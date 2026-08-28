@@ -111,25 +111,25 @@ model prediccion {
 }
 
 model producto {
-  id           Int          @id @default(autoincrement())
-  pymeId       Int
-  sedeId       Int?
-  nombre       String
-  descripcion  String?
-  codigo       String
-  categoria    String?
-  precioVenta  Float
-  costo        Float
-  leadTimeDias Int          @default(7)
-  stockSeguridad Int        @default(0)
-  estado       String       @default("ACTIVO")
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  inventario   inventario?
-  predicciones prediccion[]
-  pyme         pyme         @relation(fields: [pymeId], references: [id], map: "Producto_pymeId_fkey")
-  sede         sede?        @relation(fields: [sedeId], references: [id], map: "Producto_sedeId_fkey")
-  ventas       venta[]
+  id             Int          @id @default(autoincrement())
+  pymeId         Int
+  sedeId         Int?
+  nombre         String
+  descripcion    String?
+  codigo         String
+  categoria      String?
+  precioVenta    Float
+  costo          Float
+  leadTimeDias   Int          @default(7)
+  stockSeguridad Int          @default(0)
+  estado         String       @default("ACTIVO")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  inventario     inventario?
+  predicciones   prediccion[]
+  pyme           pyme         @relation(fields: [pymeId], references: [id], map: "Producto_pymeId_fkey")
+  sede           sede?        @relation(fields: [sedeId], references: [id], map: "Producto_sedeId_fkey")
+  ventas         venta[]
 
   @@unique([pymeId, codigo], map: "Producto_pymeId_codigo_key")
   @@index([pymeId], map: "Producto_pymeId_idx")
@@ -177,26 +177,26 @@ model pyme {
 }
 
 model user {
-  id          Int              @id @default(autoincrement())
-  nombre      String
-  email       String           @unique(map: "User_email_key")
-  password    String
-  rol         String           @default("COMERCIANTE")
-  telefono    String?
-  resetCodeHash       String?
-  resetCodeExpiresAt  DateTime?
-  resetCodeIntentos   Int       @default(0)
-  emailVerificado     Boolean   @default(false)
-  verifCodeHash       String?
-  verifCodeExpiresAt  DateTime?
-  verifCodeIntentos   Int       @default(0)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  pymes       pyme[]
-  membresias  pyme_membresia[]
-  invitaciones pyme_membresia[] @relation("InvitadoPor")
-  mensajesEnviados  mensaje[]  @relation("MensajeRemitente")
-  mensajesRecibidos mensaje[]  @relation("MensajeDestinatario")
+  id                 Int              @id @default(autoincrement())
+  nombre             String
+  email              String           @unique(map: "User_email_key")
+  password           String
+  rol                String           @default("COMERCIANTE")
+  telefono           String?
+  resetCodeHash      String?
+  resetCodeExpiresAt DateTime?
+  resetCodeIntentos  Int              @default(0)
+  emailVerificado    Boolean          @default(false)
+  verifCodeHash      String?
+  verifCodeExpiresAt DateTime?
+  verifCodeIntentos  Int              @default(0)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  pymes              pyme[]
+  membresias         pyme_membresia[]
+  invitaciones       pyme_membresia[] @relation("InvitadoPor")
+  mensajesEnviados   mensaje[]        @relation("MensajeRemitente")
+  mensajesRecibidos  mensaje[]        @relation("MensajeDestinatario")
 }
 
 model sede {
@@ -232,27 +232,27 @@ enum EstadoMembresia {
 }
 
 model pyme_membresia {
-  id            Int             @id @default(autoincrement())
-  userId        Int
-  pymeId        Int
-  sedeId        Int?
-  rol           RolMembresia
-  estado        EstadoMembresia @default(PENDIENTE)
-  invitadoPorId Int?
+  id                    Int                  @id @default(autoincrement())
+  userId                Int
+  pymeId                Int
+  sedeId                Int?
+  rol                   RolMembresia
+  estado                EstadoMembresia      @default(PENDIENTE)
+  invitadoPorId         Int?
   // false solo entre el momento en que el invitado acepta o rechaza y el
   // momento en que el owner ve/descarta el aviso — controla la campanita, no
   // el estado real de la membresia (ese es `estado`).
-  decisionVistaPorOwner Boolean @default(true)
-  activo        Boolean         @default(true)
-  createdAt     DateTime        @default(now())
-  respondidoAt  DateTime?
-  user          user            @relation(fields: [userId], references: [id], map: "PymeMembresia_userId_fkey")
-  pyme          pyme            @relation(fields: [pymeId], references: [id], map: "PymeMembresia_pymeId_fkey")
-  sede          sede?           @relation(fields: [sedeId], references: [id], map: "PymeMembresia_sedeId_fkey")
-  invitadoPor   user?           @relation("InvitadoPor", fields: [invitadoPorId], references: [id], map: "PymeMembresia_invitadoPorId_fkey")
+  decisionVistaPorOwner Boolean              @default(true)
+  activo                Boolean              @default(true)
+  createdAt             DateTime             @default(now())
+  respondidoAt          DateTime?
+  user                  user                 @relation(fields: [userId], references: [id], map: "PymeMembresia_userId_fkey")
+  pyme                  pyme                 @relation(fields: [pymeId], references: [id], map: "PymeMembresia_pymeId_fkey")
+  sede                  sede?                @relation(fields: [sedeId], references: [id], map: "PymeMembresia_sedeId_fkey")
+  invitadoPor           user?                @relation("InvitadoPor", fields: [invitadoPorId], references: [id], map: "PymeMembresia_invitadoPorId_fkey")
   // Roles combinados además de `rol` (el "primero") — un miembro puede ser
   // p. ej. VENDEDOR + ANALISTA a la vez. `rol` nunca se duplica acá.
-  rolesExtra    pyme_membresia_rol[]
+  rolesExtra            pyme_membresia_rol[]
 
   @@unique([userId, pymeId, sedeId], map: "PymeMembresia_userId_pymeId_sedeId_key")
   @@index([pymeId, rol], map: "PymeMembresia_pymeId_rol_idx")
@@ -323,14 +323,15 @@ model venta {
 // (carrito de Ventas.jsx, botón rápido de Inventario, o el asistente de
 // IA) — toda venta pertenece a una factura, incluso las de un solo producto.
 model factura {
-  id     Int      @id @default(autoincrement())
-  pymeId Int
-  sedeId Int?
-  total  Float
-  fecha  DateTime @default(now())
-  ventas venta[]
-  pyme   pyme     @relation(fields: [pymeId], references: [id], map: "Factura_pymeId_fkey")
-  sede   sede?    @relation(fields: [sedeId], references: [id], map: "Factura_sedeId_fkey")
+  id            Int      @id @default(autoincrement())
+  pymeId        Int
+  sedeId        Int?
+  total         Float
+  montoRecibido Float? // efectivo con el que pagó el cliente; null = no se registró (pago exacto, tarjeta, etc.)
+  fecha         DateTime @default(now())
+  ventas        venta[]
+  pyme          pyme     @relation(fields: [pymeId], references: [id], map: "Factura_pymeId_fkey")
+  sede          sede?    @relation(fields: [sedeId], references: [id], map: "Factura_sedeId_fkey")
 
   @@index([pymeId, fecha], map: "Factura_pymeId_fecha_idx")
   @@index([sedeId, fecha], map: "Factura_sedeId_fecha_idx")

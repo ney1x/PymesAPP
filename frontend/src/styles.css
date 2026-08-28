@@ -1278,12 +1278,83 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
    como único botón sólido en amber (accent) de la vista. */
 .venta-checkout-bar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  flex-direction: column;
+  gap: 14px;
   padding: 16px 20px;
   background: var(--navy);
 }
+
+.venta-checkout-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* Fila de vuelto: "Pagó con" (input) + vuelto calculado, separada de la
+   fila del total para no competir por atención con el número más grande
+   de la pantalla ni forzar tres bloques en una sola línea en mobile. */
+.venta-checkout-cash {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.venta-checkout-cash-input { margin-bottom: 0; }
+
+.venta-checkout-cash-input label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.venta-checkout-cash-input input {
+  width: 140px;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.venta-checkout-cash-input input::placeholder { color: rgba(255, 255, 255, 0.45); }
+
+.venta-checkout-cash-input input:focus {
+  border-color: var(--petrol);
+  background: rgba(255, 255, 255, 0.13);
+  box-shadow: 0 0 0 3px rgba(201, 122, 12, 0.35);
+}
+
+.venta-checkout-cash-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.venta-checkout-vuelto {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.venta-checkout-vuelto span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.venta-checkout-vuelto strong { font-size: 19px; color: var(--petrol); }
+
+.venta-checkout-vuelto-falta strong { color: #ff9d8a; }
+.venta-checkout-vuelto-falta small { color: #ff9d8a; font-size: 11px; }
 
 .venta-checkout-total {
   display: flex;
@@ -1344,6 +1415,28 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 
 @media (max-width: 900px) {
   .venta-pos { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .venta-scan-deck-head { flex-wrap: wrap; }
+
+  /* El input de efectivo y el botón de confirmar quedan a ancho completo
+     apilados: en una fila compartida en un teléfono angosto terminaban
+     achicados de forma desigual uno contra otro. */
+  .venta-checkout-cash-input { width: 100%; }
+  .venta-checkout-cash-input input { width: 100%; }
+  .venta-checkout-row { flex-direction: column; align-items: stretch; }
+  .venta-checkout-confirm { width: 100%; }
+}
+
+@media (max-width: 480px) {
+  /* La línea del carrito (nombre + cantidad + precio + quitar) no entra
+     en una sola fila en un teléfono real sin achicar los botones de forma
+     desareja; se parte en dos filas: nombre arriba, controles abajo. */
+  .venta-carrito-linea { flex-wrap: wrap; row-gap: 8px; }
+  .venta-carrito-linea .rank-info { flex: 1 1 100%; }
+  .venta-carrito-linea .dashboard-rank-metric { margin-left: 0; }
+  .venta-carrito-linea .venta-carrito-cantidad { margin-right: auto; }
 }
 
 .venta-stock-gauge { margin-bottom: 16px; }

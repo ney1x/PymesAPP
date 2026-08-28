@@ -15,6 +15,7 @@ const facturaValidations = validate([
   body('lineas.*.productoId').isInt().withMessage('productoId es obligatorio en cada línea'),
   body('lineas.*.cantidad').isInt({ min: 1 }).withMessage('La cantidad debe ser mayor a 0 en cada línea'),
   body('lineas.*.precioUnitario').isFloat({ min: 0 }).withMessage('Precio unitario inválido en cada línea'),
+  body('montoRecibido').optional().isFloat({ min: 0 }).withMessage('Monto recibido inválido'),
 ]);
 
 router.get(

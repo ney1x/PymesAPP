@@ -46,7 +46,7 @@ const list = async (user, { pymeId, sedeId, desde, hasta } = {}) => {
 // ventasService.create, que delega acá) y el asistente de IA terminan todos
 // en esta misma función. Una sola transacción: si algo falla a mitad de
 // camino, no queda ninguna línea suelta sin su factura.
-const create = async (user, { pymeId, sedeId, lineas }) => {
+const create = async (user, { pymeId, sedeId, lineas, montoRecibido }) => {
   if (!Array.isArray(lineas) || lineas.length === 0) {
     throw new ApiError(400, 'La factura necesita al menos una línea');
   }
@@ -82,7 +82,14 @@ const create = async (user, { pymeId, sedeId, lineas }) => {
   const total = lineasResueltas.reduce((sum, l) => sum + l.precioUnitario * l.cantidad, 0);
 
   const facturaId = await prisma.$transaction(async (tx) => {
-    const creada = await tx.factura.create({ data: { pymeId: pymeIdReal, sedeId: sedeIdReal, total } });
+    const creada = await tx.factura.create({
+      data: {
+        pymeId: pymeIdReal,
+        sedeId: sedeIdReal,
+        total,
+        montoRecibido: montoRecibido !== undefined && montoRecibido !== null && montoRecibido !== '' ? Number(montoRecibido) : null,
+      },
+    });
 
     for (const l of lineasResueltas) {
       await tx.venta.create({

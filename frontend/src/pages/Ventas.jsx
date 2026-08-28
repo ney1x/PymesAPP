@@ -35,11 +35,32 @@ import { IconCamera, IconPlus, IconMinus, IconClose, IconChevronRight, IconCheck
 import BarcodeScannerModal from '../components/BarcodeScannerModal';
 import { puedeEnAlguna } from '../constants/permisos';
 
+// Wheel sobre un input[type=number] es inconsistente entre navegadores: a
+// veces cambia el valor Y scrollea la página al mismo tiempo. Se engancha
+// el listener nativo (no el onWheel de React, que va como passive y no
+// deja hacer preventDefault) y solo se actúa si el input tiene foco — ahí
+// se bloquea el scroll de la página y se aplica el paso a mano. Sin foco
+// no hace nada: la rueda scrollea la página como siempre.
+function useWheelStep(ref, step, onStep) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const handler = (e) => {
+      if (document.activeElement !== el) return;
+      e.preventDefault();
+      onStep(e.deltaY < 0 ? step : -step);
+    };
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  });
+}
+
 export default function Ventas() {
   const [filtroPymeId, setFiltroPymeId] = useState('');
   const [filtroSedeId, setFiltroSedeId] = useState('');
   const [form, setForm] = useState({ productoId: '', cantidad: 1, precioUnitario: '' });
   const [carrito, setCarrito] = useState([]); // [{ productoId, nombre, codigo, cantidad, precioUnitario, stockActual }]
+  const [montoRecibido, setMontoRecibido] = useState(''); // efectivo con el que paga el cliente, para calcular el vuelto
   const [scanValue, setScanValue] = useState('');
   const [scanError, setScanError] = useState(null);
   const [codigoSinAsignar, setCodigoSinAsignar] = useState(null); // último código escaneado sin producto — habilita "Asignar a un producto"
@@ -53,6 +74,9 @@ export default function Ventas() {
   const [facturaNuevaId, setFacturaNuevaId] = useState(null);
   const [facturasExpandidas, setFacturasExpandidas] = useState(new Set());
   const scanInputRef = useRef(null);
+  const cantidadInputRef = useRef(null);
+  const precioInputRef = useRef(null);
+  const montoRecibidoInputRef = useRef(null);
 
   // El sello de "venta registrada" se retira solo: es una acción que se repite
   // decenas de veces por turno, no debe acumularse ni pedir que lo cierren.
@@ -261,9 +285,10 @@ export default function Ventas() {
   };
 
   const totalCarrito = carrito.reduce((acc, l) => acc + l.cantidad * l.precioUnitario, 0);
+  const vuelto = montoRecibido === '' ? null : Number(montoRecibido) - totalCarrito;
 
   const confirmarVenta = async () => {
-    if (confirmando || carrito.length === 0) return;
+    if (confirmando || carrito.length === 0 || montoRecibido === '' || vuelto < 0) return;
     setConfirmando(true);
     setActionError(null);
     setSuccess(null);
@@ -276,10 +301,12 @@ export default function Ventas() {
           cantidad: l.cantidad,
           precioUnitario: l.precioUnitario,
         })),
+        ...(montoRecibido !== '' ? { montoRecibido: Number(montoRecibido) } : {}),
       });
       setVentaConfirmada({ id: res?.factura?.id ?? null, total: res?.factura?.total ?? totalCarrito });
       setFacturaNuevaId(res?.factura?.id ?? null);
       setCarrito([]);
+      setMontoRecibido('');
       facturas.run();
       productos.run(); // el stock mostrado (carrito, gauge) debe reflejar la venta recién hecha
     } catch (err) {
@@ -296,6 +323,24 @@ export default function Ventas() {
   const stockRestante = tieneStock ? Math.max(0, stockActual - Number(form.cantidad || 0)) : 0;
   const stockPct = tieneStock && stockActual > 0 ? Math.max(0, Math.min(100, (stockRestante / stockActual) * 100)) : 0;
   const stockTone = stockPct <= 15 ? 'danger' : stockPct <= 40 ? 'warning' : 'ok';
+
+  useWheelStep(cantidadInputRef, 1, (delta) => {
+    setForm((f) => {
+      const max = tieneStock ? stockActual : Infinity;
+      return { ...f, cantidad: Math.min(max, Math.max(1, Number(f.cantidad || 0) + delta)) };
+    });
+  });
+
+  useWheelStep(precioInputRef, 0.01, (delta) => {
+    setForm((f) => ({ ...f, precioUnitario: Math.max(0, Math.round((Number(f.precioUnitario || 0) + delta) * 100) / 100) }));
+  });
+
+  useWheelStep(montoRecibidoInputRef, 0.01, (delta) => {
+    setMontoRecibido((v) => {
+      const actual = v === '' ? 0 : Number(v);
+      return String(Math.max(0, Math.round((actual + delta) * 100) / 100));
+    });
+  });
 
   // Mismo criterio que el resto de la app (ver Inventario.jsx): un spinner
   // de página completa mientras carga lo esencial, para no confundir "todavía
@@ -428,11 +473,12 @@ export default function Ventas() {
                       max={tieneStock ? stockActual : undefined}
                       value={form.cantidad}
                       onChange={handleFormChange}
+                      ref={cantidadInputRef}
                     />
                   </div>
                   <div className="form-group">
                     <label htmlFor="precioUnitario">Precio unitario (COP)</label>
-                    <input id="precioUnitario" name="precioUnitario" type="number" min="0" step="0.01" value={form.precioUnitario} onChange={handleFormChange} />
+                    <input id="precioUnitario" name="precioUnitario" type="number" min="0" step="0.01" value={form.precioUnitario} onChange={handleFormChange} ref={precioInputRef} />
                   </div>
                 </div>
 
@@ -500,22 +546,57 @@ export default function Ventas() {
           </div>
 
           <div className="venta-checkout-bar">
-            <div className="venta-checkout-total">
-              <span className="venta-checkout-total-label">Total a cobrar</span>
-              <strong key={totalCarrito} className="venta-checkout-total-value">{money(totalCarrito)}</strong>
+            <div className="venta-checkout-cash">
+              <div className="form-group venta-checkout-cash-input">
+                <label htmlFor="montoRecibido">Pagó con</label>
+                <input
+                  id="montoRecibido"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  placeholder="0"
+                  value={montoRecibido}
+                  onChange={(e) => setMontoRecibido(e.target.value)}
+                  ref={montoRecibidoInputRef}
+                />
+                {montoRecibido === '' && carrito.length > 0 && (
+                  <small className="venta-checkout-cash-hint">Cargá con cuánto pagó para poder confirmar</small>
+                )}
+              </div>
+              <div className={`venta-checkout-vuelto${vuelto !== null && vuelto < 0 ? ' venta-checkout-vuelto-falta' : ''}`}>
+                <span>Vuelto</span>
+                <strong>{vuelto !== null ? money(Math.max(vuelto, 0)) : '—'}</strong>
+                {vuelto !== null && vuelto < 0 && <small>Faltan {money(Math.abs(vuelto))}</small>}
+              </div>
             </div>
-            <Button
-              type="button"
-              variant="accent"
-              loading={confirmando}
-              className="venta-checkout-confirm"
-              disabled={carrito.length === 0}
-              aria-busy={confirmando}
-              aria-label={confirmando ? 'Registrando venta...' : 'Confirmar venta'}
-              onClick={confirmarVenta}
-            >
-              Confirmar venta
-            </Button>
+
+            <div className="venta-checkout-row">
+              <div className="venta-checkout-total">
+                <span className="venta-checkout-total-label">Total a cobrar</span>
+                <strong key={totalCarrito} className="venta-checkout-total-value">{money(totalCarrito)}</strong>
+              </div>
+              <Button
+                type="button"
+                variant="accent"
+                loading={confirmando}
+                className="venta-checkout-confirm"
+                disabled={carrito.length === 0 || montoRecibido === '' || vuelto < 0}
+                aria-busy={confirmando}
+                aria-label={
+                  confirmando
+                    ? 'Registrando venta...'
+                    : montoRecibido === ''
+                    ? 'Cargá con cuánto pagó el cliente para confirmar la venta'
+                    : vuelto < 0
+                    ? 'El monto pagado no alcanza para cubrir el total'
+                    : 'Confirmar venta'
+                }
+                onClick={confirmarVenta}
+              >
+                Confirmar venta
+              </Button>
+            </div>
           </div>
         </div>
         )}
@@ -564,6 +645,9 @@ export default function Ventas() {
                         </div>
                         <div className="dashboard-rank-metric">
                           <strong>{money(f.total)}</strong>
+                          {typeof f.montoRecibido === 'number' && (
+                            <small>Pagó {money(f.montoRecibido)} · Vuelto {money(Math.max(f.montoRecibido - f.total, 0))}</small>
+                          )}
                         </div>
                       </div>
 
