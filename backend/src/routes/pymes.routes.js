@@ -53,6 +53,14 @@ router.delete('/:id', idParam, asyncHandler(async (req, res) => {
   res.json({ ok: true, message: 'PYME eliminada' });
 }));
 
+// Autoservicio: cualquier miembro invitado (no el OWNER) abandona la PYME
+// por su cuenta — sin requirePymeRole('OWNER'), la exigencia de rol vive
+// dentro de pymesService.leaveMembresia contra la propia membresía.
+router.delete('/:id/membresia', idParam, asyncHandler(async (req, res) => {
+  await pymesService.leaveMembresia(req.params.id, req.user);
+  res.json({ ok: true, message: 'Saliste de la PYME' });
+}));
+
 // --- Miembros (equipo) - solo OWNER administra ---
 
 const miembroValidations = validate([

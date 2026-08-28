@@ -207,6 +207,22 @@ const removeMiembro = async (pymeId, miembroId) => {
   return true;
 };
 
+// Autoservicio: un miembro invitado abandona la PYME por su cuenta, sin que
+// el OWNER tenga que sacarlo desde Equipo. Mismo efecto que removeMiembro
+// (activo: false), pero resuelto contra la membresía del propio usuario en
+// vez de un miembroId — así "Mis PYMES" no necesita conocer el id interno
+// de la membresía, solo el id de la PYME que ya tiene en pantalla.
+const leaveMembresia = async (pymeId, user) => {
+  const membresia = await prisma.pyme_membresia.findFirst({
+    where: { pymeId: Number(pymeId), userId: user.id, activo: true, estado: 'ACEPTADA' },
+  });
+  if (!membresia) throw new ApiError(404, 'No sos miembro de esta PYME');
+  if (membresia.rol === 'OWNER') throw new ApiError(400, 'El dueño no puede abandonar su propia PYME');
+
+  await prisma.pyme_membresia.update({ where: { id: membresia.id }, data: { activo: false } });
+  return true;
+};
+
 // --- Sedes ---
 
 const listSedes = async (pymeId) => {
@@ -254,6 +270,7 @@ module.exports = {
   inviteMiembro,
   updateMiembro,
   removeMiembro,
+  leaveMembresia,
   listSedes,
   createSede,
   updateSede,
