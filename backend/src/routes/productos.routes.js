@@ -21,6 +21,13 @@ const productoValidations = validate([
   body('stockSeguridad').optional().isInt({ min: 0 }).withMessage('Stock de seguridad inválido'),
   body('estado').optional().isIn(['ACTIVO', 'INACTIVO']).withMessage('Estado inválido'),
   body('inventario').optional().isObject().withMessage('inventario debe ser un objeto'),
+  body('unidadesPorCaja')
+    .optional({ nullable: true, checkFalsy: true })
+    .isInt({ min: 2 })
+    .withMessage('Unidades por caja debe ser un entero de 2 o más'),
+  body('codigoCaja').optional({ nullable: true }).isString(),
+  body('precioCaja').optional({ nullable: true, checkFalsy: true }).isFloat({ min: 0 }).withMessage('Precio de caja inválido'),
+  body('costoCaja').optional({ nullable: true, checkFalsy: true }).isFloat({ min: 0 }).withMessage('Costo de caja inválido'),
 ]);
 
 const idParam = validate([param('id').isInt().withMessage('ID inválido')]);

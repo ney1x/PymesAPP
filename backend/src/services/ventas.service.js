@@ -44,11 +44,11 @@ const list = async (user, { pymeId, sedeId, desde, hasta } = {}) => {
 // excepción. Mismo contrato de respuesta que antes (devuelve la `venta`,
 // no la factura) para no romper a quien ya llama esto.
 const create = async (user, data) => {
-  const { productoId, pymeId, cantidad, precioUnitario } = data;
+  const { productoId, pymeId, cantidad, precioUnitario, presentacion } = data;
 
   const factura = await facturasService.create(user, {
     pymeId,
-    lineas: [{ productoId, cantidad, precioUnitario }],
+    lineas: [{ productoId, cantidad, precioUnitario, presentacion }],
   });
 
   return factura.ventas[0];
@@ -58,11 +58,20 @@ const historialProducto = async (productoId, dias = 30) => {
   const desde = new Date();
   desde.setDate(desde.getDate() - dias);
 
-  return prisma.venta.findMany({
+  const ventas = await prisma.venta.findMany({
     where: { productoId: Number(productoId), fecha: { gte: desde } },
     orderBy: { fecha: 'asc' },
-    select: { fecha: true, cantidad: true, precioUnitario: true, total: true },
+    select: { fecha: true, cantidad: true, factorPresentacion: true, precioUnitario: true, total: true },
   });
+
+  // `cantidad` normalizada a unidad base: una venta de 1 caja de 40 cuenta
+  // como 40 para historial y promedios (coherente con el stock y el motor de IA).
+  return ventas.map((v) => ({
+    fecha: v.fecha,
+    cantidad: v.cantidad * (v.factorPresentacion ?? 1),
+    precioUnitario: v.precioUnitario,
+    total: v.total,
+  }));
 };
 
 /**
@@ -88,7 +97,7 @@ const rankingVentas = async (user, { pymeId, sedeId, categoria, dias, orden = 'D
       ...(desde ? { fecha: { gte: desde } } : {}),
       ...(categoria ? { producto: { categoria } } : {}),
     },
-    select: { productoId: true, cantidad: true, total: true, producto: { select: { id: true, nombre: true, categoria: true } } },
+    select: { productoId: true, cantidad: true, factorPresentacion: true, total: true, producto: { select: { id: true, nombre: true, categoria: true } } },
   });
 
   const porProducto = new Map();
@@ -100,7 +109,7 @@ const rankingVentas = async (user, { pymeId, sedeId, categoria, dias, orden = 'D
       unidades: 0,
       ingresos: 0,
     };
-    entry.unidades += v.cantidad;
+    entry.unidades += v.cantidad * (v.factorPresentacion ?? 1);
     entry.ingresos += v.total;
     porProducto.set(v.productoId, entry);
   }
@@ -137,6 +146,7 @@ const rankingRentabilidad = async (user, { pymeId, sedeId, categoria, dias, orde
     select: {
       productoId: true,
       cantidad: true,
+      factorPresentacion: true,
       total: true,
       precioUnitario: true,
       costoUnitario: true,
@@ -154,7 +164,10 @@ const rankingRentabilidad = async (user, { pymeId, sedeId, categoria, dias, orde
       ingresos: 0,
       margen: 0,
     };
-    entry.unidades += v.cantidad;
+    // unidades en base; margen con precio y costo DE LA PRESENTACIÓN por
+    // `cantidad` de tickets (precioUnitario/costoUnitario ya son por caja
+    // cuando la venta fue por caja), así el margen total no se distorsiona.
+    entry.unidades += v.cantidad * (v.factorPresentacion ?? 1);
     entry.ingresos += v.total;
     entry.margen += (v.precioUnitario - v.costoUnitario) * v.cantidad;
     porProducto.set(v.productoId, entry);
@@ -186,7 +199,7 @@ const comparativaSedes = async (user, { pymeId, dias } = {}) => {
       pymeId: Number(pymeId),
       ...(desde ? { fecha: { gte: desde } } : {}),
     },
-    select: { sedeId: true, cantidad: true, total: true, fecha: true },
+    select: { sedeId: true, cantidad: true, factorPresentacion: true, total: true, fecha: true },
   });
 
   const sedes = await prisma.sede.findMany({ where: { pymeId: Number(pymeId) } });
@@ -203,9 +216,10 @@ const comparativaSedes = async (user, { pymeId, dias } = {}) => {
       ingresos: 0,
       porDiaSemana: Array.from({ length: 7 }, (_, i) => ({ dia: DIAS[i], unidades: 0 })),
     };
-    entry.unidades += v.cantidad;
+    const unidadesBase = v.cantidad * (v.factorPresentacion ?? 1);
+    entry.unidades += unidadesBase;
     entry.ingresos += v.total;
-    entry.porDiaSemana[v.fecha.getDay()].unidades += v.cantidad;
+    entry.porDiaSemana[v.fecha.getDay()].unidades += unidadesBase;
     porSede.set(key, entry);
   }
 

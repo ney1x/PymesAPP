@@ -35,12 +35,20 @@ const analizarProducto = async (producto, diasForecast = DIAS_FORECAST_DEFAULT) 
   const comprar = stockActual <= puntoReorden;
   const cantidad = Math.max(0, Math.round(stockObjetivo - stockActual));
 
+  // Todo lo de arriba está en unidad base. Si el producto se compra por caja,
+  // se ofrece además el equivalente redondeado hacia arriba (no se pide media
+  // caja) — informativo, la cantidad base sigue mandando.
+  const unidadesPorCaja =
+    Number(producto.unidadesPorCaja) >= 2 ? Number(producto.unidadesPorCaja) : null;
+  const equivalenteCajas = unidadesPorCaja ? Math.ceil(cantidad / unidadesPorCaja) : null;
+
   return {
     producto: {
       id: producto.id,
       nombre: producto.nombre,
       codigo: producto.codigo,
       pymeId: producto.pymeId,
+      unidadesPorCaja,
     },
     stockActual,
     leadTimeDias,
@@ -51,6 +59,7 @@ const analizarProducto = async (producto, diasForecast = DIAS_FORECAST_DEFAULT) 
     stockObjetivo: Math.round(stockObjetivo * 100) / 100,
     comprar,
     cantidad,
+    equivalenteCajas,
     diasForecast,
     metodo,
   };

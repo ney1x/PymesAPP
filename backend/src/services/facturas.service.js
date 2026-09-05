@@ -7,6 +7,36 @@ const { exigirCapacidad, tieneCapacidad, pymeIdsConCapacidad, ocultarCostoVenta 
 
 const ocultarCostoFactura = (factura) => ({ ...factura, ventas: factura.ventas.map((v) => ocultarCostoVenta(v)) });
 
+// Resuelve una línea de carrito según su presentación (UNIDAD | CAJA). El
+// stock, el ranking de unidades y el espejo al motor de IA siempre razonan
+// en UNIDAD BASE (`unidadesBase`); el ticket conserva lo que pidió el
+// cliente (`cantidad` cajas o `cantidad` sueltas) con su propio precio.
+// Un producto sin `unidadesPorCaja` (>=2) solo admite UNIDAD.
+const FACTOR_CAJA_MINIMO = 2;
+
+const resolverLineaPresentacion = (producto, linea) => {
+  const cantidad = Number(linea.cantidad);
+  const factorCaja =
+    Number(producto.unidadesPorCaja) >= FACTOR_CAJA_MINIMO ? Number(producto.unidadesPorCaja) : null;
+  const esCaja = linea.presentacion === 'CAJA' && !!factorCaja;
+
+  const presentacion = esCaja ? 'CAJA' : 'UNIDAD';
+  const factor = esCaja ? factorCaja : 1;
+  const unidadesBase = cantidad * factor;
+
+  const precioDefault = esCaja
+    ? producto.precioCaja ?? producto.precioVenta * factor
+    : producto.precioVenta;
+  const precioUnitario =
+    linea.precioUnitario !== undefined && linea.precioUnitario !== null && linea.precioUnitario !== ''
+      ? Number(linea.precioUnitario)
+      : Number(precioDefault);
+
+  const costoUnitario = esCaja ? producto.costoCaja ?? producto.costo * factor : producto.costo;
+
+  return { cantidad, presentacion, factor, unidadesBase, precioUnitario, costoUnitario };
+};
+
 const list = async (user, { pymeId, sedeId, desde, hasta } = {}) => {
   const sedeIdFinal = await resolverSedeId(pymeId, user, sedeId);
 
@@ -60,6 +90,10 @@ const create = async (user, { pymeId, sedeId, lineas, montoRecibido }) => {
   }
 
   const lineasResueltas = [];
+  // Unidades base ya comprometidas por producto en ESTA factura: dos líneas
+  // del mismo producto (p. ej. 1 caja + 5 sueltas) se validan contra el stock
+  // de forma acumulada, no cada una por su lado.
+  const baseComprometida = new Map();
   for (const linea of lineas) {
     const producto = await prisma.producto.findUnique({
       where: { id: Number(linea.productoId) },
@@ -70,13 +104,20 @@ const create = async (user, { pymeId, sedeId, lineas, montoRecibido }) => {
       throw new ApiError(403, 'No tiene acceso a este producto');
     }
 
-    const cantidad = Number(linea.cantidad);
+    const resuelta = resolverLineaPresentacion(producto, linea);
+    const yaComprometido = baseComprometida.get(producto.id) || 0;
     const inventario = await prisma.inventario.findUnique({ where: { productoId: producto.id } });
-    if (inventario && cantidad > inventario.stockActual) {
-      throw new ApiError(400, `Stock insuficiente de "${producto.nombre}": quedan ${inventario.stockActual} unidades`);
+    if (inventario && yaComprometido + resuelta.unidadesBase > inventario.stockActual) {
+      const disp = inventario.stockActual - yaComprometido;
+      const detalle =
+        resuelta.presentacion === 'CAJA'
+          ? `${disp} unidades (${Math.floor(disp / resuelta.factor)} cajas de ${resuelta.factor})`
+          : `${disp} unidades`;
+      throw new ApiError(400, `Stock insuficiente de "${producto.nombre}": quedan ${detalle}`);
     }
+    baseComprometida.set(producto.id, yaComprometido + resuelta.unidadesBase);
 
-    lineasResueltas.push({ producto, cantidad, precioUnitario: Number(linea.precioUnitario) });
+    lineasResueltas.push({ producto, ...resuelta });
   }
 
   const pymeIdReal = pymeId ? Number(pymeId) : lineasResueltas[0].producto.pymeId;
@@ -107,14 +148,16 @@ const create = async (user, { pymeId, sedeId, lineas, montoRecibido }) => {
           sedeId: l.producto.sedeId,
           productoId: l.producto.id,
           cantidad: l.cantidad,
+          presentacion: l.presentacion,
+          factorPresentacion: l.factor,
           precioUnitario: l.precioUnitario,
-          costoUnitario: l.producto.costo,
+          costoUnitario: l.costoUnitario,
           total: l.precioUnitario * l.cantidad,
         },
       });
       await tx.inventario.updateMany({
         where: { productoId: l.producto.id },
-        data: { stockActual: { decrement: l.cantidad } },
+        data: { stockActual: { decrement: l.unidadesBase } },
       });
     }
 
@@ -136,8 +179,10 @@ const create = async (user, { pymeId, sedeId, lineas, montoRecibido }) => {
         producto: l.producto,
         pyme: l.producto.pyme,
         sede,
-        cantidad: l.cantidad,
-        precioUnitario: l.precioUnitario,
+        // El motor de IA razona en unidad base: 1 caja de 40 = 40 unidades,
+        // a precio por unidad (precio de caja / factor).
+        cantidad: l.unidadesBase,
+        precioUnitario: Math.round((l.precioUnitario / l.factor) * 100) / 100,
         fecha: factura.fecha,
       });
     } catch (err) {

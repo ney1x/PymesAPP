@@ -4,6 +4,53 @@ const iaSync = require('../lib/iaSync');
 const { accesoWhere, tieneAcceso, resolverSedeId } = require('./acceso.util');
 const { exigirCapacidad, tieneCapacidad, pymeIdsConCapacidad, ocultarCosto } = require('./permisos');
 
+// Presentación en caja: `unidadesPorCaja` >= 2 la habilita; si no, los tres
+// campos de caja se anulan (un producto sin caja no arrastra precio/código de
+// caja huérfanos). Números inválidos o vacíos -> null.
+const FACTOR_CAJA_MINIMO = 2;
+
+const normalizarCamposCaja = (data) => {
+  const n = Math.floor(Number(data.unidadesPorCaja));
+  const unidadesPorCaja = Number.isFinite(n) && n >= FACTOR_CAJA_MINIMO ? n : null;
+
+  const numero = (v) => {
+    if (v === '' || v === null || v === undefined) return null;
+    const x = Number(v);
+    return Number.isFinite(x) && x >= 0 ? x : null;
+  };
+  const texto = (v) => {
+    const s = String(v ?? '').trim();
+    return s || null;
+  };
+
+  return {
+    ...data,
+    unidadesPorCaja,
+    codigoCaja: unidadesPorCaja ? texto(data.codigoCaja) : null,
+    precioCaja: unidadesPorCaja ? numero(data.precioCaja) : null,
+    costoCaja: unidadesPorCaja ? numero(data.costoCaja) : null,
+  };
+};
+
+// El código de caja comparte espacio de nombres con el código de unidad: la
+// pistola escanea uno solo y tiene que resolver a un producto sin ambigüedad.
+const validarCodigoCaja = async (pymeId, codigoCaja, codigoUnidad, productoIdActual = null) => {
+  if (!codigoCaja) return;
+  if (codigoCaja === codigoUnidad) {
+    throw new ApiError(400, 'El código de caja no puede ser igual al código de unidad');
+  }
+  const choque = await prisma.producto.findFirst({
+    where: {
+      pymeId: Number(pymeId),
+      ...(productoIdActual ? { id: { not: Number(productoIdActual) } } : {}),
+      OR: [{ codigo: codigoCaja }, { codigoCaja }],
+    },
+  });
+  if (choque) {
+    throw new ApiError(400, `El código de caja "${codigoCaja}" ya está en uso por "${choque.nombre}"`);
+  }
+};
+
 const findOwned = async (id, user) => {
   const producto = await prisma.producto.findUnique({
     where: { id: Number(id) },
@@ -57,7 +104,8 @@ const getById = async (id, user) => {
 };
 
 const create = async (user, data) => {
-  const { inventario, ...productoData } = data;
+  const { inventario, ...rest } = data;
+  const productoData = normalizarCamposCaja(rest);
 
   const pyme = await prisma.pyme.findUnique({
     where: { id: Number(productoData.pymeId) },
@@ -81,6 +129,8 @@ const create = async (user, data) => {
   }
 
   const margen = productoData.precioVenta - productoData.costo;
+
+  await validarCodigoCaja(pyme.id, productoData.codigoCaja, productoData.codigo);
 
   return prisma.$transaction(async (tx) => {
     const producto = await tx.producto.create({
@@ -139,9 +189,20 @@ const bulkCreate = async (user, { pymeId, productos: filas }) => {
       const codigo = String(fila.codigo || '').trim() || `IMP-${Date.now()}-${i}`;
       const categoria = fila.categoria ? String(fila.categoria).trim() : null;
 
+      const { unidadesPorCaja, codigoCaja, precioCaja, costoCaja } = normalizarCamposCaja({
+        unidadesPorCaja: fila.unidadesPorCaja,
+        codigoCaja: fila.codigoCaja,
+        precioCaja: fila.precioCaja,
+        costoCaja: fila.costoCaja,
+      });
+      await validarCodigoCaja(pyme.id, codigoCaja, codigo);
+
       const producto = await prisma.$transaction(async (tx) => {
         const creado = await tx.producto.create({
-          data: { pymeId: pyme.id, sedeId, nombre, codigo, categoria, precioVenta, costo },
+          data: {
+            pymeId: pyme.id, sedeId, nombre, codigo, categoria, precioVenta, costo,
+            unidadesPorCaja, codigoCaja, precioCaja, costoCaja,
+          },
         });
 
         await tx.inventario.create({
@@ -192,7 +253,23 @@ const bulkCreate = async (user, { pymeId, productos: filas }) => {
 const update = async (id, user, data) => {
   const producto = await findOwned(id, user);
   await exigirCapacidad(user, producto.pymeId, 'gestionarProductos');
-  const { inventario, ...productoData } = data;
+  const { inventario, ...rest } = data;
+
+  // Solo se tocan los campos de caja si el request los trae (el form de
+  // producto los manda siempre; "asignar código" desde el POS o la edición
+  // rápida de stock no, y no deben borrar la config de caja existente).
+  const CAMPOS_CAJA = ['unidadesPorCaja', 'codigoCaja', 'precioCaja', 'costoCaja'];
+  const tocaCaja = CAMPOS_CAJA.some((k) => k in rest);
+  const productoData = tocaCaja ? normalizarCamposCaja(rest) : rest;
+
+  if (tocaCaja) {
+    await validarCodigoCaja(
+      producto.pymeId,
+      productoData.codigoCaja,
+      productoData.codigo ?? producto.codigo,
+      producto.id
+    );
+  }
 
   const updated = await prisma.producto.update({
     where: { id: producto.id },
