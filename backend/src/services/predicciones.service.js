@@ -8,16 +8,26 @@ const historicoDeProducto = async (productoId, dias = 90) => {
   const desde = new Date();
   desde.setDate(desde.getDate() - dias);
 
-  return prisma.venta.findMany({
+  const ventas = await prisma.venta.findMany({
     where: { productoId: Number(productoId), fecha: { gte: desde } },
     orderBy: { fecha: 'asc' },
     select: {
       fecha: true,
       cantidad: true,
+      factorPresentacion: true,
       precioUnitario: true,
       costoUnitario: true,
     },
   });
+
+  // `cantidad` en unidad base: la heurística de fallback y los promedios
+  // trabajan en la misma unidad que el stock y el motor de IA.
+  return ventas.map((v) => ({
+    fecha: v.fecha,
+    cantidad: v.cantidad * (v.factorPresentacion ?? 1),
+    precioUnitario: v.precioUnitario,
+    costoUnitario: v.costoUnitario,
+  }));
 };
 
 const findProducto = async (productoId, user) => {

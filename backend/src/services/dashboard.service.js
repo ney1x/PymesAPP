@@ -37,7 +37,7 @@ const get = async (user, { pymeId, sedeId } = {}) => {
     }),
     prisma.venta.findMany({
       where: whereVentaInventario,
-      select: { total: true, cantidad: true, precioUnitario: true, costoUnitario: true, fecha: true, productoId: true },
+      select: { total: true, cantidad: true, factorPresentacion: true, precioUnitario: true, costoUnitario: true, fecha: true, productoId: true },
     }),
     prisma.inventario.findMany({
       where: { producto: whereVentaInventario },
@@ -52,9 +52,10 @@ const get = async (user, { pymeId, sedeId } = {}) => {
     pymeId && verReportes ? ventasService.comparativaSedes(user, { pymeId }) : Promise.resolve([]),
   ]);
 
+  const unidadesBase = (v) => v.cantidad * (v.factorPresentacion ?? 1);
   const ingresos = sum(ventas.map((v) => v.total));
   const margenBruto = sum(ventas.map((v) => (v.precioUnitario - v.costoUnitario) * v.cantidad));
-  const unidadesVendidas = sum(ventas.map((v) => v.cantidad));
+  const unidadesVendidas = sum(ventas.map(unidadesBase));
 
   const hoy = new Date();
   const hace7Dias = new Date(hoy.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -75,7 +76,7 @@ const get = async (user, { pymeId, sedeId } = {}) => {
   for (const v of ventas) {
     ventasPorProducto[v.productoId] = ventasPorProducto[v.productoId] || { ingresos: 0, unidades: 0 };
     ventasPorProducto[v.productoId].ingresos += v.total;
-    ventasPorProducto[v.productoId].unidades += v.cantidad;
+    ventasPorProducto[v.productoId].unidades += unidadesBase(v);
   }
 
   const topProductos = productos

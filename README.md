@@ -11,6 +11,7 @@ Sistema web para la administración de inventarios de pequeñas y medianas empre
 - Equipo y roles: invitá miembros por correo, asignales rol (Vendedor, Inventario, Analista, o combinados) y limitá su acceso a una sede específica. Cada rol tiene permisos distintos sobre productos, inventario, ventas y reportes financieros, y además tiene bloqueadas pantallas completas que no le corresponden — no solo funciones puntuales (ver [Roles y permisos](#roles-y-permisos)).
 - Mensajería interna entre miembros del equipo (a una persona puntual o a todos los de un rol) y centro de notificaciones (invitaciones, respuestas, mensajes).
 - Gestión de productos, con importación y exportación masiva por Excel/CSV.
+- Presentación por caja opcional: un producto puede venderse por unidad y por caja a la vez (con su propio código de barras y precio), manteniendo **un solo stock en unidad base** — vender una caja descuenta `unidades por caja` del inventario, sin productos duplicados ni stock fantasma (ver [Presentaciones: unidad y caja](#presentaciones-unidad-y-caja)).
 - Gestión de inventario, con alertas de stock bajo y tablero de reposición ordenado por urgencia.
 - Registro de ventas, con cálculo automático de vuelto a partir de con cuánto pagó el cliente — la venta no se puede confirmar si el monto pagado no alcanza para cubrir el total.
 - Asistente conversacional con IA para consultar el negocio en lenguaje natural: stock, ventas, rentabilidad, rankings, reordenes, resumen y predicciones.
@@ -107,6 +108,41 @@ Predicción
 
 ---
 
+# Presentaciones: unidad y caja
+
+Un mismo producto puede venderse **suelto y por caja** sin crear dos productos ni duplicar el stock.
+
+### Principio
+
+- **Un solo stock, en unidad base** (la unidad más chica). La caja es solo otra forma de vender/comprar.
+- El **ticket** conserva lo que pidió el cliente: `1 caja` o `30 unidades`, cada uno con su precio.
+- El **inventario, el ranking de unidades vendidas y el espejo al motor de IA** siempre razonan en unidad base: vender 1 caja de 40 descuenta 40 y el modelo registra 40.
+- "Cajas disponibles" es un dato **calculado** (`stock ÷ unidades por caja`), nunca un segundo contador que se pueda desincronizar.
+
+### Cómo se configura
+
+En el formulario de producto (Productos o Inventario), sección **"Venta por caja (opcional)"**:
+
+| Campo | Uso |
+|---|---|
+| `unidades por caja` | Cuántas unidades base trae una caja (≥ 2). Vacío = el producto solo se vende por unidad. |
+| `código de barras de la caja` | Código propio de la caja; al escanearlo el POS agrega la línea como CAJA. No puede chocar con ningún otro código de la PYME. |
+| `precio de la caja` | Precio de la presentación en caja (puede tener descuento). Por defecto: precio unitario × unidades. |
+| `costo de la caja` | Costo de la caja. Por defecto: costo unitario × unidades. |
+
+Los tres casos posibles:
+
+1. **Solo por unidad** — no se completan los campos de caja (comportamiento por defecto de siempre).
+2. **Por unidad y por caja** — se completan; el POS ofrece elegir presentación y el escáner distingue por código.
+3. **Solo por caja** (six-pack indivisible) — se registra la caja/six-pack *como si fuera la unidad*, sin campos de caja.
+
+### En la base de datos
+
+- `producto`: `unidadesPorCaja`, `codigoCaja`, `precioCaja`, `costoCaja` (todos opcionales).
+- `venta`: `presentacion` (`UNIDAD` | `CAJA`) y `factorPresentacion` (1 para unidad, `unidadesPorCaja` para caja). Unidades base de una línea = `cantidad × factorPresentacion`. Las ventas previas a esta funcionalidad quedan como `UNIDAD` / factor 1 sin migración de datos.
+
+---
+
 # Asistente conversacional (IA)
 
 El backend expone un asistente de chat (`POST /api/chat`, `DELETE /api/chat/historial`) integrado en el frontend como un widget flotante disponible en cualquier pantalla autenticada.
@@ -165,9 +201,9 @@ En ella conviven dos esquemas independientes:
 - Pyme
 - Sede
 - PymeMembresia / PymeMembresiaRol (equipo, roles, invitaciones por sede)
-- Producto
-- Inventario
-- Venta
+- Producto (incluye presentación por caja opcional: `unidadesPorCaja`, `codigoCaja`, `precioCaja`, `costoCaja`)
+- Inventario (stock único en unidad base)
+- Venta (`presentacion` UNIDAD/CAJA + `factorPresentacion`)
 - Prediccion
 - Mensaje (mensajería interna, personal o por rol)
 
@@ -304,6 +340,7 @@ uvicorn app.main:app --reload
 - Restricción de pantallas completas por rol (Dashboard / Inventario / Ventas / Predicción), no solo de funciones puntuales — bloqueada también del lado del backend, no solo escondida en el menú.
 - Mensajería interna (personal o por rol) y centro de notificaciones.
 - Gestión de productos, con importación/exportación por Excel/CSV.
+- Presentación por caja opcional por producto (unidad + caja), con stock único en unidad base y sin productos duplicados (ver [Presentaciones: unidad y caja](#presentaciones-unidad-y-caja)).
 - Inventario, con alertas de stock y tablero de reposición por urgencia.
 - Registro de ventas, con cálculo de vuelto y bloqueo si el pago no alcanza.
 - Dashboard.

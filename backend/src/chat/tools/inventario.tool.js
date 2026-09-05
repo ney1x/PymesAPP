@@ -12,15 +12,26 @@ async function consultarStock({ user, producto, pymeId }) {
 
   return {
     success: true,
-    data: matches.map((m) => ({
-      producto: m.producto.nombre,
-      stockActual: m.stockActual,
-      stockMinimo: m.stockMinimo,
-      stockMaximo: m.stockMaximo,
-      ubicacion: m.ubicacion,
-      alerta: m.alerta,
-      pyme: m.producto.pyme.nombre,
-    })),
+    data: matches.map((m) => {
+      const upc = Number(m.producto.unidadesPorCaja) >= 2 ? Number(m.producto.unidadesPorCaja) : null;
+      return {
+        producto: m.producto.nombre,
+        stockActual: m.stockActual,
+        stockMinimo: m.stockMinimo,
+        stockMaximo: m.stockMaximo,
+        ubicacion: m.ubicacion,
+        alerta: m.alerta,
+        pyme: m.producto.pyme.nombre,
+        // El stock es uno solo, en unidad base. Si el producto se maneja por
+        // caja, se agrega el equivalente para responder "cuántas cajas tengo".
+        ...(upc
+          ? {
+              unidadesPorCaja: upc,
+              equivaleA: `${Math.floor(m.stockActual / upc)} cajas de ${upc} + ${m.stockActual % upc} sueltas`,
+            }
+          : {}),
+      };
+    }),
   };
 }
 

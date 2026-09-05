@@ -159,6 +159,7 @@ const capacidadEnTodas = async (user, capacidad) => {
 const ocultarCosto = (producto) => {
   if (!producto) return producto;
   delete producto.costo;
+  delete producto.costoCaja;
   delete producto.margen;
   if (producto.producto) ocultarCosto(producto.producto);
   return producto;

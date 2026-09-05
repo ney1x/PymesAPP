@@ -13,6 +13,12 @@ const emptyForm = {
   categoria: '',
   precioVenta: '',
   costo: '',
+  // Presentación en caja (opcional): stock único en unidad base, la caja es
+  // solo otra forma de vender/comprar el mismo producto.
+  unidadesPorCaja: '',
+  codigoCaja: '',
+  precioCaja: '',
+  costoCaja: '',
   inventario: { stockActual: 0, stockMinimo: 5, stockMaximo: 100, ubicacion: '' },
 };
 
@@ -81,6 +87,10 @@ export default function Productos() {
       categoria: prod.categoria || '',
       precioVenta: prod.precioVenta,
       costo: prod.costo,
+      unidadesPorCaja: prod.unidadesPorCaja ?? '',
+      codigoCaja: prod.codigoCaja ?? '',
+      precioCaja: prod.precioCaja ?? '',
+      costoCaja: prod.costoCaja ?? '',
       inventario: {
         stockActual: prod.inventario?.stockActual ?? 0,
         stockMinimo: prod.inventario?.stockMinimo ?? 5,
@@ -122,11 +132,18 @@ export default function Productos() {
     if (saving) return; // prevent double submit
     setSaving(true);
     setActionError(null);
+    const usaCaja = Number(form.unidadesPorCaja) >= 2;
     const payload = {
       ...form,
       precioVenta: Number(form.precioVenta),
       costo: Number(form.costo),
       pymeId: Number(form.pymeId),
+      // Caja opcional: si no hay factor válido, se manda todo en null para
+      // que el backend limpie cualquier config previa.
+      unidadesPorCaja: usaCaja ? Math.floor(Number(form.unidadesPorCaja)) : null,
+      codigoCaja: usaCaja ? form.codigoCaja.trim() || null : null,
+      precioCaja: usaCaja && form.precioCaja !== '' ? Number(form.precioCaja) : null,
+      costoCaja: usaCaja && form.costoCaja !== '' ? Number(form.costoCaja) : null,
       inventario: { ...form.inventario },
     };
     try {
@@ -322,6 +339,67 @@ export default function Productos() {
             <label>Costo (COP)</label>
             <input name="costo" type="number" step="0.01" min="0" required value={form.costo} onChange={handleChange} placeholder="3200" />
           </div>
+
+          <details className="form-advanced" open={Number(form.unidadesPorCaja) >= 2}>
+            <summary>Venta por caja (opcional)</summary>
+            <p className="muted" style={{ marginTop: 8 }}>
+              Si vendés este producto también por caja, indicá cuántas unidades trae.
+              El stock sigue siendo uno solo (en unidades): vender una caja descuenta
+              esa cantidad. Dejalo vacío si solo lo vendés por unidad.
+            </p>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Unidades por caja</label>
+                <input
+                  name="unidadesPorCaja"
+                  type="number"
+                  min="2"
+                  step="1"
+                  value={form.unidadesPorCaja}
+                  onChange={handleChange}
+                  placeholder="p. ej. 40"
+                />
+              </div>
+              <div className="form-group">
+                <label>Código de barras de la caja</label>
+                <input
+                  name="codigoCaja"
+                  value={form.codigoCaja}
+                  onChange={handleChange}
+                  placeholder="Escaneá el código de la caja"
+                  disabled={Number(form.unidadesPorCaja) < 2}
+                />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Precio de la caja (COP)</label>
+                <input
+                  name="precioCaja"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.precioCaja}
+                  onChange={handleChange}
+                  placeholder={form.precioVenta && form.unidadesPorCaja ? String(Number(form.precioVenta) * Number(form.unidadesPorCaja)) : 'precio unitario × unidades'}
+                  disabled={Number(form.unidadesPorCaja) < 2}
+                />
+              </div>
+              <div className="form-group">
+                <label>Costo de la caja (COP)</label>
+                <input
+                  name="costoCaja"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.costoCaja}
+                  onChange={handleChange}
+                  placeholder={form.costo && form.unidadesPorCaja ? String(Number(form.costo) * Number(form.unidadesPorCaja)) : 'costo unitario × unidades'}
+                  disabled={Number(form.unidadesPorCaja) < 2}
+                />
+              </div>
+            </div>
+          </details>
 
           <div className="card-title" style={{ marginTop: 8 }}>Inventario inicial</div>
           <div className="form-row">

@@ -59,8 +59,12 @@ function useWheelStep(ref, step, onStep) {
 export default function Ventas() {
   const { pymeSeleccionada: filtroPymeId } = usePymeFilter();
   const [filtroSedeId, setFiltroSedeId] = useState('');
-  const [form, setForm] = useState({ productoId: '', cantidad: 1, precioUnitario: '' });
-  const [carrito, setCarrito] = useState([]); // [{ productoId, nombre, codigo, cantidad, precioUnitario, stockActual }]
+  const [form, setForm] = useState({ productoId: '', cantidad: 1, precioUnitario: '', presentacion: 'UNIDAD' });
+  // Una línea por (producto + presentación): el mismo producto puede estar en
+  // el carrito como UNIDAD y como CAJA a la vez. `factor` = unidades base por
+  // cada `cantidad` (1 para UNIDAD, unidadesPorCaja para CAJA); el stock se
+  // valida siempre en unidades base.
+  const [carrito, setCarrito] = useState([]); // [{ key, productoId, nombre, codigo, presentacion, factor, cantidad, precioUnitario, stockActual }]
   const [montoRecibido, setMontoRecibido] = useState(''); // efectivo con el que paga el cliente, para calcular el vuelto
   const [scanValue, setScanValue] = useState('');
   const [scanError, setScanError] = useState(null);
@@ -136,7 +140,7 @@ export default function Ventas() {
   // (productos de otra PYME, otro pymeId de destino para la factura).
   useEffect(() => {
     setFiltroSedeId('');
-    setForm({ productoId: '', cantidad: 1, precioUnitario: '' });
+    setForm({ productoId: '', cantidad: 1, precioUnitario: '', presentacion: 'UNIDAD' });
     setCarrito([]);
   }, [filtroPymeId]);
 
@@ -146,39 +150,57 @@ export default function Ventas() {
     requestAnimationFrame(() => scanInputRef.current?.focus());
   };
 
-  // Agrega una línea al carrito, o incrementa su cantidad si el producto ya
-  // estaba (auto-incremento para códigos repetidos).
-  const agregarLinea = (producto, cantidadAgregar) => {
+  const factorCajaDe = (producto) =>
+    Number(producto.unidadesPorCaja) >= 2 ? Number(producto.unidadesPorCaja) : null;
+
+  // Agrega una línea al carrito, o incrementa su cantidad si esa MISMA
+  // presentación del producto ya estaba. El stock se valida en unidades base
+  // sumando todas las presentaciones del producto (1 caja + 5 sueltas de un
+  // producto con 8 en stock no puede pasar).
+  const agregarLinea = (producto, cantidadAgregar, presentacion = 'UNIDAD', precioOverride = null) => {
     const stockActual = producto.inventario?.stockActual;
     const tieneStock = typeof stockActual === 'number';
+    const factorCaja = factorCajaDe(producto);
+    const esCaja = presentacion === 'CAJA' && !!factorCaja;
+    const factor = esCaja ? factorCaja : 1;
+    const key = `${producto.id}-${esCaja ? 'CAJA' : 'UNIDAD'}`;
+    const precio =
+      precioOverride !== null && precioOverride !== '' && Number.isFinite(Number(precioOverride))
+        ? Number(precioOverride)
+        : esCaja
+        ? producto.precioCaja ?? producto.precioVenta * factor
+        : producto.precioVenta;
 
     setCarrito((actual) => {
-      const idx = actual.findIndex((l) => l.productoId === producto.id);
-      if (idx >= 0) {
-        const linea = actual[idx];
-        const nuevaCantidad = linea.cantidad + cantidadAgregar;
-        if (tieneStock && nuevaCantidad > stockActual) {
-          setScanError(`Stock insuficiente: quedan ${stockActual} uds de ${producto.nombre}`);
-          return actual;
-        }
-        const copia = [...actual];
-        copia[idx] = { ...linea, cantidad: nuevaCantidad };
-        return copia;
+      const baseOtras = actual
+        .filter((l) => l.productoId === producto.id && l.key !== key)
+        .reduce((acc, l) => acc + l.cantidad * l.factor, 0);
+      const idx = actual.findIndex((l) => l.key === key);
+      const cantidadActual = idx >= 0 ? actual[idx].cantidad : 0;
+      const nuevaCantidad = cantidadActual + cantidadAgregar;
+
+      if (tieneStock && baseOtras + nuevaCantidad * factor > stockActual) {
+        setScanError(`Stock insuficiente: quedan ${stockActual} unidades de ${producto.nombre}`);
+        return actual;
       }
 
-      if (tieneStock && cantidadAgregar > stockActual) {
-        setScanError(`Stock insuficiente: quedan ${stockActual} uds de ${producto.nombre}`);
-        return actual;
+      if (idx >= 0) {
+        const copia = [...actual];
+        copia[idx] = { ...copia[idx], cantidad: nuevaCantidad };
+        return copia;
       }
 
       return [
         ...actual,
         {
+          key,
           productoId: producto.id,
           nombre: producto.nombre,
-          codigo: producto.codigo,
+          codigo: esCaja ? producto.codigoCaja || producto.codigo : producto.codigo,
+          presentacion: esCaja ? 'CAJA' : 'UNIDAD',
+          factor,
           cantidad: cantidadAgregar,
-          precioUnitario: producto.precioVenta,
+          precioUnitario: precio,
           stockActual,
         },
       ];
@@ -192,7 +214,9 @@ export default function Ventas() {
     const codigo = codigoCrudo.trim();
     if (!codigo) return;
 
-    const producto = productos.data?.productos?.find((p) => p.codigo === codigo);
+    const producto = productos.data?.productos?.find(
+      (p) => p.codigo === codigo || p.codigoCaja === codigo
+    );
     if (!producto) {
       setScanError(`Código no reconocido: ${codigo}`);
       setCodigoSinAsignar(codigo);
@@ -203,7 +227,8 @@ export default function Ventas() {
     setCodigoSinAsignar(null);
     setSuccess(null);
     setVentaConfirmada(null);
-    agregarLinea(producto, 1);
+    const esCaja = producto.codigoCaja === codigo && Number(producto.unidadesPorCaja) >= 2;
+    agregarLinea(producto, 1, esCaja ? 'CAJA' : 'UNIDAD');
   };
 
   const handleAsignarCodigo = async () => {
@@ -260,27 +285,41 @@ export default function Ventas() {
     procesarCodigoEscaneado(codigo);
   };
 
-  const actualizarCantidad = (productoId, delta) => {
-    setCarrito((actual) =>
-      actual.map((l) => {
-        if (l.productoId !== productoId) return l;
-        const nueva = l.cantidad + delta;
-        if (nueva < 1) return l;
-        if (typeof l.stockActual === 'number' && nueva > l.stockActual) return l;
-        return { ...l, cantidad: nueva };
-      })
-    );
+  const actualizarCantidad = (key, delta) => {
+    setCarrito((actual) => {
+      const linea = actual.find((l) => l.key === key);
+      if (!linea) return actual;
+      const nueva = linea.cantidad + delta;
+      if (nueva < 1) return actual;
+      if (typeof linea.stockActual === 'number') {
+        const baseOtras = actual
+          .filter((l) => l.productoId === linea.productoId && l.key !== key)
+          .reduce((acc, l) => acc + l.cantidad * l.factor, 0);
+        if (baseOtras + nueva * linea.factor > linea.stockActual) return actual;
+      }
+      return actual.map((l) => (l.key === key ? { ...l, cantidad: nueva } : l));
+    });
   };
 
-  const quitarLinea = (productoId) => {
-    setCarrito((actual) => actual.filter((l) => l.productoId !== productoId));
+  const quitarLinea = (key) => {
+    setCarrito((actual) => actual.filter((l) => l.key !== key));
+  };
+
+  const precioSugeridoPara = (producto, presentacion) => {
+    if (!producto) return '';
+    const factor = factorCajaDe(producto);
+    if (presentacion === 'CAJA' && factor) return producto.precioCaja ?? producto.precioVenta * factor;
+    return producto.precioVenta;
   };
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     if (name === 'productoId') {
-      const precioSugerido = productos.data?.productos?.find((p) => String(p.id) === value)?.precioVenta || '';
-      setForm({ ...form, productoId: value, precioUnitario: precioSugerido });
+      const prod = productos.data?.productos?.find((p) => String(p.id) === value);
+      setForm({ ...form, productoId: value, presentacion: 'UNIDAD', precioUnitario: precioSugeridoPara(prod, 'UNIDAD') || '' });
+    } else if (name === 'presentacion') {
+      const prod = productos.data?.productos?.find((p) => String(p.id) === form.productoId);
+      setForm({ ...form, presentacion: value, precioUnitario: precioSugeridoPara(prod, value) || '' });
     } else {
       setForm({ ...form, [name]: name === 'cantidad' ? Number(value) : value });
     }
@@ -291,11 +330,8 @@ export default function Ventas() {
     const producto = productos.data?.productos?.find((p) => String(p.id) === form.productoId);
     if (!producto) return;
 
-    agregarLinea(
-      { ...producto, precioVenta: Number(form.precioUnitario) || producto.precioVenta },
-      Number(form.cantidad) || 1
-    );
-    setForm({ productoId: '', cantidad: 1, precioUnitario: '' });
+    agregarLinea(producto, Number(form.cantidad) || 1, form.presentacion, form.precioUnitario);
+    setForm({ productoId: '', cantidad: 1, precioUnitario: '', presentacion: 'UNIDAD' });
   };
 
   const totalCarrito = carrito.reduce((acc, l) => acc + l.cantidad * l.precioUnitario, 0);
@@ -314,6 +350,7 @@ export default function Ventas() {
           productoId: l.productoId,
           cantidad: l.cantidad,
           precioUnitario: l.precioUnitario,
+          presentacion: l.presentacion,
         })),
         ...(montoRecibido !== '' ? { montoRecibido: Number(montoRecibido) } : {}),
       });
@@ -332,15 +369,19 @@ export default function Ventas() {
   };
 
   const productoSeleccionado = productos.data?.productos?.find((p) => String(p.id) === form.productoId);
+  const factorCajaSeleccionado = productoSeleccionado ? factorCajaDe(productoSeleccionado) : null;
+  const manualEsCaja = form.presentacion === 'CAJA' && !!factorCajaSeleccionado;
+  const factorManual = manualEsCaja ? factorCajaSeleccionado : 1;
   const stockActual = productoSeleccionado?.inventario?.stockActual;
   const tieneStock = typeof stockActual === 'number';
-  const stockRestante = tieneStock ? Math.max(0, stockActual - Number(form.cantidad || 0)) : 0;
+  const baseAgregar = Number(form.cantidad || 0) * factorManual;
+  const stockRestante = tieneStock ? Math.max(0, stockActual - baseAgregar) : 0;
   const stockPct = tieneStock && stockActual > 0 ? Math.max(0, Math.min(100, (stockRestante / stockActual) * 100)) : 0;
   const stockTone = stockPct <= 15 ? 'danger' : stockPct <= 40 ? 'warning' : 'ok';
 
   useWheelStep(cantidadInputRef, 1, (delta) => {
     setForm((f) => {
-      const max = tieneStock ? stockActual : Infinity;
+      const max = tieneStock ? Math.floor(stockActual / factorManual) : Infinity;
       return { ...f, cantidad: Math.min(max, Math.max(1, Number(f.cantidad || 0) + delta)) };
     });
   });
@@ -471,22 +512,32 @@ export default function Ventas() {
                   </select>
                 </div>
 
+                {factorCajaSeleccionado && (
+                  <div className="form-group">
+                    <label htmlFor="presentacion">Presentación</label>
+                    <select id="presentacion" name="presentacion" value={form.presentacion} onChange={handleFormChange}>
+                      <option value="UNIDAD">Unidad</option>
+                      <option value="CAJA">Caja ({factorCajaSeleccionado} unidades)</option>
+                    </select>
+                  </div>
+                )}
+
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="cantidad">Cantidad</label>
+                    <label htmlFor="cantidad">{manualEsCaja ? 'Cajas' : 'Cantidad'}</label>
                     <input
                       id="cantidad"
                       name="cantidad"
                       type="number"
                       min="1"
-                      max={tieneStock ? stockActual : undefined}
+                      max={tieneStock ? Math.floor(stockActual / factorManual) : undefined}
                       value={form.cantidad}
                       onChange={handleFormChange}
                       ref={cantidadInputRef}
                     />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="precioUnitario">Precio unitario (COP)</label>
+                    <label htmlFor="precioUnitario">Precio {manualEsCaja ? 'por caja' : 'unitario'} (COP)</label>
                     <input id="precioUnitario" name="precioUnitario" type="number" min="0" step="0.01" value={form.precioUnitario} onChange={handleFormChange} ref={precioInputRef} />
                   </div>
                 </div>
@@ -497,7 +548,7 @@ export default function Ventas() {
                       <div className="venta-stock-gauge-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
                     </div>
                     <div className="venta-stock-gauge-label">
-                      <span>Quedan {stockRestante} uds tras agregar</span>
+                      <span>Quedan {stockRestante} uds tras agregar{manualEsCaja ? ` (${form.cantidad || 0} caja${Number(form.cantidad) === 1 ? '' : 's'} = ${baseAgregar} u)` : ''}</span>
                       <span>{stockActual} en stock</span>
                     </div>
                   </div>
@@ -533,23 +584,34 @@ export default function Ventas() {
               <EmptyState className="empty--compact" title="Carrito vacío" message="Escaneá un código o agregá un producto manualmente." />
             ) : (
               <ul className="list-card venta-carrito-lista list-card-preview">
-                {carrito.map((l) => (
-                  <li key={l.productoId} className="rank-item venta-carrito-linea">
+                {carrito.map((l) => {
+                  const esCaja = l.presentacion === 'CAJA';
+                  const unidadLabel = esCaja ? 'caja' : 'unidad';
+                  return (
+                  <li key={l.key} className="rank-item venta-carrito-linea">
                     <div className="rank-info">
-                      <strong>{l.nombre}</strong>
-                      <small>{money(l.precioUnitario)} c/u{l.codigo ? ` · ${l.codigo}` : ''}</small>
+                      <strong>
+                        {l.nombre}
+                        {esCaja && <span className="badge badge-default" style={{ marginLeft: 6 }}>caja × {l.factor}</span>}
+                      </strong>
+                      <small>
+                        {money(l.precioUnitario)} / {esCaja ? 'caja' : 'u'}
+                        {esCaja ? ` · ${l.cantidad * l.factor} u` : ''}
+                        {l.codigo ? ` · ${l.codigo}` : ''}
+                      </small>
                     </div>
                     <div className="venta-carrito-cantidad">
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => actualizarCantidad(l.productoId, -1)} aria-label={`Quitar una unidad de ${l.nombre}`}><IconMinus size={14} aria-hidden="true" /></button>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => actualizarCantidad(l.key, -1)} aria-label={`Quitar una ${unidadLabel} de ${l.nombre}`}><IconMinus size={14} aria-hidden="true" /></button>
                       <span>{l.cantidad}</span>
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => actualizarCantidad(l.productoId, 1)} aria-label={`Agregar una unidad de ${l.nombre}`}><IconPlus size={14} aria-hidden="true" /></button>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => actualizarCantidad(l.key, 1)} aria-label={`Agregar una ${unidadLabel} de ${l.nombre}`}><IconPlus size={14} aria-hidden="true" /></button>
                     </div>
                     <div className="dashboard-rank-metric">
                       <strong>{money(l.cantidad * l.precioUnitario)}</strong>
                     </div>
-                    <button type="button" className="venta-carrito-quitar" onClick={() => quitarLinea(l.productoId)} aria-label={`Quitar ${l.nombre} del carrito`}><IconClose size={14} aria-hidden="true" /></button>
+                    <button type="button" className="venta-carrito-quitar" onClick={() => quitarLinea(l.key)} aria-label={`Quitar ${l.nombre} del carrito`}><IconClose size={14} aria-hidden="true" /></button>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -650,7 +712,7 @@ export default function Ventas() {
                               />
                             )}
                           </strong>
-                          <small>{date(f.fecha)} · {f.ventas.reduce((acc, v) => acc + v.cantidad, 0)} uds</small>
+                          <small>{date(f.fecha)} · {f.ventas.reduce((acc, v) => acc + v.cantidad * (v.factorPresentacion ?? 1), 0)} uds</small>
                         </div>
                         <div className="dashboard-rank-metric">
                           <strong>{money(f.total)}</strong>
@@ -664,7 +726,10 @@ export default function Ventas() {
                         <ul className="venta-factura-detalle">
                           {f.ventas.map((v) => (
                             <li key={v.id}>
-                              <span>{v.producto.nombre} × {v.cantidad}</span>
+                              <span>
+                                {v.producto.nombre} × {v.cantidad}
+                                {v.presentacion === 'CAJA' ? ` caja${v.cantidad === 1 ? '' : 's'} (${v.cantidad * (v.factorPresentacion ?? 1)} u)` : ''}
+                              </span>
                               <span>{money(v.total)}</span>
                             </li>
                           ))}

@@ -38,22 +38,34 @@ async function consultarProducto({ user, producto, pymeId }) {
 
   return {
     success: true,
-    data: productos.map((p) => ({
-      id: p.id,
-      nombre: p.nombre,
-      codigo: p.codigo,
-      descripcion: p.descripcion,
-      precioVenta: p.precioVenta,
-      costo: p.costo,
-      margen: p.precioVenta - p.costo,
-      categoria: p.categoria?.nombre,
-      proveedor: p.proveedor?.nombre,
-      stockActual: p.inventario?.stockActual ?? 0,
-      stockMinimo: p.inventario?.stockMinimo ?? 0,
-      stockMaximo: p.inventario?.stockMaximo ?? null,
-      ubicacion: p.inventario?.ubicacion,
-      pyme: p.pyme?.nombre,
-    })),
+    data: productos.map((p) => {
+      const upc = Number(p.unidadesPorCaja) >= 2 ? Number(p.unidadesPorCaja) : null;
+      const stock = p.inventario?.stockActual ?? 0;
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        codigo: p.codigo,
+        descripcion: p.descripcion,
+        precioVenta: p.precioVenta,
+        costo: p.costo,
+        margen: p.precioVenta - p.costo,
+        categoria: p.categoria?.nombre,
+        proveedor: p.proveedor?.nombre,
+        stockActual: stock,
+        stockMinimo: p.inventario?.stockMinimo ?? 0,
+        stockMaximo: p.inventario?.stockMaximo ?? null,
+        ubicacion: p.inventario?.ubicacion,
+        pyme: p.pyme?.nombre,
+        ...(upc
+          ? {
+              unidadesPorCaja: upc,
+              codigoCaja: p.codigoCaja,
+              precioCaja: p.precioCaja,
+              stockEnCajas: `${Math.floor(stock / upc)} cajas + ${stock % upc} sueltas`,
+            }
+          : {}),
+      };
+    }),
   };
 }
 

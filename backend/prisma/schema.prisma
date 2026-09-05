@@ -123,8 +123,17 @@ model producto {
   leadTimeDias   Int          @default(7)
   stockSeguridad Int          @default(0)
   estado         String       @default("ACTIVO")
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  // Presentación en caja (opcional). Si `unidadesPorCaja` está seteado (>=2)
+  // el producto se puede vender suelto Y por caja: el stock sigue siendo uno
+  // solo, en unidad base, y una venta por caja descuenta `cantidad * factor`.
+  // Si es null, el producto se vende solo por unidad (o la "unidad" ya ES la
+  // caja/six-pack — se registra así, sin estos campos).
+  unidadesPorCaja Int?
+  codigoCaja      String?
+  precioCaja      Float?
+  costoCaja       Float?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
   inventario     inventario?
   predicciones   prediccion[]
   pyme           pyme         @relation(fields: [pymeId], references: [id], map: "Producto_pymeId_fkey")
@@ -134,6 +143,7 @@ model producto {
   @@unique([pymeId, codigo], map: "Producto_pymeId_codigo_key")
   @@index([pymeId], map: "Producto_pymeId_idx")
   @@index([sedeId], map: "Producto_sedeId_idx")
+  @@index([pymeId, codigoCaja], map: "Producto_pymeId_codigoCaja_idx")
 }
 
 /// Motor de IA (IA_INVENTARIO) - propiedad de db/repository.py, Node no la usa.
@@ -303,11 +313,18 @@ model venta {
   sedeId         Int?
   productoId     Int
   facturaId      Int?
-  cantidad       Int
-  precioUnitario Float
-  costoUnitario  Float
-  total          Float
-  fecha          DateTime @default(now())
+  // `cantidad` = lo que va en el ticket (p. ej. 1 caja, o 30 sueltas).
+  // `presentacion` UNIDAD | CAJA. Unidades base reales de la venta (para
+  // stock, ranking y espejo al motor de IA) = `cantidad * factorPresentacion`.
+  // Default UNIDAD / factor 1: las ventas previas a esta feature quedan
+  // correctas sin backfill.
+  cantidad           Int
+  presentacion       String   @default("UNIDAD")
+  factorPresentacion Int      @default(1)
+  precioUnitario     Float
+  costoUnitario      Float
+  total              Float
+  fecha              DateTime @default(now())
   producto       producto @relation(fields: [productoId], references: [id], map: "Venta_productoId_fkey")
   pyme           pyme     @relation(fields: [pymeId], references: [id], map: "Venta_pymeId_fkey")
   sede           sede?    @relation(fields: [sedeId], references: [id], map: "Venta_sedeId_fkey")

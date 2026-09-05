@@ -3,7 +3,10 @@ import * as XLSX from 'xlsx';
 import { Modal, Button, ErrorBox } from './ui';
 import { productosApi } from '../api';
 
-const COLUMNAS = ['nombre', 'codigo', 'categoria', 'precioVenta', 'costo', 'stockActual', 'stockMinimo', 'ventas'];
+const COLUMNAS = [
+  'nombre', 'codigo', 'categoria', 'precioVenta', 'costo', 'stockActual', 'stockMinimo', 'ventas',
+  'unidadesPorCaja', 'codigoCaja', 'precioCaja', 'costoCaja',
+];
 
 // Variantes de encabezado aceptadas por columna interna (normalizadas: sin
 // tildes, minusculas, sin espacios/guiones). Permite que un archivo real de
@@ -18,6 +21,10 @@ const ALIAS_COLUMNAS = {
   stockActual: ['stockactual', 'stock', 'existencias', 'cantidad'],
   stockMinimo: ['stockminimo', 'minimo', 'stockmin'],
   ventas: ['ventas', 'unidadesvendidas', 'cantidadvendida'],
+  unidadesPorCaja: ['unidadesporcaja', 'unidadescaja', 'porcaja', 'factorcaja', 'unidadesxcaja'],
+  codigoCaja: ['codigocaja', 'skucaja', 'barrascaja', 'codigobulto'],
+  precioCaja: ['preciocaja', 'preciobulto', 'precioxcaja'],
+  costoCaja: ['costocaja', 'costobulto', 'costoxcaja'],
 };
 
 const COLUMNAS_REQUERIDAS = ['nombre', 'precioVenta', 'costo'];
@@ -54,7 +61,11 @@ function mapearEncabezados(encabezadosCrudos) {
 // tiene esa ambiguedad: cada valor queda en su propia celda sin importar la
 // configuracion regional de quien lo abra.
 function descargarPlantilla() {
-  const datos = [COLUMNAS, ['Arroz 1kg', 'ARZ-001', 'Granos', 4500, 3200, 50, 10, 0]];
+  const datos = [
+    COLUMNAS,
+    ['Arroz 1kg', 'ARZ-001', 'Granos', 4500, 3200, 50, 10, 0, '', '', '', ''],
+    ['Café en sobres', 'CAF-002', 'Bebidas', 800, 550, 400, 40, 0, 40, 'CAF-002-CAJA', 28000, 20000],
+  ];
   const hoja = XLSX.utils.aoa_to_sheet(datos);
   const libro = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(libro, hoja, 'Productos');
@@ -194,6 +205,10 @@ export default function ImportarProductosModal({ open, onClose, pymes, onImporte
         p.inventario?.stockActual ?? 0,
         p.inventario?.stockMinimo ?? 0,
         p._count?.ventas ?? 0,
+        p.unidadesPorCaja ?? '',
+        p.codigoCaja ?? '',
+        p.precioCaja ?? '',
+        p.costoCaja ?? '',
       ]);
       const hoja = XLSX.utils.aoa_to_sheet([COLUMNAS, ...filas]);
       const pymeNombre = (pymes.find((p) => String(p.id) === pymeId)?.nombre || 'productos')

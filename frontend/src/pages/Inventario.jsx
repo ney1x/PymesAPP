@@ -25,6 +25,7 @@ export default function Inventario() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({
     nombre: '', codigo: '', categoria: '', precioVenta: '', costo: '',
+    unidadesPorCaja: '', codigoCaja: '', precioCaja: '', costoCaja: '',
     stockActual: 0, stockMinimo: 5, leadTimeDias: 7, stockSeguridad: 0,
   });
   const [otraCategoria, setOtraCategoria] = useState(false);
@@ -145,6 +146,7 @@ export default function Inventario() {
     setEditing(null);
     setForm({
       nombre: '', codigo: `PROD-${Date.now()}`, categoria: '', precioVenta: '', costo: '',
+      unidadesPorCaja: '', codigoCaja: '', precioCaja: '', costoCaja: '',
       stockActual: 0, stockMinimo: 5, leadTimeDias: 7, stockSeguridad: 0,
       pymeId: pymes.data?.pymes?.[0]?.id || '',
     });
@@ -162,6 +164,10 @@ export default function Inventario() {
       categoria: inv.producto.categoria || '',
       precioVenta: inv.producto.precioVenta,
       costo: inv.producto.costo,
+      unidadesPorCaja: inv.producto.unidadesPorCaja ?? '',
+      codigoCaja: inv.producto.codigoCaja ?? '',
+      precioCaja: inv.producto.precioCaja ?? '',
+      costoCaja: inv.producto.costoCaja ?? '',
       stockActual: inv.stockActual,
       stockMinimo: inv.stockMinimo,
       leadTimeDias: inv.producto.leadTimeDias ?? 7,
@@ -199,6 +205,17 @@ export default function Inventario() {
     e.preventDefault();
     setSaving(true);
     setActionError(null);
+
+    // Caja opcional: si no hay factor válido, se manda todo en null para que
+    // el backend limpie cualquier configuración previa de caja.
+    const usaCaja = Number(form.unidadesPorCaja) >= 2;
+    const camposCaja = {
+      unidadesPorCaja: usaCaja ? Math.floor(Number(form.unidadesPorCaja)) : null,
+      codigoCaja: usaCaja ? (form.codigoCaja || '').trim() || null : null,
+      precioCaja: usaCaja && form.precioCaja !== '' ? Number(form.precioCaja) : null,
+      costoCaja: usaCaja && form.costoCaja !== '' ? Number(form.costoCaja) : null,
+    };
+
     try {
       if (editing) {
         await productosApi.update(editing.producto.id, {
@@ -210,6 +227,7 @@ export default function Inventario() {
           costo: Number(form.costo),
           leadTimeDias: Number(form.leadTimeDias),
           stockSeguridad: Number(form.stockSeguridad),
+          ...camposCaja,
           inventario: {
             stockActual: Number(form.stockActual),
             stockMinimo: Number(form.stockMinimo),
@@ -232,6 +250,7 @@ export default function Inventario() {
           costo: Number(form.costo),
           leadTimeDias: Number(form.leadTimeDias),
           stockSeguridad: Number(form.stockSeguridad),
+          ...camposCaja,
           inventario: {
             stockActual: Number(form.stockActual),
             stockMinimo: Number(form.stockMinimo),
@@ -380,6 +399,7 @@ export default function Inventario() {
                   const stockTone = alerta ? 'danger' : enAlerta ? 'warning' : 'ok';
                   const rol = rolPorPyme.get(inv.producto.pymeId);
                   const puedeGestionarFila = puede(rol, 'gestionarProductos');
+                  const upc = Number(inv.producto.unidadesPorCaja) >= 2 ? Number(inv.producto.unidadesPorCaja) : null;
                   return (
                     <tr
                       key={inv.id}
@@ -397,7 +417,10 @@ export default function Inventario() {
                           <span className={`inv-stock-bar inv-stock-bar-${stockTone}`} role="progressbar" aria-label={`Stock de ${inv.producto.nombre}`} aria-valuenow={inv.stockActual} aria-valuemin={0} aria-valuemax={techoStock}>
                             <span className="inv-stock-bar-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
                           </span>
-                          <span className="inv-stock-cell-min">mín. {inv.stockMinimo}</span>
+                          <span className="inv-stock-cell-min">
+                            mín. {inv.stockMinimo}
+                            {upc ? ` · ≈ ${Math.floor(inv.stockActual / upc)} cajas de ${upc}` : ''}
+                          </span>
                         </div>
                       </td>
                       <td>
@@ -439,6 +462,7 @@ export default function Inventario() {
               const stockTone = alerta ? 'danger' : enAlerta ? 'warning' : 'ok';
               const rol = rolPorPyme.get(inv.producto.pymeId);
               const puedeGestionarFila = puede(rol, 'gestionarProductos');
+              const upc = Number(inv.producto.unidadesPorCaja) >= 2 ? Number(inv.producto.unidadesPorCaja) : null;
               return (
                 <div key={inv.id} className="inv-product-card animate-fade-in" style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}>
                   <div className="inv-product-card-head">
@@ -468,7 +492,10 @@ export default function Inventario() {
                     <span className={`inv-stock-bar inv-stock-bar-${stockTone}`} role="progressbar" aria-label={`Stock de ${inv.producto.nombre}`} aria-valuenow={inv.stockActual} aria-valuemin={0} aria-valuemax={techoStock}>
                       <span className="inv-stock-bar-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
                     </span>
-                    <span className="inv-stock-cell-min">mín. {inv.stockMinimo}</span>
+                    <span className="inv-stock-cell-min">
+                      mín. {inv.stockMinimo}
+                      {upc ? ` · ≈ ${Math.floor(inv.stockActual / upc)} cajas de ${upc}` : ''}
+                    </span>
                   </div>
 
                 </div>
@@ -636,6 +663,35 @@ export default function Inventario() {
             Este precio queda guardado en el producto y se usa automáticamente
             al registrar una venta — no hay que volver a escribirlo cada vez.
           </p>
+
+          <details className="form-advanced" open={Number(form.unidadesPorCaja) >= 2}>
+            <summary>Venta por caja (opcional)</summary>
+            <p className="muted" style={{ marginTop: 8 }}>
+              Si también lo vendés por caja, indicá cuántas unidades trae. El stock
+              es uno solo (en unidades): vender una caja descuenta esa cantidad.
+              Dejalo vacío si solo lo vendés por unidad.
+            </p>
+            <div className="form-row" style={{ marginTop: 12 }}>
+              <div className="form-group">
+                <label htmlFor="inv-unidadesPorCaja">Unidades por caja</label>
+                <input id="inv-unidadesPorCaja" name="unidadesPorCaja" type="number" min="2" step="1" value={form.unidadesPorCaja} onChange={handleChange} placeholder="p. ej. 40" />
+              </div>
+              <div className="form-group">
+                <label htmlFor="inv-codigoCaja">Código de barras de la caja</label>
+                <input id="inv-codigoCaja" name="codigoCaja" value={form.codigoCaja} onChange={handleChange} placeholder="Código de la caja" disabled={Number(form.unidadesPorCaja) < 2} />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="inv-precioCaja">Precio de la caja (COP)</label>
+                <input id="inv-precioCaja" name="precioCaja" type="number" step="0.01" min="0" value={form.precioCaja} onChange={handleChange} placeholder={form.precioVenta && form.unidadesPorCaja ? String(Number(form.precioVenta) * Number(form.unidadesPorCaja)) : 'precio × unidades'} disabled={Number(form.unidadesPorCaja) < 2} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="inv-costoCaja">Costo de la caja (COP)</label>
+                <input id="inv-costoCaja" name="costoCaja" type="number" step="0.01" min="0" value={form.costoCaja} onChange={handleChange} placeholder={form.costo && form.unidadesPorCaja ? String(Number(form.costo) * Number(form.unidadesPorCaja)) : 'costo × unidades'} disabled={Number(form.unidadesPorCaja) < 2} />
+              </div>
+            </div>
+          </details>
 
           <div className="form-row">
             <div className="form-group">
