@@ -10,10 +10,22 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
 
+// Rangos de la gráfica de ventas. `bucket` es solo para el subtítulo; el
+// backend ya manda cada serie agrupada y con sus etiquetas de eje listas.
+// `interval` adelgaza las etiquetas del eje X cuando hay muchas barras
+// (0 = mostrar todas).
+const RANGOS_VENTAS = [
+  { id: 'semana', label: 'Semana', bucket: 'por día · últimos 7 días', interval: 0 },
+  { id: 'mes', label: 'Mes', bucket: 'por día · últimos 30 días', interval: 4 },
+  { id: 'trimestre', label: 'Trimestre', bucket: 'por semana · últimas 13 semanas', interval: 1 },
+  { id: 'anio', label: 'Año', bucket: 'por mes · últimos 12 meses', interval: 0 },
+];
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { pymeSeleccionada: filtroPymeId } = usePymeFilter();
   const [filtroSedeId, setFiltroSedeId] = useState('');
+  const [rangoVentas, setRangoVentas] = useState('semana');
   const sedes = useAsync(
     () => (filtroPymeId ? pymesApi.sedes.list(filtroPymeId) : Promise.resolve({ sedes: [] })),
     [filtroPymeId]
@@ -74,7 +86,11 @@ export default function Dashboard() {
   if (error) return <ErrorBox error={error} />;
   if (!data?.data) return null;
 
-  const { resumen, ventasPorDia, topProductos, productosBajoStock, rankingRentabilidad, comparativaSedes = [] } = data.data;
+  const { resumen, ventasPorDia, ventasSeries, topProductos, productosBajoStock, rankingRentabilidad, comparativaSedes = [] } = data.data;
+  const rangoActual = RANGOS_VENTAS.find((r) => r.id === rangoVentas) || RANGOS_VENTAS[0];
+  // Fallback por si la respuesta viene de un backend previo sin `ventasSeries`.
+  const serieVentas = ventasSeries?.[rangoVentas]
+    ?? ventasPorDia.map((d) => ({ ...d, key: d.fecha, label: d.fecha }));
   const productoUrgente = productosBajoStock[0];
   const oportunidad = rankingRentabilidad[0];
   const productosConConfianza = rankingRentabilidad.filter((item) => typeof item.nivelConfianza === 'number');
@@ -144,19 +160,42 @@ export default function Dashboard() {
 
       {resumen.ingresos !== undefined && (
         <div className="card dash-chart-card">
-          <div className="card-title">Ventas de los últimos 7 días</div>
-          {ventasPorDia.every((d) => !d.ingresos) ? (
+          <div className="card-title">
+            <span>Ventas <span className="dash-chart-sub">{rangoActual.bucket}</span></span>
+            <div className="chart-range" role="group" aria-label="Rango de la gráfica de ventas">
+              {RANGOS_VENTAS.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  className={`chart-range-btn${rangoVentas === r.id ? ' active' : ''}`}
+                  aria-pressed={rangoVentas === r.id}
+                  onClick={() => setRangoVentas(r.id)}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {serieVentas.every((d) => !d.ingresos) ? (
             <EmptyState
-              title="Sin ventas en los últimos 7 días"
-              message="Registra ventas para ver la tendencia de ingresos."
+              title="Sin ventas en este período"
+              message="Registra ventas o elige un rango más amplio para ver la tendencia de ingresos."
             />
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={ventasPorDia} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={serieVentas} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#D9E2EC" vertical={false} />
-                <XAxis dataKey="fecha" tick={{ fontSize: 11, fill: '#627D98' }} axisLine={{ stroke: '#D9E2EC' }} tickLine={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: '#556C82' }}
+                  axisLine={{ stroke: '#D9E2EC' }}
+                  tickLine={false}
+                  interval={rangoActual.interval}
+                  tickMargin={8}
+                  minTickGap={6}
+                />
                 <YAxis
-                  tick={{ fontSize: 11, fill: '#627D98' }}
+                  tick={{ fontSize: 11, fill: '#556C82' }}
                   axisLine={false}
                   tickLine={false}
                   width={64}
@@ -164,6 +203,7 @@ export default function Dashboard() {
                 />
                 <Tooltip
                   formatter={(v) => money(v)}
+                  labelFormatter={(l) => (rangoVentas === 'trimestre' ? `Semana del ${l}` : l)}
                   cursor={{ fill: 'rgba(16, 42, 67, 0.05)' }}
                   contentStyle={{ borderRadius: 10, border: '1px solid #D9E2EC', boxShadow: '0 4px 12px rgba(16,42,67,0.08)', fontSize: 12 }}
                   labelStyle={{ color: '#172B4D', fontWeight: 600 }}

@@ -17,6 +17,18 @@ const crearCodigo = async () => {
   return { codigo, hash, expiresAt: new Date(Date.now() + CODE_TTL_MS) };
 };
 
+// Mismo criterio que forgotPassword: un fallo al enviar el correo (Gmail
+// caído, credenciales mal puestas, cuota agotada) no debe tumbar el registro
+// con un 500. La cuenta queda sin verificar y el reintento de registro
+// —o el reenvío desde la pantalla de verificación— manda un código nuevo.
+const enviarCodigoVerificacion = async (email, codigo) => {
+  try {
+    await sendVerificationEmail(email, codigo);
+  } catch (err) {
+    console.error('Error enviando correo de verificación:', err.message);
+  }
+};
+
 const toUserResponse = (user) => ({
   id: user.id,
   nombre: user.nombre,
@@ -50,7 +62,7 @@ const register = async ({ nombre, email, password, rol, telefono }) => {
         verifCodeIntentos: 0,
       },
     });
-    await sendVerificationEmail(email, codigo);
+    await enviarCodigoVerificacion(email, codigo);
     return;
   }
 
@@ -69,7 +81,7 @@ const register = async ({ nombre, email, password, rol, telefono }) => {
     },
   });
 
-  await sendVerificationEmail(email, codigo);
+  await enviarCodigoVerificacion(email, codigo);
 };
 
 const verifyEmail = async ({ email, codigo }) => {

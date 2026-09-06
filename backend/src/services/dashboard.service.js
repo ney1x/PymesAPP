@@ -72,6 +72,63 @@ const get = async (user, { pymeId, sedeId } = {}) => {
     };
   });
 
+  // Series para el selector de rango de la gráfica de ventas del dashboard
+  // (Semana / Mes / Trimestre / Año). Se calculan las cuatro y viajan en la
+  // misma respuesta: el front cambia de rango al instante, sin volver a
+  // pedir datos. Cada bucket ya trae su etiqueta de eje X lista.
+  const DIA_MS = 24 * 60 * 60 * 1000;
+  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const etiquetaDia = (f) => `${String(f.getUTCDate()).padStart(2, '0')} ${MESES[f.getUTCMonth()]}`;
+  const claveDiaUTC = (f) => f.toISOString().slice(0, 10);
+  const claveMesUTC = (f) => f.toISOString().slice(0, 7);
+  const lunesUTC = (f) => {
+    const d = new Date(Date.UTC(f.getUTCFullYear(), f.getUTCMonth(), f.getUTCDate()));
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); // 0 = lunes
+    return d;
+  };
+  const acumular = (claveFn) => {
+    const m = new Map();
+    for (const v of ventas) {
+      const k = claveFn(v.fecha);
+      const cur = m.get(k) || { ingresos: 0, ventas: 0 };
+      cur.ingresos += v.total;
+      cur.ventas += 1;
+      m.set(k, cur);
+    }
+    return m;
+  };
+  const bucket = (m, key, label) => {
+    const { ingresos = 0, ventas: n = 0 } = m.get(key) || {};
+    return { key, label, ventas: n, ingresos: Math.round(ingresos) };
+  };
+
+  const porDiaMap = acumular(claveDiaUTC);
+  const porSemanaMap = acumular((f) => claveDiaUTC(lunesUTC(f)));
+  const porMesMap = acumular(claveMesUTC);
+
+  const serieDiaria = (n) => Array.from({ length: n }, (_, i) => {
+    const dia = new Date(hoy.getTime() - (n - 1 - i) * DIA_MS);
+    return bucket(porDiaMap, claveDiaUTC(dia), etiquetaDia(dia));
+  });
+  const serieSemanal = (n) => {
+    const lunesHoy = lunesUTC(hoy);
+    return Array.from({ length: n }, (_, i) => {
+      const ini = new Date(lunesHoy.getTime() - (n - 1 - i) * 7 * DIA_MS);
+      return bucket(porSemanaMap, claveDiaUTC(ini), etiquetaDia(ini));
+    });
+  };
+  const serieMensual = (n) => Array.from({ length: n }, (_, i) => {
+    const d = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth() - (n - 1 - i), 1));
+    return bucket(porMesMap, claveMesUTC(d), MESES[d.getUTCMonth()]);
+  });
+
+  const ventasSeries = {
+    semana: serieDiaria(7),
+    mes: serieDiaria(30),
+    trimestre: serieSemanal(13),
+    anio: serieMensual(12),
+  };
+
   const ventasPorProducto = {};
   for (const v of ventas) {
     ventasPorProducto[v.productoId] = ventasPorProducto[v.productoId] || { ingresos: 0, unidades: 0 };
@@ -123,6 +180,7 @@ const get = async (user, { pymeId, sedeId } = {}) => {
       alertasStock: productosBajoStock.length,
     },
     ventasPorDia,
+    ventasSeries,
     topProductos,
     productosBajoStock,
     rankingRentabilidad,
@@ -133,6 +191,7 @@ const get = async (user, { pymeId, sedeId } = {}) => {
     delete resultado.resumen.ingresos;
     delete resultado.resumen.margenBruto;
     resultado.ventasPorDia = [];
+    resultado.ventasSeries = { semana: [], mes: [], trimestre: [], anio: [] };
     resultado.topProductos = [];
     resultado.rankingRentabilidad = [];
     resultado.comparativaSedes = [];

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { inventarioApi, productosApi, pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { Spinner, ErrorBox, Badge, Modal, Button, IconButton, EmptyState } from '../components/ui';
-import { IconPlus, IconEdit, IconTrash, IconSearch, IconCheck, IconAlert, IconCamera } from '../components/Icons';
+import { IconPlus, IconEdit, IconTrash, IconSearch, IconCheck, IconAlert, IconCamera, IconChevronLeft, IconChevronRight } from '../components/Icons';
 import { categoriasComunesPorTipo } from '../constants/categorias';
 import ImportarProductosModal from '../components/ImportarProductosModal';
 import BarcodeScannerModal from '../components/BarcodeScannerModal';
@@ -506,8 +506,10 @@ export default function Inventario() {
       )}
 
       {filtered.length > PAGE_SIZE && (
-        <div className="pagination" style={{ justifyContent: 'center', marginTop: 16 }}>
-          <button disabled={page <= 1} onClick={() => setPage(page - 1)}>‹</button>
+        <nav className="pagination" style={{ justifyContent: 'center', marginTop: 16 }} aria-label="Paginación de productos">
+          <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} aria-label="Página anterior">
+            <IconChevronLeft size={15} aria-hidden="true" />
+          </button>
           {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
             let p;
             if (totalPages <= 5) p = i + 1;
@@ -515,14 +517,23 @@ export default function Inventario() {
             else if (page >= totalPages - 2) p = totalPages - 4 + i;
             else p = page - 2 + i;
             return (
-              <button key={p} className={p === page ? 'active' : ''} onClick={() => setPage(p)}>
+              <button
+                type="button"
+                key={p}
+                className={p === page ? 'active' : ''}
+                onClick={() => setPage(p)}
+                aria-label={`Página ${p}`}
+                aria-current={p === page ? 'page' : undefined}
+              >
                 {p}
               </button>
             );
           })}
-          {totalPages > 5 && <span>...</span>}
-          <button disabled={page >= totalPages} onClick={() => setPage(page + 1)}>›</button>
-        </div>
+          {totalPages > 5 && <span aria-hidden="true">...</span>}
+          <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)} aria-label="Página siguiente">
+            <IconChevronRight size={15} aria-hidden="true" />
+          </button>
+        </nav>
       )}
 
       {/* Toast */}

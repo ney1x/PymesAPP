@@ -114,7 +114,8 @@ export default function Predicciones() {
     .filter((p) => !search || p.producto.nombre.toLowerCase().includes(search.toLowerCase()))
     .slice(0, 8)
     .map((p) => ({
-      name: p.producto.nombre.length > 12 ? p.producto.nombre.slice(0, 12) + '...' : p.producto.nombre,
+      name: p.producto.nombre.length > 16 ? p.producto.nombre.slice(0, 16) + '…' : p.producto.nombre,
+      nombreCompleto: p.producto.nombre,
       demanda: p.demandaPredicha,
     }));
 
@@ -236,25 +237,38 @@ export default function Predicciones() {
             )}
           </div>
 
-          {/* Gráfica — apoyo visual, no compite con la recomendación. */}
+          {/* Gráfica — apoyo visual, no compite con la recomendación. Barras
+              horizontales: el nombre del producto va en el eje Y, donde hay
+              lugar para leerlo entero (en vertical se encimaban). */}
           <div className="card prediccion-chart-card animate-fade-in-up delay-2">
             <div className="card-title">Demanda comparada</div>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#D9E2EC" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#627D98' }} axisLine={{ stroke: '#D9E2EC' }} tickLine={false} interval={0} />
-                <YAxis tick={{ fontSize: 11, fill: '#627D98' }} axisLine={false} tickLine={false} width={36} />
+            <p className="muted prediccion-chart-nota">Unidades estimadas en el horizonte elegido, mayor a menor.</p>
+            <ResponsiveContainer width="100%" height={Math.max(160, chartData.length * 40 + 16)}>
+              <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }} barCategoryGap="28%">
+                <CartesianGrid strokeDasharray="3 3" stroke="#D9E2EC" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#556C82' }} axisLine={{ stroke: '#D9E2EC' }} tickLine={false} allowDecimals={false} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ fontSize: 12, fill: '#172B4D' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={116}
+                  interval={0}
+                />
                 <Tooltip
                   cursor={{ fill: 'rgba(16, 42, 67, 0.05)' }}
                   contentStyle={{ borderRadius: 10, border: '1px solid #D9E2EC', boxShadow: '0 4px 12px rgba(16,42,67,0.08)', fontSize: 12 }}
                   labelStyle={{ color: '#172B4D', fontWeight: 600 }}
+                  labelFormatter={(label, payload) => payload?.[0]?.payload?.nombreCompleto || label}
+                  formatter={(v) => [`${v} uds`, 'Demanda']}
                 />
                 <Bar
                   dataKey="demanda"
                   name="Demanda"
                   fill="#102A43"
-                  radius={[5, 5, 0, 0]}
-                  maxBarSize={40}
+                  radius={[0, 5, 5, 0]}
+                  maxBarSize={28}
                   isAnimationActive={!prefersReducedMotion}
                   animationDuration={300}
                   animationEasing="ease-out"

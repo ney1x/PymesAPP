@@ -38,6 +38,16 @@ MODEL_PATH_PFS_REG = os.getenv("MODEL_PATH_PFS_REG", "app/models/modelo_regresor
 MIN_VENTAS = int(os.getenv("MIN_VENTAS_PARA_ML", "5"))
 UMBRAL_VENTAS_PFS = int(os.getenv("UMBRAL_VENTAS_PFS", "60"))
 HORIZONTE = int(os.getenv("HORIZONTE_DIAS", "7"))
+
+# El motor PFS dos etapas (clasificador + regresor Tweedie) se entrenó sobre
+# el dataset ruso 1C, cuyos conteos semanales por producto/tienda son muy
+# chicos. Sus árboles no pueden extrapolar a los volúmenes de una tienda
+# real y subestiman la demanda de forma sistemática (probado con datos de
+# PYMES: 3x a 20x por debajo del promedio móvil reciente). retrain/RESULTADOS.md
+# ya concluía que Store Sales V2 gana en MAPE general (32% vs 51%). Queda
+# desactivado por defecto hasta reentrenar PFS con historial real; se puede
+# reactivar con PFS_DOS_ETAPAS_ACTIVO=true.
+PFS_DOS_ETAPAS_ACTIVO = os.getenv("PFS_DOS_ETAPAS_ACTIVO", "false").lower() in ("1", "true", "yes")
 HISTORIAL_DIAS = 200  # cubre las 12 semanas de historial que necesita PFS dos etapas
 
 
@@ -149,7 +159,8 @@ class Predictor:
 
         categoria = self._obtener_categoria(item_id)
 
-        if len(historical) >= UMBRAL_VENTAS_PFS and self.clasificador_pfs and self.regresor_pfs:
+        if (PFS_DOS_ETAPAS_ACTIVO and len(historical) >= UMBRAL_VENTAS_PFS
+                and self.clasificador_pfs and self.regresor_pfs):
             try:
                 fecha_limite = date.fromisoformat(str(historical[-1]["fecha"])[:10])
                 price, price_change = self._obtener_precio_actual(item_id, store_id, fecha_limite)

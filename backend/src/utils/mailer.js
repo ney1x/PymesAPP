@@ -1,12 +1,30 @@
 const nodemailer = require('nodemailer');
 const { gmailUser, gmailAppPassword } = require('../config/env');
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: { user: gmailUser, pass: gmailAppPassword },
-});
+// Sin credenciales de Gmail la app sigue arrancando (ver .env): en ese modo
+// los correos no se envían y el código queda en los logs del servidor para
+// que el operador lo lea. Con credenciales, comportamiento normal por Gmail.
+const emailHabilitado = Boolean(gmailUser && gmailAppPassword);
+
+const transporter = emailHabilitado
+  ? nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: gmailUser, pass: gmailAppPassword },
+    })
+  : null;
+
+const registrarCodigoEnLog = (tipo, destinatario, codigo) => {
+  console.warn(
+    `[mailer] Envío de correo deshabilitado (sin GMAIL_USER/GMAIL_APP_PASSWORD). ` +
+      `Código de ${tipo} para ${destinatario}: ${codigo}`
+  );
+};
 
 const sendResetCodeEmail = async (destinatario, codigo) => {
+  if (!emailHabilitado) {
+    registrarCodigoEnLog('recuperación', destinatario, codigo);
+    return;
+  }
   await transporter.sendMail({
     from: `"PymesAPP" <${gmailUser}>`,
     to: destinatario,
@@ -24,6 +42,10 @@ const sendResetCodeEmail = async (destinatario, codigo) => {
 };
 
 const sendVerificationEmail = async (destinatario, codigo) => {
+  if (!emailHabilitado) {
+    registrarCodigoEnLog('verificación', destinatario, codigo);
+    return;
+  }
   await transporter.sendMail({
     from: `"PymesAPP" <${gmailUser}>`,
     to: destinatario,
@@ -40,4 +62,4 @@ const sendVerificationEmail = async (destinatario, codigo) => {
   });
 };
 
-module.exports = { sendResetCodeEmail, sendVerificationEmail };
+module.exports = { sendResetCodeEmail, sendVerificationEmail, emailHabilitado };

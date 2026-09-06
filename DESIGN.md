@@ -6,6 +6,7 @@ colors:
   navy-dark: "#0B1D30"
   navy-2: "#243B53"
   navy-3: "#486581"
+  navy-4: "#9DB2C6"
   navy-soft: "#E1E9F2"
   accent: "#D99000"
   accent-strong: "#B87A00"
@@ -18,7 +19,7 @@ colors:
   surface: "#FFFFFF"
   surface-alt: "#F1F4F9"
   text: "#172B4D"
-  muted: "#627D98"
+  muted: "#556C82"
   border: "#D9E2EC"
   border-strong: "#C1CEDC"
 typography:
@@ -149,7 +150,8 @@ A restrained palette: one identity colour (navy) across four steps, one accent (
 ### Primary
 - **Ink Navy** (`#102A43`): The identity colour. Owns the sidebar, primary buttons, chart bars and series, link text, focus rings, and every large numeral. The `menu` topbar on mobile.
 - **Slate Navy** (`#243B53`): The active-navigation fill and the hover state of primary buttons; secondary navy surfaces (the sidebar's own dividers and controls).
-- **Steel Blue** (`#486581`): Navy at reading weight — icon and secondary-label colour *on* navy surfaces, and the resting colour of sidebar nav items.
+- **Steel Blue** (`#486581`): Navy at reading weight *on light* — the resting colour of line icons and secondary labels on white/`#F7F9FC` cards, and hairline borders drawn on a navy surface. Never used for text *on* navy (only ≈2.4:1 there).
+- **Navy Line** (`#9DB2C6`): The accessible resting colour for UI text *on* navy surfaces — sidebar nav items, the "PYME" switcher label, the auth-panel tagline (≈6.6:1, WCAG AA). This is the on-dark counterpart to Steel Blue, which fails contrast on navy. Only ever on navy; it is nearly invisible on white.
 - **Navy Wash** (`#E1E9F2`): A pale navy tint for "this row/cell is selected" states on white.
 
 ### Secondary
@@ -157,7 +159,7 @@ A restrained palette: one identity colour (navy) across four steps, one accent (
 
 ### Neutral
 - **Deep Ink** (`#172B4D`): Primary body and heading text.
-- **Muted Slate** (`#627D98`): Secondary text, captions, table headers, placeholder text, resting icon colour on light.
+- **Muted Slate** (`#556C82`): Secondary text, captions, table headers, placeholder text, chart ticks, resting icon colour on light. Held at ≥4.5:1 on both white and the `#F7F9FC` ground (the earlier `#627D98` sat at ≈4.1:1 on the ground — below AA).
 - **Field** (`#F7F9FC`): The application background behind every card.
 - **Surface** (`#FFFFFF`): Every card, table, modal, input, and the POS panel.
 - **Surface Alt** (`#F1F4F9`): Table header rows, inset panels, ghost-button hover, rank chips.
@@ -217,7 +219,7 @@ Near-flat. Surfaces are white cards separated from the ground by a 1px hairline 
 
 ## Shapes
 
-Two radii: 12px (`--radius`) for cards, modals, tables, the POS panel, and large surfaces; 8px (`--radius-sm`) for buttons, inputs, chips, and small controls. Pills (`--radius-pill`, 999px) for badges, category filter chips, the notification-tab segmented control, and count bubbles.
+Two radii: 12px (`--radius`) for cards, modals, tables, the POS panel, and large surfaces; 8px (`--radius-sm`) for buttons, inputs, chips, and small controls. Pills (`--radius-pill`, 999px) for badges, category filter chips, the notification-tab and chart-range segmented controls, and count bubbles.
 
 Borders are 1px hairlines. The one deliberately dashed element is the barcode scan input in the POS — a 1.5px dashed capture zone on a tinted ground that turns solid on focus. The active-nav indicator is a 3px gold bar with a rounded outer edge, inset against the sidebar's left edge. Icons are a custom line set (`Icons.jsx`), 24×24 viewBox, single 1.75px stroke, round caps and joins — the same weight at every size.
 
@@ -235,7 +237,7 @@ Borders are 1px hairlines. The one deliberately dashed element is the barcode sc
 
 ### Chips
 - **Category filter chips:** Pill, white fill, `#C1CEDC` border, 500 weight. Active → navy fill, white text, 600 weight. The count number sits inside, muted.
-- **Segmented control** (notification tabs): A pill track in surface-alt; the active segment is a navy pill.
+- **Segmented control** (notification tabs, chart-range picker): A pill track in surface-alt with a 1px hairline; the active segment is a solid navy pill, white text, 600 weight; resting segments are muted, hover to ink. The chart-range variant (`.chart-range` / `.chart-range-btn`) is the same thing one size down — 12.5px text, 32px min-height, no count bubble — and lives in a chart card's header. On narrow screens it goes full-width with equal-flex segments.
 
 ### Cards / Containers
 - **Corner:** 12px.
@@ -252,7 +254,7 @@ Borders are 1px hairlines. The one deliberately dashed element is the barcode sc
 - **On navy surfaces** (POS checkout, sidebar PYME select): translucent-white fill and border, gold focus border + gold glow.
 
 ### Navigation
-- **Sidebar:** Navy (`#102A43`) with a `#243B53` right hairline, 240px. Items are 13.5px/500 in steel blue with a line icon; hover → white text on a faint white wash. **Active** → white text, 600 weight, `#243B53` fill, and a 3px gold vertical bar inset on the left edge (`.rail-item.active::before`). The wordmark pairs the "Inventario" name with a monogram of three ascending bars whose tallest bar is gold.
+- **Sidebar:** Navy (`#102A43`) with a `#243B53` right hairline, 240px. Items are 14px/500 in Navy Line (`#9DB2C6`, ≈6.6:1 on the navy — readable at a glance and for tired eyes) with a full-opacity line icon; hover → white text on a faint white wash. **Active** → white text, 600 weight, `#243B53` fill, and a 3px gold vertical bar inset on the left edge (`.rail-item.active::before`). Under `prefers-contrast: more` the resting text lifts to `#D3DEE9` and the rail's inner hairlines go to Steel Blue. The wordmark pairs the "Inventario" name with a monogram of three ascending bars whose tallest bar is gold.
 - **Mobile:** Off-canvas drawer behind a fixed 56px navy topbar (hamburger + wordmark). The drawer carries the full sidebar, labels and all, and slides over a `rgba(11,29,48,0.55)` backdrop; it closes on navigation, backdrop tap, or Escape, and locks body scroll while open.
 
 ### KPI card (signature)
@@ -275,7 +277,9 @@ A single bordered white panel in three stacked bands — scan (white, big dashed
 - **Do** put every surface on a white card with a 1px `#D9E2EC` border on the `#F7F9FC` ground.
 - **Do** use the spacing scale (4/8/12/16/24/32/48) via `--sp-1`…`--sp-7`; more space above a heading than below.
 - **Do** theme the browser surfaces — selection is gold-wash, scrollbars are hairline-strong pills, focus rings are 2px navy.
-- **Do** render charts on white cards: navy bars, `#D9E2EC` grid, `#627D98` ticks, a rounded bordered tooltip. Disable Recharts entrance animation on bar charts.
+- **Do** render charts on white cards: navy bars, `#D9E2EC` grid, `#556C82` ticks, a rounded bordered tooltip. Disable Recharts entrance animation on bar charts.
+- **Do** turn a category bar chart horizontal (`layout="vertical"`) when the labels are product names or anything longer than ~8 characters — the name goes on the Y axis with room to read, instead of overlapping under a vertical axis. Keep the value axis labelled and order bars high→low. The Y-axis tick colour steps up to `#172B4D` since it now carries the item identity.
+- **Do** offer a time-range control on a trend chart as a compact pill segmented control in the card header (`.chart-range`: same track/active language as the notification tabs). Keep the set small — Semana / Mes / Trimestre / Año — and put a plain-language "por día · últimos 7 días" sub-label next to the card title so the bucketing is never a guess.
 - **Do** give data figures Inter with `tabular-nums` + slashed zero, not a monospace face.
 
 ### Don't:

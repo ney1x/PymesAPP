@@ -43,7 +43,10 @@
   --navy: #102A43;
   --navy-dark: #0B1D30;
   --navy-2: #243B53;   /* estado activo de navegación, superficies navy secundarias */
-  --navy-3: #486581;   /* texto/íconos sobre navy, enlaces */
+  --navy-3: #486581;   /* íconos/enlaces sobre blanco, bordes sobre navy */
+  --navy-4: #9DB2C6;   /* texto de UI en reposo SOBRE navy (nav, labels): 6.6:1 AA.
+                          #486581 sobre navy daba 2.4:1 — ilegible, sobre todo
+                          para vista cansada. Es un paso de la rampa Steel Blue. */
   --navy-soft: #E1E9F2; /* tinte navy claro para fondos seleccionados sobre blanco */
 
   /* Dorado: acento único — elemento seleccionado, métrica destacada, 1 CTA
@@ -72,7 +75,10 @@
   --surface: #FFFFFF;
   --surface-alt: #F1F4F9;
   --text: #172B4D;
-  --muted: #627D98;
+  /* Texto secundario. #627D98 quedaba en 4.1:1 sobre el fondo (bajo el
+     mínimo AA de 4.5); #556C82 lo sube a ~5.2:1 sin dejar de leerse
+     "apagado". */
+  --muted: #556C82;
   --border: #D9E2EC;
   --border-strong: #C1CEDC;
 
@@ -310,11 +316,11 @@ input, textarea { caret-color: var(--navy); }
 
 .rail-pyme-switch label {
   display: block;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--navy-3);
+  color: var(--navy-4);
   margin-bottom: 6px;
 }
 
@@ -355,17 +361,17 @@ input, textarea { caret-color: var(--navy); }
   gap: 10px;
   padding: 9px 12px;
   border-radius: var(--radius-sm);
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   text-decoration: none;
-  color: var(--navy-3);
+  color: var(--navy-4);
   background: transparent;
   width: 100%;
   transition: color 150ms ease, background-color 150ms ease;
 }
 
-.rail-item svg { flex-shrink: 0; opacity: 0.9; }
+.rail-item svg { flex-shrink: 0; opacity: 1; }
 
 .rail-item:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
 .rail-item:hover svg { opacity: 1; }
@@ -659,7 +665,9 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(16, 42, 67, 0.12);
 }
 
-input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.75; }
+/* opacity alta a propósito: el placeholder tiene que leerse (vista cansada),
+   y el texto escrito ya se distingue de sobra por color (--text, 14:1). */
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.9; }
 input:disabled, select:disabled, textarea:disabled { background: var(--surface-alt); color: var(--muted); cursor: not-allowed; }
 
 .form-row, .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
@@ -994,6 +1002,68 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 .dash-chart-card { margin-bottom: var(--sp-5); }
 .dash-chart-card .recharts-cartesian-grid line { stroke: var(--border); }
 .dash-chart-card .recharts-text { fill: var(--muted); }
+.dash-chart-card .card-title { flex-wrap: wrap; }
+
+/* Subtítulo que aclara qué muestra el rango elegido (por día / por semana…). */
+.dash-chart-sub {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+/* Segmented control para el rango de una gráfica — mismo lenguaje que las
+   tabs de notificaciones (pista en surface-alt, activo navy sólido), más
+   compacto y sin contador. */
+.chart-range {
+  display: inline-flex;
+  flex-shrink: 0;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+  gap: 2px;
+}
+
+.chart-range-btn {
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-pill);
+  padding: 6px 12px;
+  min-height: 32px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.chart-range-btn:hover { color: var(--text); }
+
+.chart-range-btn.active {
+  background: var(--navy);
+  color: #fff;
+}
+
+.chart-range-btn:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+
+@media (max-width: 560px) {
+  .dash-chart-card .card-title { align-items: flex-start; }
+  .chart-range { width: 100%; }
+  .chart-range-btn {
+    flex: 1;
+    padding: 9px 2px;
+    font-size: 12px;
+    letter-spacing: -0.01em;
+  }
+}
+
+.prediccion-chart-nota {
+  margin-top: -6px;
+  margin-bottom: var(--sp-3);
+  font-size: 12px;
+}
 
 /* ---- Dashboard: tarjetas de decisión (planas, sin gradiente) ---- */
 .dashboard-decision-grid {
@@ -2511,7 +2581,7 @@ a {
 .auth-side .brand-logo { width: 52px; height: 52px; }
 .auth-side .brand-logo svg { width: 42px; height: 42px; }
 .auth-side strong { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
-.auth-side p { color: var(--navy-3); text-align: center; max-width: 320px; line-height: 1.6; }
+.auth-side p { color: var(--navy-4); text-align: center; max-width: 320px; line-height: 1.6; }
 
 .auth-form-wrap {
   display: flex;
@@ -3623,7 +3693,7 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
   resize: none;
 }
 
-.chat-input::placeholder { color: var(--muted); opacity: 0.7; }
+.chat-input::placeholder { color: var(--muted); opacity: 0.9; }
 .chat-input:focus { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(16, 42, 67, 0.12); }
 .chat-input:disabled { background: var(--surface-alt); color: var(--muted); cursor: not-allowed; }
 
@@ -3818,4 +3888,26 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
   .rail-dropdown { left: 0; right: 0; min-width: 100%; }
 
   .main { padding: var(--sp-4) var(--sp-4) var(--sp-6); }
+}
+
+/* ================== ALTO CONTRASTE (prefers-contrast: more) ==================
+   Va al final del archivo a propósito: estas reglas tienen la misma
+   especificidad que sus bases, así que necesitan ganar por orden de
+   aparición. Sube el texto en reposo sobre navy casi a blanco y hace
+   visibles los divisores internos del rail (navy sobre navy casi no se ven)
+   y el marco del segmento activo del selector de rango. */
+@media (prefers-contrast: more) {
+  .rail-item,
+  .rail-pyme-switch label,
+  .auth-side p { color: #D3DEE9; }
+  .rail-item svg { opacity: 1; }
+  .rail,
+  .mobile-topbar,
+  .rail-brand,
+  .rail-pyme-switch,
+  .rail-nav-secondary { border-color: var(--navy-3); }
+  .chart-range { border-color: var(--border-strong); }
+  .chart-range-btn.active { box-shadow: inset 0 0 0 1px #fff; }
+  .dash-chart-sub,
+  .prediccion-chart-nota { color: var(--text); }
 }
