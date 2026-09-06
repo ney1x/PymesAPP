@@ -100,7 +100,7 @@ export default function Dashboard() {
     <div className="animate-fade-in-up">
       <PageHeader
         title={`Hola, ${user?.nombre?.split(' ')[0] || 'comerciante'}`}
-        subtitle="Decisiones clave para tu negocio hoy."
+        subtitle="El estado de tu negocio y las decisiones que conviene tomar hoy."
         actions={
           filtroPymeId && (sedes.data?.sedes?.length ?? 0) > 1 && (
             <select value={filtroSedeId} onChange={(e) => setFiltroSedeId(e.target.value)}>
@@ -113,7 +113,69 @@ export default function Dashboard() {
         }
       />
 
-      <section className="dashboard-decision-grid dashboard-decision-grid-compact" aria-label="Decisiones principales">
+      <section className="dash-kpis" aria-label="Indicadores del negocio">
+        {resumen.ingresos !== undefined && (
+          <div className="dash-kpi">
+            <span className="dash-kpi-label">Ingresos (histórico)</span>
+            <span className="dash-kpi-value">{money(resumen.ingresos)}</span>
+            <span className="dash-kpi-hint">Total vendido</span>
+          </div>
+        )}
+        {resumen.margenBruto !== undefined && (
+          <div className="dash-kpi dash-kpi-accent">
+            <span className="dash-kpi-label">Margen bruto</span>
+            <span className="dash-kpi-value">{money(resumen.margenBruto)}</span>
+            <span className="dash-kpi-hint">Utilidad estimada</span>
+          </div>
+        )}
+        <div className="dash-kpi">
+          <span className="dash-kpi-label">Unidades vendidas</span>
+          <span className="dash-kpi-value">{resumen.unidadesVendidas}</span>
+          <span className="dash-kpi-hint">{resumen.numeroProductos} productos activos</span>
+        </div>
+        <div className={`dash-kpi dash-kpi-alert${resumen.alertasStock === 0 ? ' dash-kpi-clear' : ''}`}>
+          <span className="dash-kpi-label">Alertas de stock</span>
+          <span className="dash-kpi-value">{resumen.alertasStock}</span>
+          <span className="dash-kpi-hint">
+            {resumen.alertasStock === 0 ? 'Todo por encima del mínimo' : 'Productos bajo el mínimo'}
+          </span>
+        </div>
+      </section>
+
+      {resumen.ingresos !== undefined && (
+        <div className="card dash-chart-card">
+          <div className="card-title">Ventas de los últimos 7 días</div>
+          {ventasPorDia.every((d) => !d.ingresos) ? (
+            <EmptyState
+              title="Sin ventas en los últimos 7 días"
+              message="Registra ventas para ver la tendencia de ingresos."
+            />
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={ventasPorDia} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#D9E2EC" vertical={false} />
+                <XAxis dataKey="fecha" tick={{ fontSize: 11, fill: '#627D98' }} axisLine={{ stroke: '#D9E2EC' }} tickLine={false} />
+                <YAxis
+                  tick={{ fontSize: 11, fill: '#627D98' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={64}
+                  tickFormatter={(v) => moneyCompact(v)}
+                />
+                <Tooltip
+                  formatter={(v) => money(v)}
+                  cursor={{ fill: 'rgba(16, 42, 67, 0.05)' }}
+                  contentStyle={{ borderRadius: 10, border: '1px solid #D9E2EC', boxShadow: '0 4px 12px rgba(16,42,67,0.08)', fontSize: 12 }}
+                  labelStyle={{ color: '#172B4D', fontWeight: 600 }}
+                />
+                <Bar dataKey="ingresos" name="Ingresos" fill="#102A43" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      )}
+
+      <section className="dashboard-decision-grid dashboard-decision-grid-compact animate-fade-in-up delay-2" aria-label="Decisiones principales">
         <div className={`dashboard-decision-card dashboard-decision-urgent${productoUrgente ? '' : ' dashboard-decision-ok'}`}>
           <span className="dashboard-decision-label">Reponer ahora</span>
           {productoUrgente ? (
@@ -157,55 +219,6 @@ export default function Dashboard() {
               ? 'No hay confianza disponible en los datos actuales.'
               : 'Usa esta señal como apoyo antes de reponer.'}
           </small>
-        </div>
-      </section>
-
-      <section className="dashboard-hero animate-fade-in-up delay-1" aria-label="Métricas y tendencia de ventas">
-        <div className="dashboard-hero-stats">
-          {resumen.ingresos !== undefined && (
-            <div className="dashboard-hero-stat">
-              <span className="dashboard-hero-stat-label">Ingresos (histórico)</span>
-              <strong className="dashboard-hero-stat-value">{money(resumen.ingresos)}</strong>
-              <span className="dashboard-hero-stat-hint">Total vendido</span>
-            </div>
-          )}
-          {resumen.margenBruto !== undefined && (
-            <div className="dashboard-hero-stat">
-              <span className="dashboard-hero-stat-label">Margen bruto</span>
-              <strong className="dashboard-hero-stat-value dashboard-hero-stat-value-accent">{money(resumen.margenBruto)}</strong>
-              <span className="dashboard-hero-stat-hint">Utilidad estimada</span>
-            </div>
-          )}
-          <div className="dashboard-hero-stat">
-            <span className="dashboard-hero-stat-label">Unidades vendidas</span>
-            <strong className="dashboard-hero-stat-value">{resumen.unidadesVendidas}</strong>
-          </div>
-        </div>
-
-        <div className="dashboard-hero-chart">
-          <span className="dashboard-hero-chart-label">Ventas de los últimos 7 días</span>
-          {ventasPorDia.length === 0 ? (
-            <EmptyState
-              title="Sin ventas recientes"
-              message="Registra ventas para ver la tendencia de ingresos."
-            />
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={ventasPorDia} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.12)" vertical={false} />
-                <XAxis dataKey="fecha" tick={{ fontSize: 11, fill: 'rgba(255, 255, 255, 0.65)' }} axisLine={{ stroke: 'rgba(255, 255, 255, 0.2)' }} tickLine={false} />
-                <YAxis
-                  tick={{ fontSize: 11, fill: 'rgba(255, 255, 255, 0.65)' }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={64}
-                  tickFormatter={(v) => moneyCompact(v)}
-                />
-                <Tooltip formatter={(v) => money(v)} labelStyle={{ color: '#151e2c' }} />
-                <Bar dataKey="ingresos" name="Ingresos" fill="#c97a0c" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
         </div>
       </section>
 

@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { IconBox, IconChart, IconUser, IconLogout, IconStore, IconTrendUp, IconGrid, IconAlert, IconInfo, IconUsers } from './Icons';
+import { IconBox, IconChart, IconUser, IconLogout, IconStore, IconTrendUp, IconGrid, IconAlert, IconInfo, IconUsers, IconMenu, IconClose } from './Icons';
+import { LogoMark } from './Brand';
 import { ChatWidget } from './ChatWidget';
 import NotificationBell from './NotificationBell';
 import { pymesApi } from '../api';
@@ -25,10 +26,26 @@ const NAV_RIGHT = [
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const pymes = useAsync(() => pymesApi.list());
   const { pymeSeleccionada, setPymeSeleccionada } = usePymeFilter();
+
+  // El drawer móvil se cierra al navegar y al bloquear el scroll de fondo
+  // mientras está abierto.
+  useEffect(() => { setMenuOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
 
   // Selector de PYME vive acá (rail, siempre visible) y no dentro de cada
   // página — así nunca desaparece si la página de adentro tira error (p.ej.
@@ -95,11 +112,36 @@ export default function Layout() {
     .toUpperCase();
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${menuOpen ? ' menu-open' : ''}`}>
       <a href="#main-content" className="skip-link">Saltar al contenido principal</a>
-      <nav className="rail" aria-label="Navegación principal">
+
+      <header className="mobile-topbar">
+        <button
+          type="button"
+          className="mobile-topbar-menu"
+          aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          {menuOpen ? <IconClose size={20} aria-hidden="true" /> : <IconMenu size={20} aria-hidden="true" />}
+        </button>
+        <button type="button" className="mobile-topbar-brand" onClick={() => navigate('/dashboard')}>
+          <LogoMark size={22} />
+          <strong>Inventario</strong>
+        </button>
+      </header>
+
+      <button
+        type="button"
+        className={`rail-backdrop${menuOpen ? ' rail-backdrop-open' : ''}`}
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={() => setMenuOpen(false)}
+      />
+
+      <nav className={`rail${menuOpen ? ' rail-open' : ''}`} aria-label="Navegación principal">
         <button type="button" className="rail-brand" onClick={() => navigate('/dashboard')}>
-          <span className="brand-logo">IN</span>
+          <span className="brand-logo"><LogoMark size={26} /></span>
           <strong>Inventario</strong>
         </button>
 

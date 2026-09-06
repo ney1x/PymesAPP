@@ -72,6 +72,10 @@ export const IconClose = (p) => (
   <Svg {...p}><path d="M18 6 6 18" /><path d="M6 6l12 12" /></Svg>
 );
 
+export const IconMenu = (p) => (
+  <Svg {...p}><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></Svg>
+);
+
 export const IconChevronLeft = (p) => (
   <Svg {...p}><path d="M15 18l-6-6 6-6" /></Svg>
 );

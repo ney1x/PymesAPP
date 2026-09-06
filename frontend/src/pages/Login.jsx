@@ -1,3 +1,4 @@
+import { LogoMark } from '../components/Brand';
 import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -32,7 +33,7 @@ export default function Login() {
   return (
     <div className="auth-shell">
       <div className="auth-side">
-        <span className="brand-logo">IN</span>
+        <span className="brand-logo"><LogoMark size={30} /></span>
         <strong>Inventario</strong>
         <p>Predicción de demanda e inteligencia de inventario para PYMES.</p>
       </div>

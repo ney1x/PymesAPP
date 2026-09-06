@@ -1,3 +1,4 @@
+import { LogoMark } from '../components/Brand';
 import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -85,7 +86,7 @@ export default function Register() {
     <div className="auth-shell">
       <div className="auth-side auth-side-checklist">
         <div className="auth-side-register-brand">
-          <span className="brand-logo">IN</span>
+          <span className="brand-logo"><LogoMark size={30} /></span>
           <strong>Inventario</strong>
         </div>
         <div className="success-msgs">

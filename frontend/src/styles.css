@@ -1,60 +1,120 @@
 @font-face {
-  font-family: 'Fraunces Display';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('/fonts/fraunces-display-700.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Public Sans';
+  font-family: 'Inter';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/fonts/public-sans-400.woff2') format('woff2');
+  src: url('/fonts/inter-400.woff2') format('woff2');
 }
 @font-face {
-  font-family: 'Public Sans';
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/inter-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('/fonts/public-sans-600.woff2') format('woff2');
+  src: url('/fonts/inter-600.woff2') format('woff2');
 }
 @font-face {
-  font-family: 'Public Sans';
+  font-family: 'Inter';
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url('/fonts/public-sans-700.woff2') format('woff2');
+  src: url('/fonts/inter-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/fonts/inter-800.woff2') format('woff2');
 }
 
 :root {
-  /* "Ledger digital": azul marino + acento ambar, sobre blanco. */
-  --navy: #122a47;
-  --navy-dark: #0c1e33;
-  --navy-soft: #e4eaf1;
-  --petrol: #c97a0c;
-  --petrol-light: #f6e4c4;
-  --primary: #c97a0c;
-  --primary-dark: #8a5608;
-  --primary-soft: #f6e4c4;
-  --success: #2a7048;
-  --success-soft: #e1eee3;
-  --warning: #c97a0c;
-  --warning-soft: #f6e4c4;
-  --danger: #b23a2e;
-  --danger-soft: #f5e1de;
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface-alt: #f5f7fa;
-  --text: #151e2c;
-  --muted: #54606f;
-  --border: #dde1e6;
-  --border-strong: #c3c9d1;
-  --radius: 10px;
-  --shadow: 0 1px 0 var(--border), 2px 3px 0 rgba(21, 30, 44, 0.06);
-  --font: 'Public Sans', -apple-system, system-ui, Roboto, Arial, sans-serif;
-  --font-display: 'Fraunces Display', Georgia, serif;
+  /* Plataforma SaaS de gestión para PYMES — navy de identidad + un único
+     acento dorado, sobre un fondo azul grisáceo muy claro con tarjetas
+     blancas. Ver .impeccable/surfaces/frontend-src-styles-css.md */
+
+  /* Navy: identidad, navegación, acciones primarias. */
+  --navy: #102A43;
+  --navy-dark: #0B1D30;
+  --navy-2: #243B53;   /* estado activo de navegación, superficies navy secundarias */
+  --navy-3: #486581;   /* texto/íconos sobre navy, enlaces */
+  --navy-soft: #E1E9F2; /* tinte navy claro para fondos seleccionados sobre blanco */
+
+  /* Dorado: acento único — elemento seleccionado, métrica destacada, 1 CTA
+     por vista. Nunca como relleno de región ni superficie grande. */
+  --accent: #D99000;
+  --accent-strong: #B87A00;
+  --accent-soft: #FBF0D8;
+
+  /* Compatibilidad: el sistema previo usaba --primary/--petrol como acento.
+     Se conservan los nombres apuntando al dorado para no romper reglas
+     existentes mientras se migra pantalla por pantalla. */
+  --primary: #D99000;
+  --primary-dark: #B87A00;
+  --primary-soft: #FBF0D8;
+  --petrol: #D99000;
+  --petrol-light: #FBF0D8;
+
+  --success: #18864B;
+  --success-soft: #E3F2E9;
+  --warning: #B87A00;
+  --warning-soft: #FBF0D8;
+  --danger: #C94C4C;
+  --danger-soft: #FBEAEA;
+
+  --bg: #F7F9FC;
+  --surface: #FFFFFF;
+  --surface-alt: #F1F4F9;
+  --text: #172B4D;
+  --muted: #627D98;
+  --border: #D9E2EC;
+  --border-strong: #C1CEDC;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-pill: 999px;
+
+  /* Sombras extremadamente suaves, con offset + blur reales (nunca un halo
+     de color a offset cero). */
+  --shadow-sm: 0 1px 2px rgba(16, 42, 67, 0.06);
+  --shadow: 0 1px 2px rgba(16, 42, 67, 0.05), 0 2px 8px rgba(16, 42, 67, 0.05);
+  --shadow-md: 0 4px 12px rgba(16, 42, 67, 0.08), 0 2px 4px rgba(16, 42, 67, 0.05);
+  --shadow-lg: 0 12px 32px rgba(16, 42, 67, 0.14);
+
+  /* Escala de espaciado: 4 · 8 · 12 · 16 · 24 · 32 · 48 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  --content-max: 1240px;
+
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-display: var(--font);
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', monospace;
+
+  /* Cifras tabulares alineadas + cero con barra, para montos y stock. */
+  --num: 'Inter', var(--font-mono);
+}
+
+/* Números que se comparan en columna (montos, stock, métricas): Inter con
+   figuras tabulares. Reemplaza el uso de monospace-como-disfraz. */
+.tnum,
+.stat-value,
+.dashboard-rank-metric,
+table td,
+table th {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'cv05' 1;
 }
 
 * { box-sizing: border-box; }
@@ -64,9 +124,11 @@ body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
-  font-size: 14.5px;
+  font-size: 14px;
   line-height: 1.55;
+  letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   /* Red de seguridad: nada debería forzar overflow horizontal de página en
      ningún viewport, pero si algo lo hace igual (un valor sin wrap, un
      ancho fijo mal puesto), esto lo contiene acá en vez de dejar que la
@@ -76,19 +138,38 @@ body {
   overflow-x: hidden;
 }
 
-h1 { font-family: var(--font-display); font-size: 24px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.01em; }
-h2 { font-family: var(--font-display); font-size: 20px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.01em; }
-h3 { font-family: var(--font-display); font-size: 16px; font-weight: 700; margin: 0 0 6px; }
+/* Jerarquía tipográfica Inter: 700 títulos, 600 subtítulos, 500 etiquetas,
+   400 texto. Métricas grandes a 800. */
+h1 { font-family: var(--font-display); font-size: 22px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.02em; line-height: 1.25; }
+h2 { font-family: var(--font-display); font-size: 17px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.017em; line-height: 1.3; }
+h3 { font-family: var(--font-display); font-size: 14.5px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; line-height: 1.35; }
 
 .muted { color: var(--muted); }
 
-a { color: var(--navy); transition: color 150ms ease; }
-a:hover { color: var(--primary); }
+a { color: var(--navy); font-weight: 500; text-decoration: none; text-underline-offset: 2px; transition: color 150ms ease; }
+a:hover { color: var(--navy-2); text-decoration: underline; }
 
 :focus-visible {
-  outline: 2px solid var(--petrol);
-  outline-offset: 3px;
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
+
+/* Superficies del navegador: lo que no dibujamos también lleva el sistema. */
+::selection { background: var(--accent-soft); color: var(--navy); }
+::-moz-selection { background: var(--accent-soft); color: var(--navy); }
+
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--navy-3); }
+
+input, textarea { caret-color: var(--navy); }
 
 /* Skip link */
 .skip-link {
@@ -116,18 +197,70 @@ a:hover { color: var(--primary); }
   min-height: 100vh;
 }
 
+/* Topbar + backdrop del drawer: solo existen en móvil (ver media query). */
+.mobile-topbar { display: none; }
+.rail-backdrop { display: none; }
+
+@media (max-width: 768px) {
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    padding: 0 var(--sp-3);
+    background: var(--navy);
+    border-bottom: 1px solid var(--navy-2);
+    z-index: 50;
+  }
+  .mobile-topbar-menu {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+  }
+  .mobile-topbar-menu:active { background: rgba(255, 255, 255, 0.08); }
+  .mobile-topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    font: inherit;
+    cursor: pointer;
+  }
+  .mobile-topbar-brand strong { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+  .mobile-topbar-brand svg { color: #fff; flex-shrink: 0; }
+
+  /* El contenido arranca debajo del topbar fijo. */
+  .content-col { padding-top: 56px; }
+}
+
 /* Rail lateral */
 .rail {
   display: flex;
   flex-direction: column;
-  width: 232px;
+  width: 240px;
   flex-shrink: 0;
   background: var(--navy);
+  border-right: 1px solid var(--navy-2);
   position: sticky;
   top: 0;
   height: 100vh;
   overflow-y: auto;
-  padding: 18px 12px;
+  padding: var(--sp-4) var(--sp-3);
   z-index: 10;
 }
 
@@ -137,9 +270,9 @@ a:hover { color: var(--primary); }
   gap: 10px;
   cursor: pointer;
   color: #fff;
-  padding: 4px 8px 18px;
-  margin-bottom: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 4px 6px 16px;
+  margin-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--navy-2);
   background: none;
   border-left: none;
   border-right: none;
@@ -150,9 +283,9 @@ a:hover { color: var(--primary); }
 
 .rail-brand strong {
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .brand-logo {
@@ -161,47 +294,44 @@ a:hover { color: var(--primary); }
   justify-content: center;
   width: 30px;
   height: 30px;
-  border-radius: 7px;
-  background: var(--petrol);
-  color: #241804;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 13px;
   flex-shrink: 0;
+  color: #fff;
 }
+.brand-logo svg { display: block; }
 
 /* Selector de PYME global — vive en el rail (siempre visible, nunca
    desaparece si la página de adentro tira error) y decide qué links de
    navegación se habilitan según el rol en esa PYME puntual. */
 .rail-pyme-switch {
-  padding: 0 8px 14px;
-  margin-bottom: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0 4px 14px;
+  margin-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--navy-2);
 }
 
 .rail-pyme-switch label {
   display: block;
   font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 5px;
+  color: var(--navy-3);
+  margin-bottom: 6px;
 }
 
 .rail-pyme-switch select {
   width: 100%;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--navy-2);
   color: #fff;
   font-size: 12.5px;
-  padding: 7px 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
 }
 
 .rail-pyme-switch select:focus {
-  border-color: var(--petrol);
-  background: rgba(255, 255, 255, 0.13);
-  box-shadow: 0 0 0 3px rgba(201, 122, 12, 0.35);
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 3px rgba(217, 144, 0, 0.28);
 }
 
 .rail-pyme-switch select option { color: var(--text); }
@@ -213,36 +343,51 @@ a:hover { color: var(--primary); }
 }
 
 .rail-nav-secondary {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--navy-2);
 }
 
 .rail-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 10px 9px 9px;
-  border-radius: 7px;
-  border-left: 3px solid transparent;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
   font-size: 13.5px;
   font-weight: 500;
   cursor: pointer;
   text-decoration: none;
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--navy-3);
   background: transparent;
   width: 100%;
-  transition: color 150ms ease, background-color 150ms ease, border-color 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 150ms ease, background-color 150ms ease;
 }
 
-.rail-item svg { flex-shrink: 0; }
+.rail-item svg { flex-shrink: 0; opacity: 0.9; }
 
-.rail-item:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.rail-item:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
+.rail-item:hover svg { opacity: 1; }
+
 .rail-item.active {
   color: #fff;
-  background: rgba(255, 255, 255, 0.1);
-  border-left-color: var(--petrol);
+  background: var(--navy-2);
   font-weight: 600;
+}
+.rail-item.active svg { opacity: 1; }
+
+/* Indicador vertical dorado del ítem activo — pequeño, no domina. */
+.rail-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  background: var(--accent);
 }
 
 .rail-profile {
@@ -277,11 +422,12 @@ a:hover { color: var(--primary); }
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--petrol);
-  color: #241804;
-  font-weight: 700;
-  font-size: 11.5px;
+  background: var(--navy-2);
+  color: #fff;
+  font-weight: 600;
+  font-size: 11px;
   flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
 .rail-profile-name {
@@ -348,10 +494,14 @@ a:hover { color: var(--primary); }
 /* Main */
 .main {
   flex: 1;
-  padding: 32px 24px;
-  max-width: 1180px;
+  padding: var(--sp-6) var(--sp-6) var(--sp-7);
+  max-width: var(--content-max);
   width: 100%;
   margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .main { padding: var(--sp-4) var(--sp-4) var(--sp-6); }
 }
 
 /* ======================== BOTONES ======================== */
@@ -362,69 +512,64 @@ a:hover { color: var(--primary); }
   justify-content: center;
   gap: 6px;
   padding: 8px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
-  font-size: 13.5px;
+  font-family: inherit;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
   cursor: pointer;
-  transition: background 0.15s, opacity 0.15s, transform 0.1s, box-shadow 0.15s, border-color 0.15s, color 0.15s;
+  transition: background 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease, color 0.14s ease, transform 0.1s ease;
   text-decoration: none;
   line-height: 1.2;
   min-height: 36px;
   white-space: nowrap;
 }
 
-.btn:active:not(:disabled) { transform: scale(0.98) translateY(0); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; transform: none; }
-.btn:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; }
+.btn:active:not(:disabled) { transform: translateY(0.5px); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; transform: none; }
+.btn:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
 
-/* Primary — la única acción que debe ganar el ojo por vista. */
-.btn-primary { background: var(--navy); color: #fff; box-shadow: 0 1px 2px rgba(18, 42, 71, 0.18); }
-.btn-primary:hover:not(:disabled) { background: var(--navy-dark); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(18, 42, 71, 0.22); }
-.btn-primary:active:not(:disabled) { box-shadow: 0 1px 2px rgba(18, 42, 71, 0.22); }
+/* Primaria (navy) — la acción principal de la vista. */
+.btn-primary { background: var(--navy); color: #fff; box-shadow: var(--shadow-sm); }
+.btn-primary:hover:not(:disabled) { background: var(--navy-2); box-shadow: var(--shadow-md); }
+.btn-primary:active:not(:disabled) { background: var(--navy-dark); box-shadow: var(--shadow-sm); }
 
-/* Secondary (Editar, Ver, navegación de tarjetas) — superficie tintada en
-   vez del borde blanco-sobre-gris de un botón outline por defecto, para que
-   lea a sistema propio y no a componente genérico. */
-.btn-outline { background: var(--surface-alt); color: var(--text); border-color: var(--border); }
-.btn-outline:hover:not(:disabled) { background: var(--navy-soft); border-color: var(--navy); color: var(--navy); }
-.btn-outline:active:not(:disabled) { background: var(--navy-soft); }
+/* Secundaria — blanco con borde. */
+.btn-outline { background: var(--surface); color: var(--text); border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+.btn-outline:hover:not(:disabled) { border-color: var(--navy-3); background: var(--surface-alt); }
+.btn-outline:active:not(:disabled) { background: var(--surface-alt); box-shadow: none; }
 
-.btn-ghost { background: transparent; color: var(--muted); border-color: transparent; }
+.btn-ghost { background: transparent; color: var(--muted); border-color: transparent; box-shadow: none; }
 .btn-ghost:hover:not(:disabled) { background: var(--surface-alt); color: var(--text); }
 
-/* Danger sólido — reservado al submit real de una confirmación (el punto
-   sin retorno). En reposo dentro de una fila usamos btn-danger-subtle. */
-.btn-danger { background: var(--danger); color: #fff; box-shadow: 0 1px 2px rgba(178, 58, 46, 0.2); }
-.btn-danger:hover:not(:disabled) { background: #8f1e18; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(178, 58, 46, 0.22); }
-.btn-danger:active:not(:disabled) { box-shadow: 0 1px 2px rgba(178, 58, 46, 0.22); }
+/* Danger sólido — solo el submit real de una confirmación. */
+.btn-danger { background: var(--danger); color: #fff; box-shadow: var(--shadow-sm); }
+.btn-danger:hover:not(:disabled) { background: #B23F3F; box-shadow: var(--shadow-md); }
+.btn-danger:active:not(:disabled) { background: #9E3838; box-shadow: none; }
 
-/* Danger tenue — disparador de eliminar dentro de listas/tablas. Claramente
-   rojo en su vocabulario de color, pero no grita en reposo; el peso completo
-   llega con la intención de hover/focus. */
-.btn-danger-subtle { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
-.btn-danger-subtle:hover:not(:disabled) { background: var(--danger); color: #fff; box-shadow: 0 4px 10px rgba(178, 58, 46, 0.22); }
+/* Danger tenue — disparador de eliminar en filas: rojo muy suave en reposo. */
+.btn-danger-subtle { background: var(--danger-soft); color: var(--danger); border-color: transparent; box-shadow: none; }
+.btn-danger-subtle:hover:not(:disabled) { background: var(--danger); color: #fff; box-shadow: var(--shadow-sm); }
 
-.btn-success { background: var(--success); color: #fff; box-shadow: 0 1px 2px rgba(42, 112, 72, 0.2); }
-.btn-success:hover:not(:disabled) { background: #1e5236; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(42, 112, 72, 0.22); }
-.btn-success:active:not(:disabled) { box-shadow: 0 1px 2px rgba(42, 112, 72, 0.22); }
+.btn-success { background: var(--success); color: #fff; box-shadow: var(--shadow-sm); }
+.btn-success:hover:not(:disabled) { background: #14713F; box-shadow: var(--shadow-md); }
+.btn-success:active:not(:disabled) { background: #115F35; box-shadow: none; }
 
-/* Accent sólido — mismo par petrol/texto oscuro que .brand-logo, para la
-   única acción que debe leer fuerte sobre una superficie navy (barra de
-   cobro de Ventas). No es un color nuevo, es --primary llevado a botón. */
-.btn-accent { background: var(--primary); color: #241804; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22); }
-.btn-accent:hover:not(:disabled) { background: var(--primary-dark); color: #fff; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); }
-.btn-accent:active:not(:disabled) { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.32); }
+/* Acento (dorado) — una acción importante por vista, no más. Texto navy
+   oscuro para contraste sobre el dorado. */
+.btn-accent { background: var(--accent); color: var(--navy-dark); box-shadow: var(--shadow-sm); }
+.btn-accent:hover:not(:disabled) { background: var(--accent-strong); color: #fff; box-shadow: var(--shadow-md); }
+.btn-accent:active:not(:disabled) { box-shadow: none; }
 
 .btn-block { width: 100%; }
 
 /* Compacto — acciones dentro de tablas y listas densas. */
-.btn-sm { min-height: 30px; padding: 5px 11px; font-size: 12.5px; border-radius: 7px; gap: 5px; }
+.btn-sm { min-height: 30px; padding: 5px 10px; font-size: 12px; border-radius: var(--radius-sm); gap: 5px; }
 
 /* Solo-icono, siempre acompañado del tooltip de .icon-btn-tip. */
 .btn-icon { padding: 0; width: 34px; flex-shrink: 0; }
-.btn-icon.btn-sm { width: 28px; border-radius: 7px; }
+.btn-icon.btn-sm { width: 30px; border-radius: var(--radius-sm); }
 
 /* Grupo de acciones de fila: pegadas, sin separadores ni ruido entre ellas. */
 .row-actions { display: inline-flex; align-items: center; gap: 4px; }
@@ -476,14 +621,14 @@ a:hover { color: var(--primary); }
 
 /* ======================== FORMULARIOS ======================== */
 
-.form-group { margin-bottom: 14px; }
-.form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 12.5px; color: var(--text); }
+.form-group { margin-bottom: var(--sp-4); }
+.form-group label { display: block; font-weight: 500; margin-bottom: 6px; font-size: 12.5px; color: var(--text); }
 .form-group .hint { font-size: 12px; color: var(--muted); }
 
-.form-advanced { margin-bottom: 14px; }
+.form-advanced { margin-bottom: var(--sp-4); }
 .form-advanced summary {
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 12.5px;
   color: var(--muted);
 }
@@ -494,8 +639,8 @@ button { font-family: inherit; }
 input, select, textarea {
   width: 100%;
   padding: 9px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   font-size: 13.5px;
   font-family: inherit;
   background: var(--surface);
@@ -504,16 +649,20 @@ input, select, textarea {
   transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
 }
 
+input:hover:not(:disabled):not(:focus),
+select:hover:not(:disabled):not(:focus),
+textarea:hover:not(:disabled):not(:focus) { border-color: var(--navy-3); }
+
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: var(--petrol);
-  box-shadow: 0 0 0 3px var(--primary-soft);
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(16, 42, 67, 0.12);
 }
 
-input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.78; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.75; }
 input:disabled, select:disabled, textarea:disabled { background: var(--surface-alt); color: var(--muted); cursor: not-allowed; }
 
-.form-row, .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-row, .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
 
 /* Checkbox */
 .checkbox-row {
@@ -539,30 +688,30 @@ input:disabled, select:disabled, textarea:disabled { background: var(--surface-a
   box-shadow: var(--shadow);
 }
 
-table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
 
 thead th {
   text-align: left;
-  padding: 11px 14px;
+  padding: 10px 16px;
   background: var(--surface-alt);
   border-bottom: 1px solid var(--border);
   color: var(--muted);
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   white-space: nowrap;
 }
 
 tbody td {
-  padding: 11px 14px;
+  padding: 11px 16px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: var(--surface-alt); }
-tbody tr:focus-visible { outline: 2px solid var(--petrol); outline-offset: -2px; background: var(--primary-soft); }
+tbody tr:focus-visible { outline: 2px solid var(--navy); outline-offset: -2px; background: var(--navy-soft); }
 
 /* Inventario: la fila con stock bajo lleva su propia señal de color,
    no solo el badge — la cifra de stock actual pasa a rojo. */
@@ -603,29 +752,30 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
   background: var(--surface);
   color: var(--text);
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
-.inv-category-chip:hover { border-color: var(--navy); }
-.inv-category-chip:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; }
+.inv-category-chip:hover { border-color: var(--navy-3); }
+.inv-category-chip:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
 
 .inv-category-chip-active {
   background: var(--navy);
   border-color: var(--navy);
   color: #fff;
+  font-weight: 600;
 }
 
 .inv-category-chip-count {
   font-variant-numeric: tabular-nums;
   color: var(--muted);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .inv-category-chip-active .inv-category-chip-count { color: rgba(255, 255, 255, 0.7); }
@@ -647,14 +797,15 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 
 .table-wrap--catalogo tbody tr.inv-row-selected {
   background: var(--navy-soft);
-  outline: 2px solid var(--petrol);
+  outline: 2px solid var(--navy);
   outline-offset: -2px;
 }
 
 .inv-cell-codigo {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--muted);
+  letter-spacing: -0.01em;
 }
 
 /* La categoría necesita su propio contorno: sin esto, badge-default (fondo
@@ -662,28 +813,34 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
    el fondo de la fila hover es ese mismo surface-alt. */
 .inv-badge-categoria .badge-default {
   background: var(--surface);
-  border: 1px solid var(--border);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
 .inv-stock-cell {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 150px;
+  gap: 10px;
+  min-width: 160px;
 }
 
 .inv-stock-cell-value {
   font-weight: 700;
-  min-width: 22px;
+  min-width: 26px;
   text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--navy);
 }
 
+/* Barra de stock: el relleno es "qué tan lleno está" respecto al techo, y el
+   color (verde / ámbar / rojo) dice si el actual está sano, cerca del mínimo
+   o por debajo. */
 .inv-stock-bar {
   display: inline-block;
-  width: 48px;
-  height: 5px;
-  border-radius: 999px;
+  width: 56px;
+  height: 6px;
+  border-radius: var(--radius-pill);
   background: var(--surface-alt);
+  box-shadow: inset 0 0 0 1px var(--border);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -692,13 +849,13 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   display: block;
   height: 100%;
   width: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--success);
   transform-origin: left;
   transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.inv-stock-bar-warning .inv-stock-bar-fill { background: var(--warning); }
+.inv-stock-bar-warning .inv-stock-bar-fill { background: var(--accent); }
 .inv-stock-bar-danger .inv-stock-bar-fill { background: var(--danger); }
 
 .inv-stock-cell-min {
@@ -757,15 +914,22 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: var(--sp-4) var(--sp-5);
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sp-1);
 }
 
-.stat-label { color: var(--muted); font-size: 12.5px; font-weight: 600; }
-.stat-value { font-family: var(--font-display); font-size: 25px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.stat-label { color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: 0.01em; }
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--navy);
+}
 .stat-hint { color: var(--muted); font-size: 12px; }
 .stat-card.stat-success .stat-value { color: var(--success); }
 .stat-card.stat-danger .stat-value { color: var(--danger); }
@@ -773,153 +937,139 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
 }
 
+/* ---- Dashboard: fila de KPIs ---- */
+/* Tarjetas independientes, blancas, sobre el fondo claro — el estado del
+   negocio de un vistazo antes que cualquier acción. */
+.dash-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+}
+
+.dash-kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-4) var(--sp-5);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dash-kpi-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dash-kpi-value {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--navy);
+}
+
+.dash-kpi-hint { font-size: 12px; color: var(--muted); }
+
+/* El único KPI que puede llevar dorado por vista: la métrica que más pesa
+   en la decisión (margen). */
+.dash-kpi-accent .dash-kpi-value { color: var(--accent-strong); }
+.dash-kpi-alert .dash-kpi-value { color: var(--danger); }
+.dash-kpi-alert.dash-kpi-clear .dash-kpi-value { color: var(--success); }
+
+@media (max-width: 460px) { .dash-kpis { grid-template-columns: 1fr; } }
+
+/* ---- Dashboard: gráfico sobre tarjeta blanca ---- */
+.dash-chart-card { margin-bottom: var(--sp-5); }
+.dash-chart-card .recharts-cartesian-grid line { stroke: var(--border); }
+.dash-chart-card .recharts-text { fill: var(--muted); }
+
+/* ---- Dashboard: tarjetas de decisión (planas, sin gradiente) ---- */
 .dashboard-decision-grid {
   display: grid;
-  grid-template-columns: 1.25fr 1fr 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 18px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
 }
 
-.dashboard-decision-grid-compact { grid-template-columns: 1.25fr 1fr 1fr; }
+.dashboard-decision-grid-compact { grid-template-columns: repeat(3, 1fr); }
 
 .dashboard-decision-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: var(--sp-4) var(--sp-5);
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-height: 150px;
 }
 
-.dashboard-decision-urgent {
-  border-color: rgba(178, 58, 46, 0.35);
-  background: linear-gradient(180deg, var(--danger-soft), var(--surface));
+/* Señal por punto de color a la izquierda del rótulo, no por fondo tintado. */
+.dashboard-decision-urgent { border-color: rgba(201, 76, 76, 0.4); }
+.dashboard-decision-urgent .dashboard-decision-label::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--danger); flex-shrink: 0;
 }
-
-.dashboard-decision-ok {
-  border-color: rgba(47, 125, 79, 0.28);
-  background: linear-gradient(180deg, var(--success-soft), var(--surface));
+.dashboard-decision-ok .dashboard-decision-label::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--success); flex-shrink: 0;
 }
 
 .dashboard-decision-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .dashboard-decision-card strong {
-  font-size: 17px;
-  line-height: 1.25;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
 }
 
-.dashboard-decision-card small {
-  color: var(--muted);
-}
+.dashboard-decision-card small { color: var(--muted); font-size: 12.5px; }
 
 .dashboard-decision-card .btn {
   align-self: flex-start;
   margin-top: auto;
 }
 
-/* Dashboard: banda de control — KPIs + tendencia en un solo panel navy,
-   en vez de una fila de stat-cards blancas seguida de otra card blanca con
-   el gráfico. El amber marca el número que más importa (margen). */
-.dashboard-hero {
-  display: grid;
-  grid-template-columns: minmax(150px, 220px) 1fr;
-  gap: 28px;
-  background: var(--navy);
-  border-radius: var(--radius);
-  padding: 22px 26px;
-  margin-bottom: 24px;
-  box-shadow: var(--shadow);
-}
-
-.dashboard-hero-stats {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 18px;
-  min-width: 0;
-}
-
-.dashboard-hero-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.dashboard-hero-stat-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.dashboard-hero-stat-value {
-  font-family: var(--font-display);
-  font-size: clamp(18px, 4vw, 25px);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-  color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.dashboard-hero-stat-value-accent { color: var(--petrol); }
-
-.dashboard-hero-stat-hint {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.dashboard-hero-chart {
-  min-width: 0;
-  border-left: 1px solid rgba(255, 255, 255, 0.12);
-  padding-left: 26px;
-}
-
-.dashboard-hero-chart-label {
-  display: block;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.75);
-  margin-bottom: 8px;
-}
-
-@media (max-width: 860px) {
-  .dashboard-hero { grid-template-columns: 1fr; }
-  .dashboard-hero-stats { flex-direction: row; flex-wrap: wrap; gap: 20px; }
-  .dashboard-hero-stat { flex: 1 1 130px; min-width: 0; }
-  .dashboard-hero-stat-value { font-size: 20px; white-space: normal; overflow-wrap: break-word; }
-  .dashboard-hero-chart { border-left: none; padding-left: 0; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 16px; }
-}
+@media (max-width: 900px) { .dashboard-decision-grid,
+  .dashboard-decision-grid-compact { grid-template-columns: 1fr; } }
 
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px;
+  padding: var(--sp-5);
   box-shadow: var(--shadow);
-  margin-bottom: 24px;
+  margin-bottom: var(--sp-5);
 }
 
 .card-title {
-  font-size: 14.5px;
-  font-weight: 700;
-  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: var(--sp-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -987,7 +1137,8 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 .dashboard-rank-metric {
   margin-left: auto;
   text-align: right;
-  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--navy);
   font-variant-numeric: tabular-nums;
 }
 
@@ -995,13 +1146,12 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   display: block;
   color: var(--muted);
   font-size: 12px;
+  font-weight: 400;
 }
 
-/* Mismo lenguaje que la card "Reponer ahora" del panel de decisiones —
-   la urgencia se lee igual en toda la pantalla, no es un tratamiento nuevo. */
+/* Alertas de stock: la señal es el borde y el título, no un fondo tintado. */
 .dashboard-alert-card {
-  background: linear-gradient(180deg, var(--danger-soft), var(--surface));
-  border-color: rgba(178, 58, 46, 0.3);
+  border-color: rgba(201, 76, 76, 0.4);
 }
 
 .dashboard-alert-card .card-title { color: var(--danger); }
@@ -1017,11 +1167,11 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 19px;
-  height: 19px;
+  min-width: 20px;
+  height: 20px;
   padding: 0 6px;
   margin-left: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--danger);
   color: #fff;
   font-size: 11px;
@@ -1087,19 +1237,21 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
-  border-radius: 999px;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+  white-space: nowrap;
 }
 
-.badge-danger { background: var(--danger-soft); color: var(--danger); }
+.badge-danger { background: var(--danger-soft); color: #A93B3B; }
 .badge-warning { background: var(--warning-soft); color: var(--warning); }
-.badge-success { background: var(--success-soft); color: var(--success); }
-.badge-primary { background: var(--primary-soft); color: var(--primary-dark); }
-.badge-default { background: var(--surface-alt); color: var(--muted); }
+.badge-success { background: var(--success-soft); color: #12703E; }
+.badge-primary { background: var(--accent-soft); color: var(--accent-strong); }
+.badge-default { background: var(--surface-alt); color: var(--muted); box-shadow: inset 0 0 0 1px var(--border); }
 
 /* ======================== ALERTAS ======================== */
 
@@ -1108,14 +1260,15 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   align-items: center;
   gap: 8px;
   padding: 11px 14px;
-  border-radius: 6px;
-  font-size: 13.5px;
-  margin-bottom: 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: var(--sp-4);
+  border: 1px solid transparent;
 }
 
-.alert-error { background: var(--danger-soft); color: var(--danger); border: 1px solid #f2c9c6; }
-.alert-success { background: var(--success-soft); color: var(--success); border: 1px solid #bfe1cc; }
-.alert-info { background: var(--primary-soft); color: var(--primary-dark); border: 1px solid #ecceA0; }
+.alert-error { background: var(--danger-soft); color: #A93B3B; border-color: rgba(201, 76, 76, 0.28); }
+.alert-success { background: var(--success-soft); color: #12703E; border-color: rgba(24, 134, 75, 0.24); }
+.alert-info { background: var(--surface-alt); color: var(--navy-2); border-color: var(--border); }
 
 /* Confirmación de venta: se lee como un talón de recibo recién sellado —
    el borde inferior punteado retoma la perforación de .venta-factura-detalle
@@ -1128,9 +1281,8 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   padding: 13px 16px 14px;
   margin-bottom: 16px;
   background: var(--success-soft);
-  border: 1px solid #bfe1cc;
-  border-bottom: 1px dashed #9ecbae;
-  border-radius: var(--radius);
+  border: 1px solid rgba(24, 134, 75, 0.24);
+  border-radius: var(--radius-sm);
   animation: ventaReceiptSlide 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1168,13 +1320,13 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 
 .venta-receipt-title {
   font-family: var(--font-display);
-  font-size: 15px;
-  color: var(--success);
-  letter-spacing: -0.005em;
+  font-size: 14px;
+  font-weight: 700;
+  color: #12703E;
+  letter-spacing: -0.01em;
 }
 
 .venta-receipt-monto {
-  font-family: var(--font-display);
   font-size: 13px;
   font-weight: 700;
   color: var(--navy);
@@ -1211,16 +1363,14 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 }
 
 /* ======================== VENTAS: POS ======================== */
-/* Composición de caja registradora en vez de "dos cards iguales lado a
-   lado": un panel de operación con tres franjas apiladas (escaneo → carrito
-   → cobro, mismo orden que el flujo real de una venta) y, aparte, un
-   costado secundario más plano para el historial — nunca compitiendo por
-   atención con la operación en curso. */
+/* Panel de operación en tres franjas apiladas (escanear → carrito → cobrar,
+   el orden real de una venta), sobre superficie clara. El único bloque navy
+   es la franja de cobro: es la jerarquía máxima, el momento de confirmar. */
 
 .venta-pos {
   display: grid;
   grid-template-columns: 1.7fr 1fr;
-  gap: 24px;
+  gap: var(--sp-5);
   align-items: start;
 }
 
@@ -1229,14 +1379,15 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   overflow: hidden;
-  margin-bottom: 24px;
+  margin-bottom: var(--sp-5);
+  background: var(--surface);
 }
 
-/* Franja 1 — el escaneo es la acción protagonista: banda navy propia,
-   no un título gris más dentro de una card blanca. */
+/* Franja 1 — escanear: el input es grande y protagonista. */
 .venta-scan-deck {
-  background: var(--navy);
-  padding: 18px 20px 16px;
+  background: var(--surface);
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+  border-bottom: 1px solid var(--border);
 }
 
 .venta-scan-deck-head {
@@ -1244,78 +1395,54 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: var(--sp-3);
 }
 
 .venta-scan-deck-title {
-  font-size: 15px;
-  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
   margin: 0;
 }
 
-.venta-scan-deck .form-group > label {
-  color: rgba(255, 255, 255, 0.68);
-}
-
 .venta-scan-deck .venta-scan-input {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.24);
-  color: #fff;
-  font-size: 15px;
+  font-size: 16px;
+  padding: 12px 14px;
+  border-color: var(--border-strong);
 }
-
-.venta-scan-deck .venta-scan-input::placeholder { color: rgba(255, 255, 255, 0.5); }
 
 .venta-scan-deck .venta-scan-input:focus {
-  border-color: var(--petrol);
-  background: rgba(255, 255, 255, 0.13);
-  box-shadow: 0 0 0 3px rgba(201, 122, 12, 0.35);
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(16, 42, 67, 0.12);
+}
+
+.venta-manual-add {
+  margin-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-3);
 }
 
 .venta-manual-add summary {
   cursor: pointer;
   font-size: 12.5px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.65);
-  margin-top: 4px;
+  font-weight: 500;
+  color: var(--muted);
 }
 
-.venta-manual-add summary:hover { color: #fff; }
+.venta-manual-add summary:hover { color: var(--text); }
 
 .venta-manual-add-body {
-  margin-top: 12px;
-  padding: 14px 14px 2px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: var(--radius);
+  margin-top: var(--sp-3);
+  padding: var(--sp-4) var(--sp-4) var(--sp-1);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
 
-.venta-manual-add-body label { color: rgba(255, 255, 255, 0.68); }
-
-.venta-manual-add-body input,
-.venta-manual-add-body select {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.22);
-  color: #fff;
-}
-
-.venta-manual-add-body input:focus,
-.venta-manual-add-body select:focus {
-  border-color: var(--petrol);
-  background: rgba(255, 255, 255, 0.13);
-  box-shadow: 0 0 0 3px rgba(201, 122, 12, 0.35);
-}
-
-.venta-manual-add-body select option { color: var(--text); }
-
-/* Franja 2 — el carrito es el centro de la operación: papel de recibo real
-   (borde punteado arriba/abajo, igual que el resto de la app usa para
-   separar líneas de factura), no una segunda card idéntica a la primera. */
+/* Franja 2 — el carrito: lista limpia sobre blanco. */
 .venta-cart-tape {
-  padding: 16px 20px 18px;
+  padding: var(--sp-4) var(--sp-5) var(--sp-4);
   background: var(--surface);
-  border-top: 1px dashed var(--border-strong);
-  border-bottom: 1px dashed var(--border-strong);
 }
 
 .venta-cart-tape .list-card-preview {
@@ -1323,17 +1450,17 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   overflow-y: auto;
 }
 
-.venta-cart-tape .rank-item { border-bottom: 1px dashed var(--border); }
+.venta-cart-tape .rank-item { border-bottom: 1px solid var(--border); }
 .venta-cart-tape .rank-item:last-child { border-bottom: none; }
 
-/* Franja 3 — el cobro: jerarquía fuerte a propósito, banda navy propia con
-   el total en el tamaño más grande de toda la pantalla y "Confirmar venta"
-   como único botón sólido en amber (accent) de la vista. */
+/* Franja 3 — el cobro: único bloque navy de la vista, con el total en el
+   tamaño más grande de la pantalla y "Confirmar venta" como el botón de
+   acento (dorado). */
 .venta-checkout-bar {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 16px 20px;
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
   background: var(--navy);
 }
 
@@ -1365,11 +1492,10 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 }
 
 .venta-checkout-cash-input input {
-  width: 140px;
+  width: 150px;
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.24);
   color: #fff;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1378,7 +1504,7 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 .venta-checkout-cash-input input:focus {
   border-color: var(--petrol);
   background: rgba(255, 255, 255, 0.13);
-  box-shadow: 0 0 0 3px rgba(201, 122, 12, 0.35);
+  box-shadow: 0 0 0 3px rgba(217, 144, 0, 0.3);
 }
 
 .venta-checkout-cash-hint {
@@ -1392,22 +1518,21 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   display: flex;
   align-items: baseline;
   gap: 8px;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
 .venta-checkout-vuelto span {
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.6);
 }
 
-.venta-checkout-vuelto strong { font-size: 19px; color: var(--petrol); }
+.venta-checkout-vuelto strong { font-size: 19px; font-weight: 700; color: #fff; }
 
-.venta-checkout-vuelto-falta strong { color: #ff9d8a; }
-.venta-checkout-vuelto-falta small { color: #ff9d8a; font-size: 11px; }
+.venta-checkout-vuelto-falta strong { color: #F5A6A6; }
+.venta-checkout-vuelto-falta small { color: #F5A6A6; font-size: 11px; }
 
 .venta-checkout-total {
   display: flex;
@@ -1417,9 +1542,9 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 }
 
 .venta-checkout-total-label {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.6);
 }
@@ -1427,10 +1552,10 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 .venta-checkout-total-value {
   font-family: var(--font-display);
   font-size: 40px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
-  color: var(--petrol);
+  color: var(--accent);
   animation: ventaTotalBump 320ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1448,22 +1573,23 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   border-radius: 10px;
 }
 
-/* Costado — historial secundario: plano y tinte neutro a propósito, para
-   que nunca compita con la operación de venta en curso. */
+/* Costado — historial: tarjeta blanca propia, más clara que un bloque de
+   tinte neutro; sigue siendo secundaria frente a la operación en curso. */
 .venta-pos-recientes {
-  background: var(--surface-alt);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px 18px;
-  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+  padding: var(--sp-4) var(--sp-5);
+  margin-bottom: var(--sp-5);
 }
 
 .venta-pos-recientes-head {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin-bottom: var(--sp-3);
 }
 
 @media (max-width: 900px) {
@@ -1590,22 +1716,23 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 }
 
 @keyframes ventaFeedNewFade {
-  0% { background-color: var(--primary-soft); }
+  0% { background-color: var(--navy-soft); }
   100% { background-color: transparent; }
 }
 
 .venta-asignar-codigo {
   margin-top: 10px;
-  padding: 10px 12px;
-  background: var(--primary-soft);
-  border-radius: var(--radius);
+  padding: 12px 14px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
 
 .venta-asignar-codigo label {
   display: block;
   font-size: 12.5px;
-  font-weight: 600;
-  color: var(--primary-dark);
+  font-weight: 500;
+  color: var(--text);
   margin-bottom: 6px;
 }
 
@@ -1620,10 +1747,13 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 .venta-scan-row .venta-scan-input { flex: 1; min-width: 0; }
 .venta-scan-row .btn { flex-shrink: 0; }
 
+/* El input de escaneo se lee como una zona de captura: borde punteado sobre
+   un fondo tenue, que pasa a sólido al enfocar. */
 .venta-scan-input {
   font-family: var(--font-display);
-  font-size: 18px;
-  border: 2px dashed var(--border);
+  font-size: 16px;
+  font-weight: 500;
+  border: 1.5px dashed var(--border-strong);
   background: var(--surface-alt);
 }
 
@@ -1773,9 +1903,9 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 }
 
 .venta-scan-input:focus {
-  border-color: var(--petrol);
+  border-color: var(--navy);
   border-style: solid;
-  background: #fff;
+  background: var(--surface);
 }
 
 .venta-carrito-linea { gap: 10px; }
@@ -1820,10 +1950,12 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   display: inline-block;
   width: 26px; height: 26px;
   border: 3px solid var(--border);
-  border-top-color: var(--petrol);
+  border-top-color: var(--navy);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+.btn .spinner-sm { border-color: rgba(255, 255, 255, 0.35); border-top-color: currentColor; }
+.btn-outline .spinner-sm, .btn-ghost .spinner-sm { border-color: var(--border); border-top-color: var(--navy); }
 
 .spinner-sm { width: 14px; height: 14px; border-width: 2px; }
 .center-page {
@@ -1892,18 +2024,20 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   opacity: 0;
 }
 
-/* Predicciones: el veredicto del modelo es el contenido, la tabla de datos
-   crudos queda de apoyo — feed de recomendaciones en vez de filas de tabla. */
+/* Predicciones: herramienta de analítica, no una tabla. Cada fila es una
+   lectura del modelo — producto, veredicto con dirección y color, medidor de
+   confianza, y las cifras de apoyo. */
 .prediccion-layout {
   display: grid;
-  grid-template-columns: 1.6fr 1fr;
-  gap: 24px;
+  grid-template-columns: 1.7fr 1fr;
+  gap: var(--sp-5);
   align-items: start;
 }
 
 .prediccion-insights-nota {
   margin-top: -4px;
-  margin-bottom: 14px;
+  margin-bottom: var(--sp-4);
+  font-size: 12.5px;
 }
 
 .prediccion-insight-list { gap: 0; }
@@ -1911,43 +2045,88 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 .prediccion-insight {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 14px 4px;
+  gap: 8px;
+  padding: var(--sp-4) var(--sp-1);
   border-bottom: 1px solid var(--border);
 }
 
-.prediccion-insight:last-child { border-bottom: none; }
+.prediccion-insight:last-child { border-bottom: none; padding-bottom: var(--sp-1); }
 
 .prediccion-insight-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: 10px;
 }
 
 .prediccion-insight-producto {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--muted);
+  letter-spacing: -0.01em;
+  color: var(--navy);
 }
 
+/* Veredicto: estado de recomendación con punto/flecha de dirección. */
 .prediccion-insight-veredicto {
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
   letter-spacing: -0.005em;
   color: var(--navy);
 }
+.prediccion-insight-veredicto::before {
+  content: '';
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--navy-3);
+  flex-shrink: 0;
+}
+.prediccion-insight--up .prediccion-insight-veredicto { color: #12703E; }
+.prediccion-insight--up .prediccion-insight-veredicto::before { background: var(--success); }
+.prediccion-insight--down .prediccion-insight-veredicto { color: var(--accent-strong); }
+.prediccion-insight--down .prediccion-insight-veredicto::before { background: var(--accent); }
+
+/* Medidor de confianza. */
+.prediccion-confianza {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.prediccion-confianza-track {
+  flex: 1;
+  max-width: 180px;
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+.prediccion-confianza-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--navy-3);
+  transform-origin: left;
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.prediccion-confianza--alta .prediccion-confianza-fill { background: var(--success); }
+.prediccion-confianza--media .prediccion-confianza-fill { background: var(--accent); }
+.prediccion-confianza--baja .prediccion-confianza-fill { background: var(--border-strong); }
+.prediccion-confianza-val { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 
 .prediccion-insight-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 14px;
-  font-size: 12.5px;
+  gap: 4px 16px;
+  font-size: 12px;
   color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
+.prediccion-insight-stats b { color: var(--text); font-weight: 600; }
 
 @media (max-width: 860px) {
   .prediccion-layout { grid-template-columns: 1fr; }
@@ -1961,26 +2140,8 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 .delay-5 { animation-delay: 320ms; }
 .delay-6 { animation-delay: 400ms; }
 
-/* Card hover lift */
-.card {
-  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms ease;
-}
-
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(18, 42, 71, 0.08);
-  border-color: var(--petrol);
-}
-
-/* Stat card entrance */
-.stat-card {
-  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.stat-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(18, 42, 71, 0.07);
-}
+/* Las .card y .stat-card son contenedores, no elementos interactivos — sin
+   lift ni glow en hover. Las tarjetas clickeables llevan su propio hover. */
 
 /* Rank item animation */
 .rank-item {
@@ -1992,7 +2153,7 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   transform: translateX(4px);
 }
 
-.rank-item:focus-visible { outline: 2px solid var(--petrol); outline-offset: -2px; }
+.rank-item:focus-visible { outline: 2px solid var(--navy); outline-offset: -2px; }
 
 /* Alertas: el peor déficit de la lista (ya ordenada) se saca aparte en una
    banda navy — mismo lenguaje de "esto es lo que más importa en la
@@ -2000,15 +2161,18 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
    lista sigue exactamente igual, esta fila #1 aparece dos veces a propósito
    (spotlight + primera fila de la lista completa), igual que el Dashboard
    repite su propio "Reponer ahora" sin problema. */
+/* Alertas: el peor déficit se saca aparte en una tarjeta blanca con marco
+   rojo — la urgencia se comunica en rojo, no en navy (que es identidad). */
 .alerta-spotlight {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px 20px;
-  background: var(--navy);
+  background: var(--surface);
+  border: 1px solid rgba(201, 76, 76, 0.4);
   border-radius: var(--radius);
-  padding: 16px 22px;
-  margin-bottom: 16px;
+  padding: var(--sp-4) var(--sp-5);
+  margin-bottom: var(--sp-4);
   box-shadow: var(--shadow);
 }
 
@@ -2017,18 +2181,19 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   align-items: center;
   gap: 8px;
   flex-basis: 100%;
-  font-size: 11.5px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.06em;
+  color: var(--danger);
 }
+.alerta-spotlight-label svg { color: var(--danger); }
 
 .alerta-spotlight-agotado {
   display: inline-flex;
   align-items: center;
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--danger);
   color: #fff;
   font-size: 10.5px;
@@ -2046,38 +2211,39 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 
 .alerta-spotlight-nombre {
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #fff;
+  letter-spacing: -0.02em;
+  color: var(--navy);
 }
 
 .alerta-spotlight-detalle {
   font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--muted);
 }
 
 .alerta-spotlight-cifra {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  line-height: 1.15;
+  line-height: 1.1;
   flex-shrink: 0;
 }
 
 .alerta-spotlight-cifra strong {
   font-family: var(--font-display);
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
-  color: var(--petrol);
+  color: var(--danger);
 }
 
-.alerta-spotlight-cifra span { font-size: 11px; color: rgba(255, 255, 255, 0.55); }
+.alerta-spotlight-cifra span { font-size: 11px; color: var(--muted); }
 
 .alerta-spotlight-fallback {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--muted);
   font-style: italic;
   text-align: right;
   max-width: 160px;
@@ -2288,7 +2454,8 @@ a {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(18, 42, 71, 0.45);
+  background: rgba(11, 29, 48, 0.55);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2299,12 +2466,13 @@ a {
 
 .modal {
   background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   width: 100%;
   max-width: 520px;
   max-height: 90vh;
   overflow: auto;
-  box-shadow: 0 20px 50px rgba(18, 42, 71, 0.25);
+  box-shadow: var(--shadow-lg);
   animation: modalPopIn 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -2322,7 +2490,7 @@ a {
   border-bottom: 1px solid var(--border);
 }
 
-.modal-header h2 { margin: 0; font-size: 17px; }
+.modal-header h2 { margin: 0; font-size: 15px; font-weight: 600; }
 .modal-body { padding: 20px; }
 
 /* ======================== AUTH (split) ======================== */
@@ -2337,24 +2505,26 @@ a {
   align-items: center;
   justify-content: center;
   padding: 60px;
-  gap: 14px;
+  gap: var(--sp-4);
 }
 
-.auth-side .brand-logo { width: 56px; height: 56px; border-radius: 12px; font-size: 22px; }
-.auth-side strong { font-family: var(--font-display); font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
-.auth-side p { color: rgba(255, 255, 255, 0.65); text-align: center; max-width: 320px; }
+.auth-side .brand-logo { width: 52px; height: 52px; }
+.auth-side .brand-logo svg { width: 42px; height: 42px; }
+.auth-side strong { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.auth-side p { color: var(--navy-3); text-align: center; max-width: 320px; line-height: 1.6; }
 
 .auth-form-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 40px;
+  background: var(--bg);
 }
 
 .auth-card { width: 100%; max-width: 380px; }
-.auth-card h2 { font-size: 22px; margin-bottom: 4px; }
-.auth-card .subtitle { color: var(--muted); font-size: 13.5px; margin-bottom: 20px; }
-.auth-footer { text-align: center; margin-top: 20px; font-size: 13.5px; color: var(--muted); }
+.auth-card h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
+.auth-card .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+.auth-footer { text-align: center; margin-top: 20px; font-size: 13px; color: var(--muted); }
 
 /* Retroceder un paso dentro de un flujo multi-paso (verificar correo,
    recuperar contraseña) — el error mas comun ahi es escribir mal el propio
@@ -2376,7 +2546,7 @@ a {
 }
 
 .auth-back:hover:not(:disabled) { color: var(--navy); }
-.auth-back:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; border-radius: 4px; }
+.auth-back:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; border-radius: 4px; }
 .auth-back:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Registro alinea el checklist a la izquierda con sangría, a diferencia
@@ -2424,7 +2594,7 @@ a {
   width: 22px;
   height: 22px;
   border-radius: 999px;
-  background: var(--petrol);
+  background: var(--success);
   color: #fff;
   flex-shrink: 0;
 }
@@ -2628,9 +2798,9 @@ a {
   min-width: 19px;
   height: 19px;
   padding: 0 5px;
-  border-radius: 999px;
-  background: var(--primary-soft);
-  color: var(--primary-dark);
+  border-radius: var(--radius-pill);
+  background: var(--navy-soft);
+  color: var(--navy-2);
   font-size: 10.5px;
   font-weight: 700;
 }
@@ -2702,95 +2872,72 @@ a {
 
 .pyme-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 380px));
+  gap: var(--sp-4);
 }
 
-/* Cada PYME lee como un registro de ledger real, no un tile de SaaS
-   genérico: franja navy de cabecera (mismo lenguaje que venta-scan-deck en
-   Ventas.jsx) con el monograma y las acciones de dueño, cuerpo en papel
-   claro con el resto. El hover reusa exactamente el mismo levante que
-   .card:hover en toda la app — no un tratamiento nuevo para esta pantalla. */
+/* Tarjeta de negocio: cabecera clara con el monograma en tile navy y las
+   acciones; un trío de cifras (productos · ventas · creada) como cuerpo, y
+   el contacto abajo. Una sola PYME sigue leyéndose como una tarjeta
+   intencional, no como un panel estirado en una superficie vacía. */
 .pyme-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms ease;
+  transition: box-shadow 180ms ease, border-color 180ms ease, transform 180ms ease;
 }
 
 .pyme-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(18, 42, 71, 0.08);
-  border-color: var(--petrol);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
 }
 
 .pyme-card-head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 16px 18px;
-  background: var(--navy);
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5) var(--sp-3);
 }
 
-/* Mismo tratamiento que .brand-logo / .rail-avatar: petrol + texto oscuro
-   es el monograma de identidad en toda la app, no un color por índice. */
+.pyme-card-title { flex: 1; min-width: 0; }
+.pyme-card-head .row-actions { flex-shrink: 0; }
+
 .pyme-avatar {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
-  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 16px;
-  background: var(--petrol);
-  color: #241804;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  background: var(--navy);
+  color: #fff;
   flex-shrink: 0;
-}
-
-/* Los botones de editar/eliminar quedan sobre navy acá, no sobre superficie
-   clara — mismo patrón que los inputs de venta-scan-deck en Ventas.jsx
-   (blanco translúcido en vez del outline gris pensado para fondo claro). */
-.pyme-card-head .row-actions .btn-outline {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.28);
-  color: #fff;
-}
-
-.pyme-card-head .row-actions .btn-outline:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: #fff;
-  color: #fff;
-}
-
-.pyme-card-head .row-actions .btn-danger-subtle {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffb4a8;
-}
-
-.pyme-card-head .row-actions .btn-danger-subtle:hover:not(:disabled) {
-  background: var(--danger);
-  color: #fff;
 }
 
 .pyme-card-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 18px 18px;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-5) var(--sp-4);
   flex: 1;
 }
 
 .pyme-card-nombre {
-  font-family: var(--font-display);
-  font-size: 17px;
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
   letter-spacing: -0.01em;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pyme-card-badges {
@@ -2802,23 +2949,88 @@ a {
 .pyme-card-meta {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   font-size: 12.5px;
   color: var(--muted);
 }
 
 .pyme-card-meta span { display: flex; align-items: center; gap: 6px; }
-.pyme-card-meta svg { flex-shrink: 0; color: var(--muted); }
+.pyme-card-meta svg { flex-shrink: 0; color: var(--navy-3); }
+
+/* Trío de cifras del negocio. */
+.pyme-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.pyme-card-stat { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.pyme-card-stat b {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--navy);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.pyme-card-stat span {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .pyme-card-footer {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   margin-top: auto;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--muted);
+}
+.pyme-card-footer svg { flex-shrink: 0; color: var(--navy-3); }
+
+/* Tile fantasma para registrar otra PYME: mantiene el ritmo de la grilla y
+   da una acción obvia cuando hay pocas tarjetas. */
+.pyme-card-add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 190px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
+}
+.pyme-card-add:hover {
+  border-color: var(--navy-3);
+  color: var(--navy);
+  background: var(--surface);
+}
+.pyme-card-add-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--surface-alt);
+  color: var(--navy-3);
+}
+.pyme-card-add:hover .pyme-card-add-icon { background: var(--navy-soft); color: var(--navy); }
+
+@media (max-width: 640px) {
+  .pyme-grid { grid-template-columns: 1fr; }
 }
 
 /* ======================== EQUIPO Y SEDES ======================== */
@@ -2895,10 +3107,10 @@ a {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: var(--petrol);
-  color: #241804;
-  font-weight: 700;
-  font-size: 12.5px;
+  background: var(--navy);
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
   flex-shrink: 0;
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--border);
 }
@@ -2957,7 +3169,7 @@ a {
 
 .member-rol-checkbox:has(input:disabled) { cursor: not-allowed; opacity: 0.65; }
 
-.member-rol-checkbox:focus-within { outline: 2px solid var(--petrol); outline-offset: 2px; }
+.member-rol-checkbox:focus-within { outline: 2px solid var(--navy); outline-offset: 2px; }
 
 .member-rol-checkbox input[type='checkbox'] {
   position: absolute;
@@ -3048,8 +3260,8 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: var(--petrol);
-  color: #241804;
+  background: var(--navy);
+  color: #fff;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 22px;
@@ -3108,10 +3320,9 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
 }
 
 .search-box input {
-  width: 220px;
-  padding: 8px 12px 8px 32px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  width: 240px;
+  padding: 8px 12px 8px 34px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
 }
 
@@ -3119,23 +3330,23 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
 
 .toast {
   position: fixed;
-  top: 76px;
+  top: 20px;
   right: 24px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 13px 18px;
-  box-shadow: 0 8px 30px rgba(18, 42, 71, 0.18);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-lg);
   display: flex;
   align-items: center;
   gap: 10px;
   z-index: 100;
   animation: slideIn 0.3s ease;
-  font-size: 13.5px;
+  font-size: 13px;
 }
 
-.toast-success { border-left: 2px solid var(--success); }
-.toast-error { border-left: 2px solid var(--danger); }
+.toast-success { box-shadow: var(--shadow-lg), inset 3px 0 0 var(--success); }
+.toast-error { box-shadow: var(--shadow-lg), inset 3px 0 0 var(--danger); }
 .toast-icon { display: flex; align-items: center; color: var(--success); }
 .toast-error .toast-icon { color: var(--danger); }
 
@@ -3150,22 +3361,23 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px 10px 12px;
+  padding: 11px 18px 11px 14px;
   background: var(--navy);
   color: #fff;
-  border: none;
-  border-radius: 999px;
-  font-size: 13.5px;
+  border: 1px solid var(--navy-2);
+  border-radius: var(--radius-pill);
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 8px 30px rgba(18, 42, 71, 0.25);
+  box-shadow: var(--shadow-lg);
   z-index: 100;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.15s ease;
 }
+.chat-fab svg { color: var(--accent); }
 
-.chat-fab:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(18, 42, 71, 0.3); }
+.chat-fab:hover { transform: translateY(-2px); background: var(--navy-2); box-shadow: var(--shadow-lg), 0 0 0 4px rgba(16, 42, 67, 0.06); }
 .chat-fab:active { transform: scale(0.98); }
-.chat-fab:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; }
+.chat-fab:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; }
 .chat-badge { display: none; }
 @media (min-width: 480px) { .chat-badge { display: inline; } }
 
@@ -3179,8 +3391,8 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
   max-height: calc(100vh - 48px);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 20px 50px rgba(18, 42, 71, 0.25);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
   z-index: 100;
@@ -3212,7 +3424,7 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
   color: var(--text);
 }
 
-.chat-title svg { color: var(--petrol); flex-shrink: 0; }
+.chat-title svg { color: var(--navy-3); flex-shrink: 0; }
 
 .chat-actions { display: flex; gap: 4px; }
 
@@ -3232,7 +3444,7 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
 
 .icon-btn:hover { background: var(--surface-alt); color: var(--text); }
 .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.icon-btn:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; }
+.icon-btn:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
 
 .chat-messages {
   flex: 1;
@@ -3286,8 +3498,8 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
   transition: border-color 0.15s, background 0.15s, transform 0.1s;
 }
 
-.sugerencia-btn:hover { border-color: var(--petrol); background: var(--primary-soft); transform: translateX(2px); }
-.sugerencia-btn:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; }
+.sugerencia-btn:hover { border-color: var(--navy-3); background: var(--surface-alt); transform: translateX(2px); }
+.sugerencia-btn:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
 
 .chat-message {
   display: flex;
@@ -3368,8 +3580,8 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
   justify-content: space-between;
   padding: 12px 16px;
   background: var(--danger-soft);
-  color: var(--danger);
-  border-top: 1px solid #f2c9c6;
+  color: #A93B3B;
+  border-top: 1px solid rgba(201, 76, 76, 0.28);
   font-size: 13px;
   flex-shrink: 0;
 }
@@ -3399,8 +3611,8 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
 .chat-input {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   font-size: 14px;
   font-family: inherit;
   background: var(--surface);
@@ -3412,7 +3624,7 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
 }
 
 .chat-input::placeholder { color: var(--muted); opacity: 0.7; }
-.chat-input:focus { border-color: var(--petrol); box-shadow: 0 0 0 3px var(--primary-soft); }
+.chat-input:focus { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(16, 42, 67, 0.12); }
 .chat-input:disabled { background: var(--surface-alt); color: var(--muted); cursor: not-allowed; }
 
 .chat-input-hint {
@@ -3438,11 +3650,11 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
 .chat-send-btn:hover:not(:disabled) { background: var(--navy-dark); }
 .chat-send-btn:active:not(:disabled) { transform: scale(0.96); }
 .chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.chat-send-btn:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; }
+.chat-send-btn:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
 
 .chat-cancel-btn { background: var(--surface-alt); color: var(--muted); }
 .chat-cancel-btn:hover { background: var(--border); color: var(--text); }
-.chat-cancel-btn:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; }
+.chat-cancel-btn:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
 
 /* Responsive */
 @media (max-width: 480px) {
@@ -3477,13 +3689,14 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
   flex-wrap: wrap;
 }
 
-.page-header h1 { margin: 0 0 4px; }
-.page-actions { display: flex; gap: 10px; }
+.page-header h1 { margin: 0 0 3px; }
+.page-header .muted { font-size: 13px; }
+.page-actions { display: flex; gap: var(--sp-2); flex-shrink: 0; }
 
 /* ======================== RESPONSIVE ======================== */
 
@@ -3568,34 +3781,41 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
     min-height: 44px;
   }
 
-  /* Rail colapsado a solo iconos */
-  /* overflow-y: auto en la regla base fuerza overflow-x a "auto" también
-     (regla del spec: si un eje no es visible, el otro deja de serlo aunque
-     no se haya pedido) — eso recorta el menú de perfil, que vuela hacia
-     afuera del rail de 64px, en su propio borde. El contenido colapsado
-     (solo iconos) es corto de sobra para no necesitar scroll interno acá,
-     así que el rail vuelve a overflow:visible en este breakpoint. */
-  .rail { width: 64px; padding: 14px 8px; overflow: visible; }
-  .rail-brand { justify-content: center; padding: 4px 0 14px; }
-  .rail-brand strong { display: none; }
-  /* El select nativo sigue abriendo su lista completa sin importar el
-     ancho del trigger (la overlay del navegador no depende del ancho de
-     acá) — angosto y sin label queda legible al tocar, aunque el valor ya
-     elegido se vea recortado en el trigger de 64px. */
-  .rail-pyme-switch { padding: 0 2px 10px; }
-  .rail-pyme-switch label { display: none; }
-  .rail-pyme-switch select { padding: 6px 2px; font-size: 10px; text-align: center; }
-  .rail-item { justify-content: center; padding: 14px 10px; min-height: 44px; }
-  .rail-item span { display: none; }
-  .rail-profile-trigger { justify-content: center; padding: 8px 0; }
-  .rail-profile-name,
-  .rail-profile-trigger svg { display: none; }
-  /* 148px no alcanzaba para "Términos de uso" (icono + texto ~166px) — el
-     label quedaba cortado/ilegible en el menú del perfil en un celular
-     real. 200px lo deja con margen sin arriesgar salirse del viewport
-     (el rail colapsado mide apenas 64px, el menú vuela por encima). */
-  .rail-dropdown { left: -4px; right: auto; min-width: 200px; }
-  .rail-dropdown-item { white-space: nowrap; }
+  /* El rail pasa a ser un drawer lateral desplegable: fuera de pantalla por
+     defecto, entra desde la izquierda al tocar el botón del topbar, con un
+     fondo oscuro detrás. Conserva las etiquetas (ya no es solo iconos). */
+  .rail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100dvh;
+    width: 272px;
+    max-width: 84vw;
+    padding: var(--sp-4) var(--sp-3);
+    transform: translateX(-100%);
+    transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 60;
+  }
+  .rail.rail-open {
+    transform: translateX(0);
+    box-shadow: var(--shadow-lg);
+  }
 
-  .main { padding: 16px; }
+  .rail-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    border: 0;
+    padding: 0;
+    background: rgba(11, 29, 48, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease;
+    z-index: 55;
+  }
+  .rail-backdrop.rail-backdrop-open { opacity: 1; pointer-events: auto; }
+
+  .rail-dropdown { left: 0; right: 0; min-width: 100%; }
+
+  .main { padding: var(--sp-4) var(--sp-4) var(--sp-6); }
 }

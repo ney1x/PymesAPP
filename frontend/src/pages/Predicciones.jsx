@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { prediccionesApi, pymesApi } from '../api';
 import { useAsync } from '../hooks/useAsync';
 import { usePymeFilter } from '../context/PymeFilterContext';
-import { Spinner, ErrorBox, PageHeader, Badge, Button, EmptyState, money } from '../components/ui';
+import { Spinner, ErrorBox, PageHeader, Button, EmptyState, money } from '../components/ui';
 import { IconSearch } from '../components/Icons';
 import { puede, puedeEnAlguna } from '../constants/permisos';
 import {
@@ -75,10 +75,15 @@ export default function Predicciones() {
     }
   };
 
-  const confianzaBadge = (c) => {
-    if (c >= 0.7) return <Badge tone="success">{(c * 100).toFixed(0)}%</Badge>;
-    if (c >= 0.4) return <Badge tone="warning">{(c * 100).toFixed(0)}%</Badge>;
-    return <Badge>{(c * 100).toFixed(0)}%</Badge>;
+  const confianzaNivel = (c) => (c >= 0.7 ? 'alta' : c >= 0.4 ? 'media' : 'baja');
+
+  // Dirección de la recomendación respecto al promedio del listado — decide
+  // el color y el punto del veredicto.
+  const veredictoTono = (demanda) => {
+    if (!demandaPromedio) return '';
+    if (demanda > demandaPromedio) return 'up';
+    if (demanda < demandaPromedio) return 'down';
+    return '';
   };
 
   const mostrar = ranking || historico.data?.predicciones?.map((p) => ({
@@ -199,21 +204,30 @@ export default function Predicciones() {
                   const horizonteLabel = HORIZONTES.find((h) => h.value === p.horizonteDias)?.label
                     || `${p.horizonteDias} días`;
                   const filaDelay = Math.min(i, 7) * 40;
+                  const demanda = Number(p.demandaPredicha) || 0;
+                  const tono = veredictoTono(demanda);
+                  const nivel = confianzaNivel(p.nivelConfianza);
+                  const pct = Math.round((p.nivelConfianza || 0) * 100);
                   return (
-                    <li key={p.id} className="prediccion-insight animate-slide-in-right" style={{ animationDelay: `${filaDelay}ms` }}>
+                    <li
+                      key={p.id}
+                      className={`prediccion-insight animate-slide-in-right${tono ? ` prediccion-insight--${tono}` : ''}`}
+                      style={{ animationDelay: `${filaDelay}ms` }}
+                    >
                       <div className="prediccion-insight-head">
                         <span className="prediccion-insight-producto">{p.producto.nombre}</span>
-                        <span className="prediccion-confianza-pop" style={{ animationDelay: `${filaDelay + 120}ms` }}>
-                          {confianzaBadge(p.nivelConfianza)}
-                        </span>
+                        <span className="prediccion-insight-stats" style={{ gap: 4 }}>Generado {fecha}</span>
                       </div>
-                      <strong className="prediccion-insight-veredicto">
-                        {interpretarDemanda(Number(p.demandaPredicha) || 0)}
-                      </strong>
+                      <span className="prediccion-insight-veredicto">{interpretarDemanda(demanda)}</span>
+                      <div className={`prediccion-confianza prediccion-confianza--${nivel}`}>
+                        <span className="prediccion-confianza-track">
+                          <span className="prediccion-confianza-fill" style={{ transform: `scaleX(${pct / 100})` }} />
+                        </span>
+                        <span><span className="prediccion-confianza-val">{pct}%</span> confianza</span>
+                      </div>
                       <div className="prediccion-insight-stats">
-                        <span>{p.demandaPredicha} uds en {horizonteLabel.toLowerCase()}</span>
-                        <span>Rentabilidad estimada: {money(p.rentabilidadPredicha)}</span>
-                        <span>Generado {fecha}</span>
+                        <span><b>{p.demandaPredicha} uds</b> en {horizonteLabel.toLowerCase()}</span>
+                        <span>Rentabilidad estimada <b>{money(p.rentabilidadPredicha)}</b></span>
                       </div>
                     </li>
                   );
@@ -226,16 +240,21 @@ export default function Predicciones() {
           <div className="card prediccion-chart-card animate-fade-in-up delay-2">
             <div className="card-title">Demanda comparada</div>
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#dde1e6" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
+              <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#D9E2EC" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#627D98' }} axisLine={{ stroke: '#D9E2EC' }} tickLine={false} interval={0} />
+                <YAxis tick={{ fontSize: 11, fill: '#627D98' }} axisLine={false} tickLine={false} width={36} />
+                <Tooltip
+                  cursor={{ fill: 'rgba(16, 42, 67, 0.05)' }}
+                  contentStyle={{ borderRadius: 10, border: '1px solid #D9E2EC', boxShadow: '0 4px 12px rgba(16,42,67,0.08)', fontSize: 12 }}
+                  labelStyle={{ color: '#172B4D', fontWeight: 600 }}
+                />
                 <Bar
                   dataKey="demanda"
                   name="Demanda"
-                  fill="#122a47"
-                  radius={[4, 4, 0, 0]}
+                  fill="#102A43"
+                  radius={[5, 5, 0, 0]}
+                  maxBarSize={40}
                   isAnimationActive={!prefersReducedMotion}
                   animationDuration={300}
                   animationEasing="ease-out"

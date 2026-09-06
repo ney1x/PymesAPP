@@ -145,6 +145,9 @@ export default function Pymes() {
               <div key={p.id} className="pyme-card animate-fade-in-up" style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}>
                 <div className="pyme-card-head">
                   <span className="pyme-avatar" aria-hidden="true">{iniciales(p.nombre)}</span>
+                  <div className="pyme-card-title">
+                    <strong className="pyme-card-nombre">{p.nombre}</strong>
+                  </div>
                   {esOwner ? (
                     <div className="row-actions">
                       <IconButton variant="outline" label={`Editar ${p.nombre}`} tooltip="Editar" onClick={() => openEdit(p)}>
@@ -164,8 +167,6 @@ export default function Pymes() {
                 </div>
 
                 <div className="pyme-card-body">
-                  <strong className="pyme-card-nombre">{p.nombre}</strong>
-
                   <div className="pyme-card-badges">
                     <Badge tone="primary">{TIPO_LABELS[p.tipo] || p.tipo}</Badge>
                     {!esOwner && (p.miRoles || []).map((rol) => (
@@ -173,21 +174,40 @@ export default function Pymes() {
                     ))}
                   </div>
 
-                  {(p.ciudad || p.telefono) && (
+                  {p.ciudad && (
                     <div className="pyme-card-meta">
-                      {p.ciudad && <span><IconMapPin size={12} aria-hidden="true" /> {p.ciudad}</span>}
-                      {p.telefono && <span><IconPhone size={12} aria-hidden="true" /> {p.telefono}</span>}
+                      <span><IconMapPin size={13} aria-hidden="true" /> {p.ciudad}{p.direccion ? ` · ${p.direccion}` : ''}</span>
                     </div>
                   )}
 
+                  <div className="pyme-card-stats">
+                    <div className="pyme-card-stat">
+                      <b>{p._count.productos}</b>
+                      <span>producto{p._count.productos === 1 ? '' : 's'}</span>
+                    </div>
+                    <div className="pyme-card-stat">
+                      <b>{p._count.ventas}</b>
+                      <span>venta{p._count.ventas === 1 ? '' : 's'}</span>
+                    </div>
+                    <div className="pyme-card-stat">
+                      <b>{date(p.createdAt)}</b>
+                      <span>creada</span>
+                    </div>
+                  </div>
+
                   <div className="pyme-card-footer">
-                    <span>{p._count.productos} producto{p._count.productos === 1 ? '' : 's'} · {p._count.ventas} venta{p._count.ventas === 1 ? '' : 's'}</span>
-                    <span>Creada {date(p.createdAt)}</span>
+                    <IconPhone size={13} aria-hidden="true" />
+                    {p.telefono || 'Sin teléfono'}
                   </div>
                 </div>
               </div>
             );
           })}
+
+          <button type="button" className="pyme-card-add" onClick={openCreate}>
+            <span className="pyme-card-add-icon" aria-hidden="true"><IconPlus size={20} /></span>
+            <span>Registrar otra PYME</span>
+          </button>
         </div>
       )}
 
