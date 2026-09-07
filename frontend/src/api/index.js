@@ -85,6 +85,18 @@ export const dashboardApi = {
   get: (params) => client.get('/dashboard', { params }),
 };
 
+export const contabilidadApi = {
+  get: (params) => client.get('/contabilidad', { params }),
+};
+
+export const gastosApi = {
+  list: (params) => client.get('/gastos', { params }),
+  create: (data) => client.post('/gastos', data),
+  update: (id, data) => client.put(`/gastos/${id}`, data),
+  remove: (id) => client.delete(`/gastos/${id}`),
+  duplicarMes: (data) => client.post('/gastos/duplicar-mes', data),
+};
+
 export const reordenApi = {
   list: (params) => client.get('/reorden', { params }),
 };

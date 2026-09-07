@@ -7,6 +7,7 @@ const productosService = require('./productos.service');
 const reordenService = require('./reorden.service');
 const dashboardService = require('./dashboard.service');
 const ventasService = require('./ventas.service');
+const contabilidadService = require('./contabilidad.service');
 
 const SYSTEM_PROMPT = fs.readFileSync(
   path.join(__dirname, '..', 'chat', 'prompts', 'systemPrompt.md'),
@@ -99,6 +100,14 @@ const TOOL_DEFINITIONS = [
     function: {
       name: 'resumen_dashboard',
       description: 'Resumen general del negocio: ingresos, GANANCIAS/UTILIDAD/MARGEN totales (ya calculados con datos reales de ventas), productos totales, alertas de stock, top productos, ranking de rentabilidad. Usa para "cómo va todo", "resumen", "dashboard", "panorama general", "cuánto gané", "cuáles son mis ganancias/utilidades", "cuál es mi margen total", "cuánta plata gané". NUNCA le pidas al usuario datos de precios/costos/ventas: esta herramienta ya los tiene todos. NO necesitas pymeId. NO TIENE PARÁMETROS. LLAMA A ESTA HERRAMIENTA INMEDIATAMENTE con {}. NO pidas información adicional.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'resumen_contabilidad',
+      description: 'Contabilidad del mes en curso con datos reales: utilidad neta, ingresos por ventas, costo de la mercadería vendida, gastos operativos totales y desglosados por categoría (arriendo, nómina, servicios, impuestos, etc.), y variación contra el mes pasado. Usa para "cómo va la utilidad este mes", "gané o perdí este mes", "cuánto gasté", "cuánto llevo en arriendo/nómina", "cómo va la plata", "flujo de dinero", "estado de resultados". Distinto de resumen_dashboard: este SÍ resta los gastos operativos y da la utilidad NETA. NO necesitas pymeId. NO TIENE PARÁMETROS. LLAMA A ESTA HERRAMIENTA INMEDIATAMENTE con {}.',
       parameters: { type: 'object', properties: {}, required: [] },
     },
   },
@@ -435,6 +444,26 @@ async function tool_resumenDashboard({ user }) {
   };
 }
 
+async function tool_resumenContabilidad({ user }) {
+  const c = await contabilidadService.get(user, { rango: 'este-mes' });
+
+  return {
+    success: true,
+    data: {
+      periodo: c.periodo?.etiqueta || 'Este mes',
+      ingresos: c.resumen.ingresos,
+      costoVentas: c.resumen.costoVentas,
+      utilidadBruta: c.resumen.utilidadBruta,
+      gastos: c.resumen.gastos,
+      utilidadNeta: c.resumen.utilidadNeta,
+      margenNetoPct: c.resumen.margenNetoPct,
+      gastosPorCategoria: c.gastosPorCategoria,
+      variacionUtilidadNetaPct: c.comparativa?.utilidadNeta?.variacionPct ?? null,
+      variacionIngresosPct: c.comparativa?.ingresos?.variacionPct ?? null,
+    },
+  };
+}
+
 const TOOL_MAP = {
   consultar_stock: tool_consultarStock,
   alertas_stock: tool_alertasStock,
@@ -443,6 +472,7 @@ const TOOL_MAP = {
   info_producto: tool_infoProducto,
   consultar_ventas_producto: tool_consultarVentasProducto,
   resumen_dashboard: tool_resumenDashboard,
+  resumen_contabilidad: tool_resumenContabilidad,
   producto_mas_vendido: tool_productoMasVendido,
   producto_menos_vendido: tool_productoMenosVendido,
   producto_mas_rentable: tool_productoMasRentable,
@@ -531,6 +561,7 @@ function detectarIntencion(mensaje) {
   if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches)([!, .].*)?$/.test(normalized)) return 'greeting';
   if (/^(gracias|muchas gracias|te agradezco)([!, .].*)?$/.test(normalized)) return 'conversational';
   if (/\b(ayuda|que puedes hacer|como puedes ayudar|capacidades)\b/.test(normalized)) return 'help';
+  if (detectarResumenContabilidad(mensaje)) return 'contabilidad_summary';
   if (detectarResumenDashboard(mensaje)) return 'dashboard_summary';
   if (esConsultaRankingVentas(normalized)) return direccionRanking(normalized) === 'MIN' ? 'bottom_product' : 'top_product';
   if (esConsultaRankingRentabilidad(normalized)) return direccionRanking(normalized) === 'MIN' ? 'bottom_profit_product' : 'top_profit_product';
@@ -605,6 +636,21 @@ function detectarResumenDashboard(mensaje) {
   return /\b(resumen|dashboard|panorama general)\b/.test(normalized) || /\bcomo va todo\b/.test(normalized);
 }
 
+// Contabilidad = utilidad NETA (resta gastos operativos), gastos por
+// categoria, "gane/perdi este mes". Se chequea ANTES que detectarResumenDashboard:
+// "cuanto gane" a secas sigue siendo dashboard (margen bruto historico), pero
+// "cuanto gane este mes" / "utilidad neta" / "cuanto gaste" / "contabilidad"
+// van al panel de contabilidad.
+function detectarResumenContabilidad(mensaje) {
+  const n = normalizarTexto(mensaje);
+  return /\b(contabilidad|estado de resultados|utilidad neta|ganancia neta|perdida neta)\b/.test(n)
+    || /\b(cuanto|cuanta|cuantos)\s+(gaste|gasto|he gastado|llevo gastado|gastamos)\b/.test(n)
+    || /\bgastos?\b.*\b(mes|operativos?|categoria|arriendo|nomina|servicios)\b/.test(n)
+    || /\b(arriendo|nomina)\b.*\b(mes|gaste|llevo|pago)\b/.test(n)
+    || /\b(gane|perdi|gano|perdio|ganamos|perdimos)\b.*\b(este mes|el mes|mes pasado|mensual)\b/.test(n)
+    || /\bcomo va\b.*\b(la plata|el dinero|la caja|la utilidad|el negocio este mes|la contabilidad)\b/.test(n);
+}
+
 function detectarDecisionCompra(mensaje) {
   const normalized = normalizarTexto(mensaje).replace(/[?.!,;:]+$/g, '').trim();
   if (!esDecisionCompra(mensaje)) return null;
@@ -628,6 +674,25 @@ function formatearDecisionCompra(result, params) {
   const decision = data.comprar ? 'Sí, conviene comprar más' : 'No, no es necesario comprar más ahora';
   const cantidad = data.comprar ? ` Cantidad sugerida: ${data.cantidad} unidades.` : '';
   return `${decision} de ${data.producto.nombre}. Stock actual: ${data.stockActual}. Punto de reorden: ${data.puntoReorden}. Demanda estimada para ${data.diasForecast} días: ${data.demandaPredicha} unidades.${cantidad}`;
+}
+
+function formatearResumenContabilidad(result) {
+  if (!result?.success) return result?.mensaje || 'No pude obtener la contabilidad en este momento.';
+
+  const d = result.data;
+  const signo = (v) => (v > 0 ? `+${v}` : `${v}`);
+  const lines = [
+    `${d.periodo}: utilidad neta $${d.utilidadNeta} (margen neto ${d.margenNetoPct}%).`,
+    `Ingresos $${d.ingresos} − costo de ventas $${d.costoVentas} − gastos $${d.gastos}.`,
+  ];
+  if (d.variacionUtilidadNetaPct !== null && d.variacionUtilidadNetaPct !== undefined) {
+    lines.push(`Contra el mes pasado, la utilidad neta va ${signo(d.variacionUtilidadNetaPct)}%.`);
+  }
+  if (Array.isArray(d.gastosPorCategoria) && d.gastosPorCategoria.length > 0) {
+    const top = d.gastosPorCategoria.slice(0, 4).map((g) => `${g.categoria.toLowerCase()} $${g.total}`).join(', ');
+    lines.push(`Gastos por categoría: ${top}.`);
+  }
+  return lines.join('\n');
 }
 
 function formatearResumenDashboard(result) {
@@ -783,6 +848,7 @@ const TOOL_BY_INTENT = {
   REORDER: 'sugerir_reorden',
   PREDICTION: 'predecir_demanda',
   SUMMARY: 'resumen_dashboard',
+  CONTABILIDAD: 'resumen_contabilidad',
   PRODUCT_INFO: 'info_producto',
   TOP_PRODUCT: 'producto_mas_vendido',
   BOTTOM_PRODUCT: 'producto_menos_vendido',
@@ -815,7 +881,7 @@ const INTENT_BY_TOOL = Object.fromEntries(
 
 // Tools cuyo resultado no representa UN producto puntual (listas o
 // agregados) — no hay nada que recordar en productContext.
-const TOOLS_SIN_PRODUCTO_UNICO = new Set(['resumen_dashboard', 'alertas_stock', 'sugerir_reorden']);
+const TOOLS_SIN_PRODUCTO_UNICO = new Set(['resumen_dashboard', 'resumen_contabilidad', 'alertas_stock', 'sugerir_reorden']);
 
 /**
  * Extrae el "producto" a recordar en productContext a partir del resultado
@@ -860,6 +926,7 @@ function detectarIntencionActual(mensaje) {
     purchase_decision: 'REORDER',
     reorder_alerts: 'REORDER',
     dashboard_summary: 'SUMMARY',
+    contabilidad_summary: 'CONTABILIDAD',
     prediction_query: 'PREDICTION',
     top_product: 'TOP_PRODUCT',
     bottom_product: 'BOTTOM_PRODUCT',
@@ -1289,6 +1356,10 @@ function formatearResultadoTool(toolName, result, params = {}) {
     return formatearResumenDashboard(result);
   }
 
+  if (toolName === 'resumen_contabilidad') {
+    return formatearResumenContabilidad(result);
+  }
+
   if (toolName === 'alertas_stock') {
     const items = result.data || [];
     if (items.length === 0) return result.mensaje || 'No hay productos con stock bajo. ¡Todo bien!';
@@ -1675,6 +1746,16 @@ class ChatService {
       return respuesta;
     }
 
+    if (interpretation.intent === 'CONTABILIDAD') {
+      const toolStartedAt = Date.now();
+      const result = await tool_resumenContabilidad({ user });
+      console.log(`[CHAT] tool: ${Date.now() - toolStartedAt}ms (resumen_contabilidad)`);
+      const respuesta = formatearResultadoTool('resumen_contabilidad', result, {});
+      this._saveDirectExchange(user.id, mensaje, respuesta);
+      console.log(`[CHAT] ollama: 0ms | total: ${Date.now() - requestStartedAt}ms`);
+      return respuesta;
+    }
+
     if (interpretation.intent === 'REORDER' && !interpretation.productName && intent !== 'purchase_decision') {
       const toolStartedAt = Date.now();
       const result = await tool_sugerirReorden({ user, diasForecast: 30 });
@@ -1834,4 +1915,5 @@ module.exports.__testables = {
   TOOL_BY_INTENT,
   formatearResultadoTool,
   tool_resumenDashboard,
+  tool_resumenContabilidad,
 };

@@ -14,6 +14,7 @@ const CAPACIDADES = {
     crearVentas: true,
     verCostoProducto: true,
     verReportesFinancieros: true,
+    gestionarGastos: true,
     verPredicciones: true,
     generarPredicciones: true,
     verDashboard: true,
@@ -32,6 +33,7 @@ const CAPACIDADES = {
     crearVentas: true,
     verCostoProducto: false,
     verReportesFinancieros: false,
+    gestionarGastos: false,
     verPredicciones: false,
     generarPredicciones: false,
     verDashboard: false,
@@ -50,12 +52,16 @@ const CAPACIDADES = {
     crearVentas: false,
     verCostoProducto: true,
     verReportesFinancieros: false,
+    gestionarGastos: false,
     verPredicciones: false,
     generarPredicciones: false,
     verDashboard: false,
     verInventario: true,
     verVentas: false,
   },
+  // ANALISTA es el rol financiero: ve el panel de Contabilidad
+  // (verReportesFinancieros) y además registra/edita gastos operativos
+  // (gestionarGastos) — llevar los libros es su tarea, no la del dueño.
   ANALISTA: {
     gestionarPyme: false,
     gestionarMiembros: false,
@@ -65,6 +71,7 @@ const CAPACIDADES = {
     crearVentas: false,
     verCostoProducto: true,
     verReportesFinancieros: true,
+    gestionarGastos: true,
     verPredicciones: true,
     generarPredicciones: false,
     verDashboard: true,

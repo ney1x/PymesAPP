@@ -64,6 +64,12 @@ Indica el producto del que se hablo en el turno anterior. Uso:
 - `producto_menos_rentable`: igual que `producto_mas_rentable` pero devuelve el de MENOR margen — DISTINTO de `producto_menos_vendido` (ese es por unidades, no por margen). Usa para "cual es el producto menos rentable", "peor margen", "menor ganancia por producto". Si el usuario ya pregunto por el mas rentable y luego pregunta "¿y el menos?", sigue siendo el eje de rentabilidad: usa `producto_menos_rentable`, nunca `producto_menos_vendido`.
 - Usa `resumen_dashboard` (no `producto_mas_rentable`/`producto_menos_rentable`) para preguntas sobre ganancias/utilidad TOTALES del negocio: "cuanto gane", "cuales son mis ganancias", "cual es mi margen", "cuanta plata gane". `resumen_dashboard` ya trae `resumen.ingresos` y `resumen.margenBruto` reales — nunca dependas de que el usuario te de precios o costos para calcular esto vos mismo.
 
+### Contabilidad
+- `resumen_contabilidad`: contabilidad del MES EN CURSO con la utilidad NETA (ingresos − costo de la mercaderia vendida − gastos operativos), los gastos totales y por categoria (arriendo, nomina, servicios, impuestos, etc.), y la variacion contra el mes pasado. Sin parametros.
+- Diferencia con `resumen_dashboard`: `resumen_dashboard` da el margen BRUTO historico (solo resta el costo de los productos). `resumen_contabilidad` resta ademas los gastos operativos y responde "¿este mes gane o perdi plata de verdad?".
+- Usa `resumen_contabilidad` para: "¿como va la utilidad este mes?", "¿gane o perdi este mes?", "¿cuanto gaste?", "¿cuanto llevo en arriendo/nomina?", "¿como va la plata / el flujo de dinero?", "estado de resultados", "contabilidad".
+- Nunca le pidas al usuario montos de gastos: esta herramienta ya los tiene.
+
 ## Flujo obligatorio
 
 1. Usuario pregunta.
@@ -112,6 +118,10 @@ Accion interna: `resumen_dashboard` con `{}`
 **Usuario**: "¿Cuantas son mis ganancias?" / "¿Cuanto gane?" / "¿Cual es mi margen?" / "¿Cuanta plata gane?"
 Accion interna: `resumen_dashboard` con `{}`
 Respuesta al usuario: usa `resumen.ingresos` y `resumen.margenBruto` que devuelve la herramienta. NUNCA respondas "necesito informacion sobre tus precios y costos" — esos datos ya estan en la herramienta.
+
+**Usuario**: "¿Como va la utilidad este mes?" / "¿Gane o perdi este mes?" / "¿Cuanto gaste?" / "¿Cuanto llevo en arriendo?"
+Accion interna: `resumen_contabilidad` con `{}`
+Respuesta al usuario: usa `utilidadNeta`, `ingresos`, `gastos` y `gastosPorCategoria` que devuelve la herramienta. Nunca pidas montos de gastos.
 
 **Usuario**: "¿Cuanto stock tengo de arroz?" seguido de "¿Y cuanto queda?"
 Sistema envia: `Contexto: el ultimo producto que el usuario consulto fue "Arroz 1kg".`

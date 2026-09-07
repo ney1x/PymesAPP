@@ -78,10 +78,129 @@ async function main() {
     },
   });
 
+  await seedMovimientos(comerciante.id);
+
   console.log('Seed completado.');
   console.log('Admin:', admin.email);
   console.log('Comerciante:', comerciante.email);
   console.log('Password de ambos: password123');
+}
+
+// Historial de ventas + gastos operativos para que el Dashboard y el panel de
+// Contabilidad no salgan vacíos en una instalación limpia. El seed corre en
+// cada arranque del contenedor, así que ventas y gastos se siembran de forma
+// independiente y sólo si todavía no existen.
+async function seedMovimientos(comercianteId) {
+  const pyme = await prisma.pyme.findFirst({
+    where: { userId: comercianteId },
+    include: { productos: { include: { inventario: true } } },
+  });
+  if (!pyme || pyme.productos.length === 0) return;
+
+  const hoy = new Date();
+  const rnd = (min, max) => min + Math.random() * (max - min);
+  const randint = (min, max) => Math.floor(rnd(min, max + 1));
+
+  const [yaHayVentas, yaHayGastos] = await Promise.all([
+    prisma.venta.count({ where: { pymeId: pyme.id } }),
+    prisma.gasto.count({ where: { pymeId: pyme.id } }),
+  ]);
+
+  let facturasCreadas = 0;
+  let ventasCreadas = 0;
+
+  if (yaHayVentas > 0) {
+    console.log('Movimientos: la PYME ya tiene ventas, no se re-siembran.');
+  } else {
+  const DIAS = 110;
+
+  for (let d = DIAS; d >= 0; d--) {
+    const fecha = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - d, 12, 0, 0);
+    const finde = fecha.getDay() === 0 || fecha.getDay() === 6;
+    // Tienda de barrio chica: unas pocas facturas por día (~$1,5-2 M/mes de
+    // ventas). Los costos fijos sembrados abajo están calibrados a esa escala.
+    const numFacturas = finde ? randint(3, 6) : randint(2, 5);
+
+    for (let f = 0; f < numFacturas; f++) {
+      // 1 a 3 productos por factura.
+      const nLineas = randint(1, 3);
+      const elegidos = [...pyme.productos].sort(() => Math.random() - 0.5).slice(0, nLineas);
+      const lineas = elegidos.map((p) => {
+        const cantidad = randint(1, 5);
+        return {
+          productoId: p.id,
+          cantidad,
+          precioUnitario: p.precioVenta,
+          costoUnitario: p.costo,
+          total: p.precioVenta * cantidad,
+        };
+      });
+      const total = lineas.reduce((s, l) => s + l.total, 0);
+
+      const factura = await prisma.factura.create({
+        data: {
+          pymeId: pyme.id,
+          total,
+          montoRecibido: Math.ceil(total / 1000) * 1000 + (Math.random() < 0.5 ? 0 : 1000),
+          fecha,
+          ventas: {
+            create: lineas.map((l) => ({
+              pymeId: pyme.id,
+              productoId: l.productoId,
+              cantidad: l.cantidad,
+              precioUnitario: l.precioUnitario,
+              costoUnitario: l.costoUnitario,
+              total: l.total,
+              fecha,
+            })),
+          },
+        },
+      });
+      facturasCreadas++;
+      ventasCreadas += lineas.length;
+    }
+  }
+  // El stock del seed es la foto "actual"; no se reconstruye desde este
+  // historial de ventas ficticio (una app real tampoco lo hace).
+  }
+
+  if (yaHayGastos > 0) {
+    console.log('Movimientos: la PYME ya tiene gastos, no se re-siembran.');
+    console.log(`Movimientos: ${facturasCreadas} facturas y ${ventasCreadas} ventas sembradas.`);
+    return;
+  }
+
+  // Gastos operativos calibrados a una tienda de barrio de ~$1,5-2 M/mes en
+  // ventas (~25% de margen ≈ $450-540 k de utilidad bruta): costos fijos
+  // ~$395 k/mes + un gasto puntual chico por mes, así el negocio queda cerca
+  // del equilibrio (positivo en el acumulado) y el panel de Contabilidad
+  // muestra una utilidad neta creíble, no una pérdida gigante.
+  const PUNTUALES = [
+    { categoria: 'MANTENIMIENTO', descripcion: 'Arreglo de la nevera', monto: 90000, dia: 9 },
+    { categoria: 'TRANSPORTE', descripcion: 'Domicilios y acarreos', monto: 45000, dia: 17 },
+    { categoria: 'IMPUESTOS', descripcion: 'Impuesto de industria y comercio', monto: 120000, dia: 20 },
+    { categoria: 'MERCADERIA', descripcion: 'Reposición mayorista', monto: 130000, dia: 6 },
+    null, // el mes en curso arranca sin gasto puntual
+  ];
+  const gastos = [];
+  for (let m = 4; m >= 0; m--) {
+    const base = new Date(hoy.getFullYear(), hoy.getMonth() - m, 1);
+    const finMes = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+    const dia = (n) => new Date(base.getFullYear(), base.getMonth(), Math.min(n, finMes));
+    gastos.push(
+      { categoria: 'ARRIENDO', descripcion: 'Arriendo del local', monto: 170000, fecha: dia(3) },
+      { categoria: 'NOMINA', descripcion: 'Ayudante fines de semana', monto: 130000, fecha: dia(28) },
+      { categoria: 'SERVICIOS', descripcion: 'Luz, agua e internet', monto: 85000 + randint(-15000, 25000), fecha: dia(12) },
+    );
+    const puntual = PUNTUALES[4 - m];
+    if (puntual) gastos.push({ categoria: puntual.categoria, descripcion: puntual.descripcion, monto: puntual.monto, fecha: dia(puntual.dia) });
+  }
+
+  await prisma.gasto.createMany({
+    data: gastos.map((g) => ({ ...g, pymeId: pyme.id, registradoPorId: comercianteId })),
+  });
+
+  console.log(`Movimientos: ${facturasCreadas} facturas, ${ventasCreadas} ventas y ${gastos.length} gastos sembrados.`);
 }
 
 main()

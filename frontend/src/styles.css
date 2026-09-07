@@ -71,6 +71,15 @@
   --danger: #C94C4C;
   --danger-soft: #FBEAEA;
 
+  /* Semántica contable: ingreso (verde, = --success) / egreso. El egreso NO
+     usa el rojo de alarma (--danger, "tenés un problema") sino una arcilla
+     apagada — "plata que sale", sin urgencia. Siempre acompañado de signo
+     o etiqueta, nunca color solo (WCAG 1.4.1). */
+  --ingreso: #157043;
+  --ingreso-soft: #E3F2E9;
+  --egreso: #9A5A48;
+  --egreso-soft: #F4EAE6;
+
   --bg: #F7F9FC;
   --surface: #FFFFFF;
   --surface-alt: #F1F4F9;
@@ -3888,6 +3897,180 @@ tbody tr.member-row-pendiente:hover { background: var(--warning-soft); }
   .rail-dropdown { left: 0; right: 0; min-width: 100%; }
 
   .main { padding: var(--sp-4) var(--sp-4) var(--sp-6); }
+}
+
+/* ======================== CONTABILIDAD ========================
+   Panel financiero: lidera con la utilidad neta del período (¿ganó o perdió
+   plata?), luego la composición. Verde = ingreso, arcilla apagada = egreso;
+   el signo (+/−) acompaña al color, nunca color solo. */
+
+.conta-periodo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: var(--sp-5);
+}
+
+.conta-fechas {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.conta-fechas input { width: auto; }
+
+/* Cifra con signo y color semántico. */
+.conta-cifra { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.conta-cifra-ingreso { color: var(--ingreso); }
+.conta-cifra-egreso { color: var(--egreso); }
+.conta-cifra-neutro { color: var(--text); }
+
+.conta-ingreso { color: var(--ingreso); }
+.conta-egreso { color: var(--egreso); }
+
+/* Variación vs. período anterior. */
+.conta-var {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.conta-var-up { color: var(--ingreso); }
+.conta-var-down { color: var(--egreso); }
+.conta-var-flat { color: var(--muted); }
+
+/* --- Banda héroe --- */
+.conta-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4) var(--sp-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: var(--sp-5);
+  box-shadow: var(--shadow);
+  margin-bottom: var(--sp-5);
+}
+.conta-hero-perdida { border-left-color: var(--danger); }
+
+.conta-hero-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+.conta-hero-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.conta-hero-value {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-strong);
+}
+.conta-hero-perdida .conta-hero-value { color: var(--danger); }
+
+.conta-hero-sub { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+
+.conta-hero-formula {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px 14px;
+}
+.conta-hero-formula > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.conta-hero-formula small { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.conta-hero-formula strong { font-variant-numeric: tabular-nums; font-weight: 700; }
+.conta-hero-op { align-self: center; color: var(--muted); font-weight: 600; padding-top: 2px; }
+.conta-neta-ok { color: var(--ingreso); }
+.conta-neta-mal { color: var(--danger); }
+
+/* --- KPIs --- */
+.conta-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+}
+.conta-kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-4) var(--sp-5);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.conta-kpi-label { font-size: 12px; font-weight: 500; color: var(--muted); }
+.conta-kpi-value {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--navy);
+}
+.conta-kpi-value.conta-ingreso { color: var(--ingreso); }
+.conta-kpi-value.conta-egreso { color: var(--egreso); }
+.conta-kpi-hint { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+.conta-chart-card { margin-bottom: var(--sp-5); }
+.conta-chart-card .recharts-text { fill: var(--muted); }
+
+/* --- Contexto (lista de datos de apoyo) --- */
+.conta-contexto { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.conta-contexto li { display: flex; flex-direction: column; gap: 2px; }
+.conta-contexto li span { font-size: 12.5px; color: var(--muted); }
+.conta-contexto li strong { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--navy); }
+.conta-contexto li small { font-size: 11.5px; color: var(--muted); }
+
+/* --- Etiquetas / campos ingreso-egreso en formularios --- */
+.conta-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.conta-tag-ingreso { background: var(--ingreso-soft); color: var(--ingreso); }
+.conta-tag-egreso { background: var(--egreso-soft); color: var(--egreso); }
+
+/* El valor tipeado toma el color semántico, a intensidad moderada — sin
+   relleno ni borde de color, para no competir con el foco navy. */
+.campo-ingreso { color: var(--ingreso); }
+.campo-egreso { color: var(--egreso); }
+.campo-ingreso:focus, .campo-egreso:focus { color: var(--text); }
+
+@media (max-width: 720px) {
+  .conta-hero { flex-direction: column; align-items: flex-start; }
+  .conta-hero-value { font-size: 28px; }
+  /* La fórmula pasa a lista vertical: los operadores sueltos (− =) quedan
+     huérfanos al final de renglón cuando envuelve en fila. */
+  .conta-hero-formula { flex-direction: column; gap: 8px; width: 100%; }
+  .conta-hero-formula > span { flex-direction: row; align-items: baseline; gap: 8px; }
+  .conta-hero-formula small { order: -1; min-width: 92px; }
+  .conta-hero-op { display: none; }
 }
 
 /* ================== ALTO CONTRASTE (prefers-contrast: more) ==================

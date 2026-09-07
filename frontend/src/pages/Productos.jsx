@@ -250,8 +250,8 @@ export default function Productos() {
                     <td>{p.codigo}</td>
                     <td><strong>{p.nombre}</strong></td>
                     <td>{p.categoria || '—'}</td>
-                    <td>{money(p.precioVenta)}</td>
-                    <td>{money(p.costo)}</td>
+                    <td className="conta-ingreso">{money(p.precioVenta)}</td>
+                    <td className="conta-egreso">{money(p.costo)}</td>
                     <td>
                       <Badge tone={margen > 0 ? 'success' : 'danger'}>{money(margen)}</Badge>
                     </td>
@@ -330,14 +330,14 @@ export default function Productos() {
               )}
             </div>
             <div className="form-group">
-              <label>Precio de venta (COP)</label>
-              <input name="precioVenta" type="number" step="0.01" min="0" required value={form.precioVenta} onChange={handleChange} placeholder="4500" />
+              <label>Precio de venta (COP) <span className="conta-tag conta-tag-ingreso">ingreso</span></label>
+              <input className="campo-ingreso" name="precioVenta" type="number" step="0.01" min="0" required value={form.precioVenta} onChange={handleChange} placeholder="4500" />
             </div>
           </div>
 
           <div className="form-group">
-            <label>Costo (COP)</label>
-            <input name="costo" type="number" step="0.01" min="0" required value={form.costo} onChange={handleChange} placeholder="3200" />
+            <label>Costo (COP) <span className="conta-tag conta-tag-egreso">egreso</span></label>
+            <input className="campo-egreso" name="costo" type="number" step="0.01" min="0" required value={form.costo} onChange={handleChange} placeholder="3200" />
           </div>
 
           <details className="form-advanced" open={Number(form.unidadesPorCaja) >= 2}>
@@ -373,8 +373,9 @@ export default function Productos() {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Precio de la caja (COP)</label>
+                <label>Precio de la caja (COP) <span className="conta-tag conta-tag-ingreso">ingreso</span></label>
                 <input
+                  className="campo-ingreso"
                   name="precioCaja"
                   type="number"
                   step="0.01"
@@ -386,8 +387,9 @@ export default function Productos() {
                 />
               </div>
               <div className="form-group">
-                <label>Costo de la caja (COP)</label>
+                <label>Costo de la caja (COP) <span className="conta-tag conta-tag-egreso">egreso</span></label>
                 <input
+                  className="campo-egreso"
                   name="costoCaja"
                   type="number"
                   step="0.01"

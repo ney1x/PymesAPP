@@ -642,9 +642,10 @@ export default function Inventario() {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="inv-precioVenta">Precio de venta (COP)</label>
+              <label htmlFor="inv-precioVenta">Precio de venta (COP) <span className="conta-tag conta-tag-ingreso">ingreso</span></label>
               <input
                 id="inv-precioVenta"
+                className="campo-ingreso"
                 name="precioVenta"
                 type="number"
                 step="0.01"
@@ -656,9 +657,10 @@ export default function Inventario() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="inv-costo">Costo (COP)</label>
+              <label htmlFor="inv-costo">Costo (COP) <span className="conta-tag conta-tag-egreso">egreso</span></label>
               <input
                 id="inv-costo"
+                className="campo-egreso"
                 name="costo"
                 type="number"
                 step="0.01"
@@ -694,12 +696,12 @@ export default function Inventario() {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="inv-precioCaja">Precio de la caja (COP)</label>
-                <input id="inv-precioCaja" name="precioCaja" type="number" step="0.01" min="0" value={form.precioCaja} onChange={handleChange} placeholder={form.precioVenta && form.unidadesPorCaja ? String(Number(form.precioVenta) * Number(form.unidadesPorCaja)) : 'precio × unidades'} disabled={Number(form.unidadesPorCaja) < 2} />
+                <label htmlFor="inv-precioCaja">Precio de la caja (COP) <span className="conta-tag conta-tag-ingreso">ingreso</span></label>
+                <input id="inv-precioCaja" className="campo-ingreso" name="precioCaja" type="number" step="0.01" min="0" value={form.precioCaja} onChange={handleChange} placeholder={form.precioVenta && form.unidadesPorCaja ? String(Number(form.precioVenta) * Number(form.unidadesPorCaja)) : 'precio × unidades'} disabled={Number(form.unidadesPorCaja) < 2} />
               </div>
               <div className="form-group">
-                <label htmlFor="inv-costoCaja">Costo de la caja (COP)</label>
-                <input id="inv-costoCaja" name="costoCaja" type="number" step="0.01" min="0" value={form.costoCaja} onChange={handleChange} placeholder={form.costo && form.unidadesPorCaja ? String(Number(form.costo) * Number(form.unidadesPorCaja)) : 'costo × unidades'} disabled={Number(form.unidadesPorCaja) < 2} />
+                <label htmlFor="inv-costoCaja">Costo de la caja (COP) <span className="conta-tag conta-tag-egreso">egreso</span></label>
+                <input id="inv-costoCaja" className="campo-egreso" name="costoCaja" type="number" step="0.01" min="0" value={form.costoCaja} onChange={handleChange} placeholder={form.costo && form.unidadesPorCaja ? String(Number(form.costo) * Number(form.unidadesPorCaja)) : 'costo × unidades'} disabled={Number(form.unidadesPorCaja) < 2} />
               </div>
             </div>
           </details>

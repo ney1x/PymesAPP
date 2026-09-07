@@ -172,3 +172,7 @@ export const IconMirror = (p) => (
 export const IconFlash = (p) => (
   <Svg {...p}><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" /></Svg>
 );
+
+export const IconWallet = (p) => (
+  <Svg {...p}><path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v3" /><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a1 1 0 0 0-1-1H6a3 3 0 0 1-3-3Z" /><path d="M16 13h.01" /></Svg>
+);

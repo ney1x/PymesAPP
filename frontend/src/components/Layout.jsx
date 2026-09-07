@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { IconBox, IconChart, IconUser, IconLogout, IconStore, IconTrendUp, IconGrid, IconAlert, IconInfo, IconUsers, IconMenu, IconClose } from './Icons';
+import { IconBox, IconChart, IconUser, IconLogout, IconStore, IconTrendUp, IconGrid, IconAlert, IconInfo, IconUsers, IconMenu, IconClose, IconWallet } from './Icons';
 import { LogoMark } from './Brand';
 import { ChatWidget } from './ChatWidget';
 import NotificationBell from './NotificationBell';
@@ -15,6 +15,7 @@ const NAV_LEFT = [
   { to: '/dashboard', label: 'Dashboard', icon: IconGrid, requiere: 'verDashboard' },
   { to: '/inventario', label: 'Inventario', icon: IconBox, requiere: 'verInventario' },
   { to: '/ventas', label: 'Ventas', icon: IconTrendUp, requiere: 'verVentas' },
+  { to: '/contabilidad', label: 'Contabilidad', icon: IconWallet, requiere: 'verReportesFinancieros' },
   { to: '/predicciones', label: 'Predicción', icon: IconChart, requiere: 'verPredicciones' },
   { to: '/equipo', label: 'Equipo', icon: IconUsers, requiere: 'gestionarMiembros' },
 ];

@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard';
 import Pymes from './pages/Pymes';
 import Inventario from './pages/Inventario';
 import Ventas from './pages/Ventas';
+import Contabilidad from './pages/Contabilidad';
 import Predicciones from './pages/Predicciones';
 import Equipo from './pages/Equipo';
 import Notificaciones from './pages/Notificaciones';
@@ -42,6 +43,9 @@ export default function App() {
                   </Route>
                   <Route element={<RequiereCapacidad capacidad="verVentas" />}>
                     <Route path="/ventas" element={<Ventas />} />
+                  </Route>
+                  <Route element={<RequiereCapacidad capacidad="verReportesFinancieros" />}>
+                    <Route path="/contabilidad" element={<Contabilidad />} />
                   </Route>
                   <Route element={<RequiereCapacidad capacidad="verPredicciones" />}>
                     <Route path="/predicciones" element={<Predicciones />} />

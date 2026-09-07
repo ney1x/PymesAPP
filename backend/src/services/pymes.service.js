@@ -100,6 +100,8 @@ const remove = async (id, user) => {
 
   await prisma.$transaction([
     prisma.venta.deleteMany({ where: { pymeId: pyme.id } }),
+    prisma.factura.deleteMany({ where: { pymeId: pyme.id } }),
+    prisma.gasto.deleteMany({ where: { pymeId: pyme.id } }),
     prisma.prediccion.deleteMany({ where: { productoId: { in: productoIds } } }),
     prisma.inventario.deleteMany({ where: { productoId: { in: productoIds } } }),
     prisma.producto.deleteMany({ where: { pymeId: pyme.id } }),

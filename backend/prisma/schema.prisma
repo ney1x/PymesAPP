@@ -182,6 +182,7 @@ model pyme {
   user        user             @relation(fields: [userId], references: [id], map: "Pyme_userId_fkey")
   ventas      venta[]
   facturas    factura[]
+  gastos      gasto[]
 
   @@index([userId], map: "Pyme_userId_idx")
 }
@@ -207,6 +208,7 @@ model user {
   invitaciones       pyme_membresia[] @relation("InvitadoPor")
   mensajesEnviados   mensaje[]        @relation("MensajeRemitente")
   mensajesRecibidos  mensaje[]        @relation("MensajeDestinatario")
+  gastosRegistrados  gasto[]          @relation("GastoRegistradoPor")
 }
 
 model sede {
@@ -224,6 +226,7 @@ model sede {
   facturas    factura[]
   inventarios inventario[]
   membresias  pyme_membresia[]
+  gastos      gasto[]
 
   @@index([pymeId], map: "Sede_pymeId_idx")
 }
@@ -352,6 +355,31 @@ model factura {
 
   @@index([pymeId, fecha], map: "Factura_pymeId_fecha_idx")
   @@index([sedeId, fecha], map: "Factura_sedeId_fecha_idx")
+}
+
+// Gasto operativo de la PYME (arriendo, nómina, servicios, impuestos, etc.).
+// Es el egreso que NO es costo de mercadería vendida — ese vive en
+// `venta.costoUnitario`. Base caja: el gasto cuenta en la fecha en que se
+// pagó. `categoria` es string libre con una lista sugerida (GASTO_CATEGORIAS
+// en backend/src/services/gastos.service.js), igual que `producto.categoria`.
+model gasto {
+  id              Int       @id @default(autoincrement())
+  pymeId          Int
+  sedeId          Int?
+  categoria       String
+  descripcion     String?
+  monto           Float
+  fecha           DateTime  @default(now())
+  registradoPorId Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  pyme            pyme      @relation(fields: [pymeId], references: [id], map: "Gasto_pymeId_fkey")
+  sede            sede?     @relation(fields: [sedeId], references: [id], map: "Gasto_sedeId_fkey")
+  registradoPor   user?     @relation("GastoRegistradoPor", fields: [registradoPorId], references: [id], map: "Gasto_registradoPorId_fkey")
+
+  @@index([pymeId, fecha], map: "Gasto_pymeId_fecha_idx")
+  @@index([sedeId, fecha], map: "Gasto_sedeId_fecha_idx")
+  @@index([pymeId, categoria], map: "Gasto_pymeId_categoria_idx")
 }
 
 /// Motor de IA (IA_INVENTARIO) - propiedad de db/repository.py, Node no la usa.
