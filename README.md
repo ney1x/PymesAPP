@@ -12,6 +12,7 @@ Sistema web para la administración de inventarios de pequeñas y medianas empre
 - Mensajería interna entre miembros del equipo (a una persona puntual o a todos los de un rol) y centro de notificaciones (invitaciones, respuestas, mensajes).
 - Gestión de productos, con importación y exportación masiva por Excel/CSV.
 - Presentación por caja opcional: un producto puede venderse por unidad y por caja a la vez (con su propio código de barras y precio), manteniendo **un solo stock en unidad base** — vender una caja descuenta `unidades por caja` del inventario, sin productos duplicados ni stock fantasma (ver [Presentaciones: unidad y caja](#presentaciones-unidad-y-caja)).
+- Venta a granel (peso o volumen): productos como arroz, aceite o pollo que se venden por libra/kilo/litro o "por importe" ($2000 de azúcar). Stock único en unidad base (gramos / mililitros); el POS cobra por medida (redondeado a $50) o por importe (exacto). Incluye generación e impresión de códigos de barras internos para productos sin código de fábrica (ver [Venta a granel](#venta-a-granel) y [`FEATURE-GRANEL.md`](FEATURE-GRANEL.md)).
 - Gestión de inventario, con alertas de stock bajo y tablero de reposición ordenado por urgencia.
 - Registro de ventas, con cálculo automático de vuelto a partir de con cuánto pagó el cliente — la venta no se puede confirmar si el monto pagado no alcanza para cubrir el total.
 - Asistente conversacional con IA para consultar el negocio en lenguaje natural: stock, ventas, rentabilidad, rankings, reordenes, resumen y predicciones.
@@ -143,6 +144,49 @@ Los tres casos posibles:
 
 ---
 
+# Venta a granel
+
+Productos que **no se venden por unidad entera** — arroz, azúcar, aceite,
+pollo, detergente a granel: el cliente pide "libra y media", "$2000 de
+aceite", "media libra de fríjol".
+
+### Principio
+
+Mismo criterio que la caja: **un producto, un stock, en la unidad más chica.**
+
+- `producto.granel` + `producto.unidadVenta` (`kg` · `lb` · `oz` · `g` · `L` · `ml`).
+- El **stock** y `venta.cantidad` de un producto granel se guardan en **unidad
+  base**: **gramos** (peso) o **mililitros** (volumen), como entero.
+- `precioVenta` se interpreta como **precio por `unidadVenta`** (por libra, por
+  litro…).
+- Conversiones fijas: `kg = 1000 g`, **`lb = 500 g`** (la de la tienda),
+  **`oz = 31,25 g`**, `L = 1000 ml`.
+- Granel y caja son **excluyentes**.
+
+### En la caja
+
+La línea del carrito de un producto granel trae dos modos:
+
+| Modo | El cajero teclea | Se cobra | Descuenta del stock |
+|---|---|---|---|
+| **Por medida** | `1,5` `lb` | peso × precio, **redondeado a $50** | ese peso (g/ml) |
+| **Por importe** | `2000` | exactamente `$2000` | `$2000 ÷ precio` (g/ml) |
+
+En la BD: `venta.presentacion = 'GRANEL'`, `cantidad` en g/ml,
+`factorPresentacion = 1`, precio/costo unitarios por unidad base, `total` =
+lo efectivamente cobrado.
+
+### Códigos de barras internos
+
+Para productos sin código de fábrica (granel, pan, artesanales): botón
+**"Generar"** en el formulario de producto (EAN-13 con prefijo 2, reservado
+por GS1 para uso interno) y **"Ver / imprimir etiqueta"** (nombre + precio +
+código, cualquier impresora).
+
+Detalle completo en [`FEATURE-GRANEL.md`](FEATURE-GRANEL.md).
+
+---
+
 # Asistente conversacional (IA)
 
 El backend expone un asistente de chat (`POST /api/chat`, `DELETE /api/chat/historial`) integrado en el frontend como un widget flotante disponible en cualquier pantalla autenticada.
@@ -201,9 +245,9 @@ En ella conviven dos esquemas independientes:
 - Pyme
 - Sede
 - PymeMembresia / PymeMembresiaRol (equipo, roles, invitaciones por sede)
-- Producto (incluye presentación por caja opcional: `unidadesPorCaja`, `codigoCaja`, `precioCaja`, `costoCaja`)
-- Inventario (stock único en unidad base)
-- Venta (`presentacion` UNIDAD/CAJA + `factorPresentacion`)
+- Producto (presentación por caja opcional: `unidadesPorCaja`, `codigoCaja`, `precioCaja`, `costoCaja`; venta a granel opcional: `granel`, `unidadVenta`)
+- Inventario (stock único en unidad base — unidades, o gramos/mililitros si el producto es a granel)
+- Venta (`presentacion` UNIDAD/CAJA/GRANEL + `factorPresentacion`)
 - Prediccion
 - Mensaje (mensajería interna, personal o por rol)
 
@@ -341,6 +385,7 @@ uvicorn app.main:app --reload
 - Mensajería interna (personal o por rol) y centro de notificaciones.
 - Gestión de productos, con importación/exportación por Excel/CSV.
 - Presentación por caja opcional por producto (unidad + caja), con stock único en unidad base y sin productos duplicados (ver [Presentaciones: unidad y caja](#presentaciones-unidad-y-caja)).
+- Venta a granel por peso o volumen, con cobro por medida o por importe, y generación/impresión de códigos de barras internos (ver [Venta a granel](#venta-a-granel)).
 - Inventario, con alertas de stock y tablero de reposición por urgencia.
 - Registro de ventas, con cálculo de vuelto y bloqueo si el pago no alcanza.
 - Dashboard.

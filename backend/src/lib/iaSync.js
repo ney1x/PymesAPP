@@ -16,6 +16,7 @@
  */
 
 const prisma = require('./prisma');
+const { unidadBaseDe } = require('./unidades.util');
 
 const toDateOnly = (fecha) => {
   const d = new Date(fecha);
@@ -38,10 +39,13 @@ const syncVenta = async ({ producto, pyme, sede, cantidad, precioUnitario, fecha
     ON DUPLICATE KEY UPDATE state_id = VALUES(state_id), nombre = VALUES(nombre)
   `;
 
+  // `unidad`: g / ml para productos a granel (la cantidad espejada abajo va
+  // en esa unidad base), null para los que se venden por unidad entera.
+  const unidad = producto.granel ? unidadBaseDe(producto.unidadVenta) : null;
   await prisma.$executeRaw`
     INSERT INTO productos (item_id, dept_id, cat_id, nombre, unidad)
-    VALUES (${itemId}, ${producto.categoria || null}, ${producto.categoria || null}, ${producto.nombre}, NULL)
-    ON DUPLICATE KEY UPDATE dept_id = VALUES(dept_id), cat_id = VALUES(cat_id), nombre = VALUES(nombre)
+    VALUES (${itemId}, ${producto.categoria || null}, ${producto.categoria || null}, ${producto.nombre}, ${unidad})
+    ON DUPLICATE KEY UPDATE dept_id = VALUES(dept_id), cat_id = VALUES(cat_id), nombre = VALUES(nombre), unidad = VALUES(unidad)
   `;
 
   const ultimoPrecio = await prisma.$queryRaw`

@@ -3,6 +3,7 @@ const ApiError = require('../utils/ApiError');
 const iaSync = require('../lib/iaSync');
 const { accesoWhere, tieneAcceso, resolverSedeId } = require('./acceso.util');
 const { exigirCapacidad, tieneCapacidad, pymeIdsConCapacidad, ocultarCosto } = require('./permisos');
+const { UNIDADES_GRANEL } = require('../lib/unidades.util');
 
 // Presentación en caja: `unidadesPorCaja` >= 2 la habilita; si no, los tres
 // campos de caja se anulan (un producto sin caja no arrastra precio/código de
@@ -29,6 +30,25 @@ const normalizarCamposCaja = (data) => {
     codigoCaja: unidadesPorCaja ? texto(data.codigoCaja) : null,
     precioCaja: unidadesPorCaja ? numero(data.precioCaja) : null,
     costoCaja: unidadesPorCaja ? numero(data.costoCaja) : null,
+  };
+};
+
+// Venta a granel: `granel` solo cuenta si viene con una `unidadVenta` válida
+// (kg | lb | oz | g | L | ml). Granel y caja son excluyentes — un producto a
+// granel no arrastra config de caja.
+const normalizarGranel = (data) => {
+  const granelPedido = data.granel === true || data.granel === 'true' || data.granel === 1;
+  const unidadVenta =
+    granelPedido && UNIDADES_GRANEL.includes(data.unidadVenta) ? data.unidadVenta : null;
+  const esGranel = granelPedido && !!unidadVenta;
+
+  return {
+    ...data,
+    granel: esGranel,
+    unidadVenta: esGranel ? unidadVenta : null,
+    ...(esGranel
+      ? { unidadesPorCaja: null, codigoCaja: null, precioCaja: null, costoCaja: null }
+      : {}),
   };
 };
 
@@ -105,7 +125,7 @@ const getById = async (id, user) => {
 
 const create = async (user, data) => {
   const { inventario, ...rest } = data;
-  const productoData = normalizarCamposCaja(rest);
+  const productoData = normalizarGranel(normalizarCamposCaja(rest));
 
   const pyme = await prisma.pyme.findUnique({
     where: { id: Number(productoData.pymeId) },
@@ -189,19 +209,27 @@ const bulkCreate = async (user, { pymeId, productos: filas }) => {
       const codigo = String(fila.codigo || '').trim() || `IMP-${Date.now()}-${i}`;
       const categoria = fila.categoria ? String(fila.categoria).trim() : null;
 
-      const { unidadesPorCaja, codigoCaja, precioCaja, costoCaja } = normalizarCamposCaja({
-        unidadesPorCaja: fila.unidadesPorCaja,
-        codigoCaja: fila.codigoCaja,
-        precioCaja: fila.precioCaja,
-        costoCaja: fila.costoCaja,
-      });
+      const esGranel = ['1', 'si', 'sí', 'true', 'x', 'granel'].includes(
+        String(fila.granel ?? '').trim().toLowerCase()
+      );
+      const { granel, unidadVenta, unidadesPorCaja, codigoCaja, precioCaja, costoCaja } =
+        normalizarGranel(
+          normalizarCamposCaja({
+            granel: esGranel,
+            unidadVenta: fila.unidadVenta,
+            unidadesPorCaja: fila.unidadesPorCaja,
+            codigoCaja: fila.codigoCaja,
+            precioCaja: fila.precioCaja,
+            costoCaja: fila.costoCaja,
+          })
+        );
       await validarCodigoCaja(pyme.id, codigoCaja, codigo);
 
       const producto = await prisma.$transaction(async (tx) => {
         const creado = await tx.producto.create({
           data: {
             pymeId: pyme.id, sedeId, nombre, codigo, categoria, precioVenta, costo,
-            unidadesPorCaja, codigoCaja, precioCaja, costoCaja,
+            granel, unidadVenta, unidadesPorCaja, codigoCaja, precioCaja, costoCaja,
           },
         });
 
@@ -255,12 +283,15 @@ const update = async (id, user, data) => {
   await exigirCapacidad(user, producto.pymeId, 'gestionarProductos');
   const { inventario, ...rest } = data;
 
-  // Solo se tocan los campos de caja si el request los trae (el form de
-  // producto los manda siempre; "asignar código" desde el POS o la edición
-  // rápida de stock no, y no deben borrar la config de caja existente).
+  // Solo se tocan los campos de caja / granel si el request los trae (el form
+  // de producto los manda siempre; "asignar código" desde el POS o la edición
+  // rápida de stock no, y no deben borrar la config existente).
   const CAMPOS_CAJA = ['unidadesPorCaja', 'codigoCaja', 'precioCaja', 'costoCaja'];
+  const CAMPOS_GRANEL = ['granel', 'unidadVenta'];
   const tocaCaja = CAMPOS_CAJA.some((k) => k in rest);
-  const productoData = tocaCaja ? normalizarCamposCaja(rest) : rest;
+  const tocaGranel = CAMPOS_GRANEL.some((k) => k in rest);
+  let productoData = tocaCaja ? normalizarCamposCaja(rest) : rest;
+  if (tocaGranel) productoData = normalizarGranel(productoData);
 
   if (tocaCaja) {
     await validarCodigoCaja(

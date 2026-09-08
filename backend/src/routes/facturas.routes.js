@@ -13,9 +13,15 @@ const facturaValidations = validate([
   body('sedeId').optional().isInt().withMessage('sedeId inválido'),
   body('lineas').isArray({ min: 1 }).withMessage('lineas debe ser un arreglo con al menos un producto'),
   body('lineas.*.productoId').isInt().withMessage('productoId es obligatorio en cada línea'),
-  body('lineas.*.cantidad').isInt({ min: 1 }).withMessage('La cantidad debe ser mayor a 0 en cada línea'),
-  body('lineas.*.precioUnitario').isFloat({ min: 0 }).withMessage('Precio unitario inválido en cada línea'),
-  body('lineas.*.presentacion').optional().isIn(['UNIDAD', 'CAJA']).withMessage('Presentación inválida en una línea'),
+  // `cantidad` no aplica a las líneas GRANEL (llevan `granel: {modo,valor,unidad}`);
+  // el servicio exige una u otra según la presentación del producto.
+  body('lineas.*.cantidad').optional().isInt({ min: 1 }).withMessage('La cantidad debe ser mayor a 0 en cada línea'),
+  body('lineas.*.precioUnitario').optional().isFloat({ min: 0 }).withMessage('Precio unitario inválido en cada línea'),
+  body('lineas.*.presentacion').optional().isIn(['UNIDAD', 'CAJA', 'GRANEL']).withMessage('Presentación inválida en una línea'),
+  body('lineas.*.granel').optional().isObject().withMessage('Datos de granel inválidos en una línea'),
+  body('lineas.*.granel.modo').optional().isIn(['MEDIDA', 'IMPORTE']).withMessage('Modo de granel inválido'),
+  body('lineas.*.granel.valor').optional().isFloat({ gt: 0 }).withMessage('Cantidad a granel inválida'),
+  body('lineas.*.granel.unidad').optional().isIn(['kg', 'lb', 'oz', 'g', 'L', 'ml']).withMessage('Unidad de granel inválida'),
   body('montoRecibido').optional().isFloat({ min: 0 }).withMessage('Monto recibido inválido'),
 ]);
 

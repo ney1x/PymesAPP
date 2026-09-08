@@ -35,6 +35,28 @@ import { IconCamera, IconPlus, IconMinus, IconClose, IconChevronRight, IconCheck
 import BarcodeScannerModal from '../components/BarcodeScannerModal';
 import { puede } from '../constants/permisos';
 import { usePymeFilter } from '../context/PymeFilterContext';
+import {
+  UNIDADES_GRANEL,
+  calcularGranel,
+  formatDesdeBase,
+  modoVentaTexto,
+  unidadesCompatibles,
+} from '../constants/unidades';
+
+const esProductoGranel = (p) => !!p?.granel && UNIDADES_GRANEL.includes(p?.unidadVenta);
+
+// Subtítulo de cantidad de una factura en el historial. No se pueden sumar
+// unidades con gramos/ml, así que las líneas a granel se cuentan aparte.
+const resumenCantidadFactura = (f) => {
+  const uds = f.ventas
+    .filter((v) => v.presentacion !== 'GRANEL')
+    .reduce((acc, v) => acc + v.cantidad * (v.factorPresentacion ?? 1), 0);
+  const granel = f.ventas.filter((v) => v.presentacion === 'GRANEL').length;
+  const partes = [];
+  if (uds) partes.push(`${uds} uds`);
+  if (granel) partes.push(granel === 1 ? '1 a granel' : `${granel} a granel`);
+  return partes.length ? ` · ${partes.join(' + ')}` : '';
+};
 
 // Wheel sobre un input[type=number] es inconsistente entre navegadores: a
 // veces cambia el valor Y scrollea la página al mismo tiempo. Se engancha
@@ -207,6 +229,41 @@ export default function Ventas() {
     });
   };
 
+  // Producto a granel: una sola línea por producto (no se "suma de a uno") —
+  // el cajero teclea la medida o el importe directamente sobre la línea. El
+  // stock está en unidad base (g/ml).
+  const agregarGranel = (producto) => {
+    const key = `${producto.id}-GRANEL`;
+    setCarrito((actual) => {
+      if (actual.some((l) => l.key === key)) {
+        setScanError(`"${producto.nombre}" ya está en el carrito — ajustá la cantidad ahí.`);
+        return actual;
+      }
+      return [
+        ...actual,
+        {
+          key,
+          productoId: producto.id,
+          nombre: producto.nombre,
+          codigo: producto.codigo,
+          presentacion: 'GRANEL',
+          granel: true,
+          unidadVenta: producto.unidadVenta,
+          precioVenta: producto.precioVenta,
+          granelModo: 'MEDIDA',
+          granelValor: '',
+          granelUnidad: producto.unidadVenta,
+          factor: 1,
+          stockActual: producto.inventario?.stockActual,
+        },
+      ];
+    });
+  };
+
+  const actualizarGranel = (key, patch) => {
+    setCarrito((actual) => actual.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  };
+
   // Compartido entre la pistola (Enter en el input) y la cámara (código
   // detectado por @zxing/browser) — ambos terminan en el mismo lookup +
   // línea de carrito, solo cambia de dónde sale el texto del código.
@@ -227,6 +284,12 @@ export default function Ventas() {
     setCodigoSinAsignar(null);
     setSuccess(null);
     setVentaConfirmada(null);
+    if (esProductoGranel(producto)) {
+      const yaEstaba = carrito.some((l) => l.key === `${producto.id}-GRANEL`);
+      agregarGranel(producto);
+      if (!yaEstaba) setSuccess(`${producto.nombre} — se cobra ${modoVentaTexto(producto)}. Ingresá el peso o el importe.`);
+      return;
+    }
     const esCaja = producto.codigoCaja === codigo && Number(producto.unidadesPorCaja) >= 2;
     agregarLinea(producto, 1, esCaja ? 'CAJA' : 'UNIDAD');
   };
@@ -330,15 +393,38 @@ export default function Ventas() {
     const producto = productos.data?.productos?.find((p) => String(p.id) === form.productoId);
     if (!producto) return;
 
-    agregarLinea(producto, Number(form.cantidad) || 1, form.presentacion, form.precioUnitario);
+    if (esProductoGranel(producto)) {
+      agregarGranel(producto);
+    } else {
+      agregarLinea(producto, Number(form.cantidad) || 1, form.presentacion, form.precioUnitario);
+    }
     setForm({ productoId: '', cantidad: 1, precioUnitario: '', presentacion: 'UNIDAD' });
   };
 
-  const totalCarrito = carrito.reduce((acc, l) => acc + l.cantidad * l.precioUnitario, 0);
+  // Cada línea del carrito con su total/base ya resueltos. Para GRANEL el
+  // total sale de calcularGranel (mismo cálculo que el backend); para el
+  // resto es `cantidad * precioUnitario`.
+  const carritoResuelto = carrito.map((l) => {
+    if (!l.granel) {
+      return { ...l, lineaTotal: l.cantidad * l.precioUnitario, invalido: false, sinStock: false };
+    }
+    const calc = calcularGranel({
+      modo: l.granelModo,
+      valor: l.granelValor,
+      unidad: l.granelUnidad,
+      unidadVenta: l.unidadVenta,
+      precioVenta: l.precioVenta,
+    });
+    const sinStock = typeof l.stockActual === 'number' && !calc.invalido && calc.base > l.stockActual;
+    return { ...l, calc, lineaTotal: calc.total, invalido: !!calc.invalido, sinStock };
+  });
+
+  const totalCarrito = carritoResuelto.reduce((acc, l) => acc + l.lineaTotal, 0);
   const vuelto = montoRecibido === '' ? null : Number(montoRecibido) - totalCarrito;
+  const hayGranelIncompleto = carritoResuelto.some((l) => l.granel && (l.invalido || l.sinStock));
 
   const confirmarVenta = async () => {
-    if (confirmando || carrito.length === 0 || montoRecibido === '' || vuelto < 0) return;
+    if (confirmando || carrito.length === 0 || montoRecibido === '' || vuelto < 0 || hayGranelIncompleto) return;
     setConfirmando(true);
     setActionError(null);
     setSuccess(null);
@@ -346,12 +432,24 @@ export default function Ventas() {
 
     try {
       const res = await facturasApi.create({
-        lineas: carrito.map((l) => ({
-          productoId: l.productoId,
-          cantidad: l.cantidad,
-          precioUnitario: l.precioUnitario,
-          presentacion: l.presentacion,
-        })),
+        lineas: carrito.map((l) =>
+          l.granel
+            ? {
+                productoId: l.productoId,
+                presentacion: 'GRANEL',
+                granel: {
+                  modo: l.granelModo,
+                  valor: Number(String(l.granelValor).replace(',', '.')),
+                  unidad: l.granelUnidad,
+                },
+              }
+            : {
+                productoId: l.productoId,
+                cantidad: l.cantidad,
+                precioUnitario: l.precioUnitario,
+                presentacion: l.presentacion,
+              }
+        ),
         ...(montoRecibido !== '' ? { montoRecibido: Number(montoRecibido) } : {}),
       });
       setVentaConfirmada({ id: res?.factura?.id ?? null, total: res?.factura?.total ?? totalCarrito });
@@ -369,6 +467,7 @@ export default function Ventas() {
   };
 
   const productoSeleccionado = productos.data?.productos?.find((p) => String(p.id) === form.productoId);
+  const manualEsGranel = esProductoGranel(productoSeleccionado);
   const factorCajaSeleccionado = productoSeleccionado ? factorCajaDe(productoSeleccionado) : null;
   const manualEsCaja = form.presentacion === 'CAJA' && !!factorCajaSeleccionado;
   const factorManual = manualEsCaja ? factorCajaSeleccionado : 1;
@@ -396,6 +495,66 @@ export default function Ventas() {
       return String(Math.max(0, Math.round((actual + delta) * 100) / 100));
     });
   });
+
+  // Línea de carrito de un producto a granel: el cajero teclea la medida
+  // (peso/volumen) o el importe; la vista muestra en vivo el equivalente y
+  // el total (redondeado a $50 en modo medida).
+  const renderLineaGranel = (l) => {
+    const precioUnidad = money(l.precioVenta);
+    const compat = unidadesCompatibles(l.unidadVenta);
+    const preview = l.invalido
+      ? 'Ingresá la cantidad'
+      : l.granelModo === 'IMPORTE'
+      ? `≈ ${formatDesdeBase(l.calc.base, l.unidadVenta)}`
+      : `≈ ${money(l.calc.total)}`;
+    return (
+      <li key={l.key} className={`rank-item venta-carrito-linea venta-carrito-granel-linea${l.sinStock ? ' venta-carrito-granel-linea--error' : ''}`}>
+        <div className="rank-info">
+          <strong>
+            {l.nombre}
+            <span className="badge badge-default" style={{ marginLeft: 6 }}>a granel</span>
+          </strong>
+          <small>{precioUnidad} / {l.unidadVenta}{l.codigo ? ` · ${l.codigo}` : ''}</small>
+          <div className="venta-carrito-granel-ctl">
+            <div className="venta-granel-modo" role="group" aria-label="Cómo cobrar">
+              <button type="button" className={l.granelModo === 'MEDIDA' ? 'is-active' : ''} onClick={() => actualizarGranel(l.key, { granelModo: 'MEDIDA' })}>Por medida</button>
+              <button type="button" className={l.granelModo === 'IMPORTE' ? 'is-active' : ''} onClick={() => actualizarGranel(l.key, { granelModo: 'IMPORTE' })}>Por importe</button>
+            </div>
+            <div className="venta-granel-campo">
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step={l.granelModo === 'IMPORTE' ? '50' : '0.01'}
+                placeholder={l.granelModo === 'IMPORTE' ? '$' : l.unidadVenta}
+                value={l.granelValor}
+                onChange={(e) => actualizarGranel(l.key, { granelValor: e.target.value })}
+                aria-label={l.granelModo === 'IMPORTE' ? `Importe en pesos de ${l.nombre}` : `Cantidad de ${l.nombre} en ${l.granelUnidad}`}
+              />
+              {l.granelModo === 'IMPORTE' ? (
+                <span className="venta-granel-uni">$</span>
+              ) : (
+                <select
+                  value={l.granelUnidad}
+                  onChange={(e) => actualizarGranel(l.key, { granelUnidad: e.target.value })}
+                  aria-label={`Unidad para ${l.nombre}`}
+                >
+                  {compat.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+              )}
+              <span className={`venta-granel-preview${l.sinStock ? ' venta-granel-preview--error' : ''}`}>
+                {l.sinStock ? `Solo quedan ${formatDesdeBase(l.stockActual, l.unidadVenta)}` : preview}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="dashboard-rank-metric">
+          <strong>{money(l.lineaTotal)}</strong>
+        </div>
+        <button type="button" className="venta-carrito-quitar" onClick={() => quitarLinea(l.key)} aria-label={`Quitar ${l.nombre} del carrito`}><IconClose size={14} aria-hidden="true" /></button>
+      </li>
+    );
+  };
 
   // Mismo criterio que el resto de la app (ver Inventario.jsx): un spinner
   // de página completa mientras carga lo esencial, para no confundir "todavía
@@ -506,13 +665,21 @@ export default function Ventas() {
                     <option value="">Selecciona un producto</option>
                     {productos.data?.productos?.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.nombre} ({p.inventario?.stockActual ?? 0} uds)
+                        {p.nombre} ({esProductoGranel(p)
+                          ? formatDesdeBase(p.inventario?.stockActual ?? 0, p.unidadVenta)
+                          : `${p.inventario?.stockActual ?? 0} uds`})
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {factorCajaSeleccionado && (
+                {manualEsGranel && (
+                  <p className="muted" style={{ marginTop: -4 }}>
+                    Producto a granel — agregalo al carrito y ahí ingresás el peso o el importe.
+                  </p>
+                )}
+
+                {!manualEsGranel && factorCajaSeleccionado && (
                   <div className="form-group">
                     <label htmlFor="presentacion">Presentación</label>
                     <select id="presentacion" name="presentacion" value={form.presentacion} onChange={handleFormChange}>
@@ -522,27 +689,29 @@ export default function Ventas() {
                   </div>
                 )}
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="cantidad">{manualEsCaja ? 'Cajas' : 'Cantidad'}</label>
-                    <input
-                      id="cantidad"
-                      name="cantidad"
-                      type="number"
-                      min="1"
-                      max={tieneStock ? Math.floor(stockActual / factorManual) : undefined}
-                      value={form.cantidad}
-                      onChange={handleFormChange}
-                      ref={cantidadInputRef}
-                    />
+                {!manualEsGranel && (
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="cantidad">{manualEsCaja ? 'Cajas' : 'Cantidad'}</label>
+                      <input
+                        id="cantidad"
+                        name="cantidad"
+                        type="number"
+                        min="1"
+                        max={tieneStock ? Math.floor(stockActual / factorManual) : undefined}
+                        value={form.cantidad}
+                        onChange={handleFormChange}
+                        ref={cantidadInputRef}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="precioUnitario">Precio {manualEsCaja ? 'por caja' : 'unitario'} (COP)</label>
+                      <input id="precioUnitario" name="precioUnitario" type="number" min="0" step="0.01" value={form.precioUnitario} onChange={handleFormChange} ref={precioInputRef} />
+                    </div>
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="precioUnitario">Precio {manualEsCaja ? 'por caja' : 'unitario'} (COP)</label>
-                    <input id="precioUnitario" name="precioUnitario" type="number" min="0" step="0.01" value={form.precioUnitario} onChange={handleFormChange} ref={precioInputRef} />
-                  </div>
-                </div>
+                )}
 
-                {tieneStock && (
+                {!manualEsGranel && tieneStock && (
                   <div className={`venta-stock-gauge${stockTone !== 'ok' ? ` venta-stock-gauge-${stockTone}` : ''}`}>
                     <div className="venta-stock-gauge-track" role="progressbar" aria-label="Stock restante tras agregar" aria-valuenow={stockRestante} aria-valuemin={0} aria-valuemax={stockActual}>
                       <div className="venta-stock-gauge-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
@@ -584,7 +753,8 @@ export default function Ventas() {
               <EmptyState className="empty--compact" title="Carrito vacío" message="Escaneá un código o agregá un producto manualmente." />
             ) : (
               <ul className="list-card venta-carrito-lista list-card-preview">
-                {carrito.map((l) => {
+                {carritoResuelto.map((l) => {
+                  if (l.granel) return renderLineaGranel(l);
                   const esCaja = l.presentacion === 'CAJA';
                   const unidadLabel = esCaja ? 'caja' : 'unidad';
                   return (
@@ -652,11 +822,13 @@ export default function Ventas() {
                 variant="accent"
                 loading={confirmando}
                 className="venta-checkout-confirm"
-                disabled={carrito.length === 0 || montoRecibido === '' || vuelto < 0}
+                disabled={carrito.length === 0 || montoRecibido === '' || vuelto < 0 || hayGranelIncompleto}
                 aria-busy={confirmando}
                 aria-label={
                   confirmando
                     ? 'Registrando venta...'
+                    : hayGranelIncompleto
+                    ? 'Completá el peso o el importe de los productos a granel'
                     : montoRecibido === ''
                     ? 'Cargá con cuánto pagó el cliente para confirmar la venta'
                     : vuelto < 0
@@ -712,7 +884,7 @@ export default function Ventas() {
                               />
                             )}
                           </strong>
-                          <small>{date(f.fecha)} · {f.ventas.reduce((acc, v) => acc + v.cantidad * (v.factorPresentacion ?? 1), 0)} uds</small>
+                          <small>{date(f.fecha)}{resumenCantidadFactura(f)}</small>
                         </div>
                         <div className="dashboard-rank-metric">
                           <strong>{money(f.total)}</strong>
@@ -727,8 +899,9 @@ export default function Ventas() {
                           {f.ventas.map((v) => (
                             <li key={v.id}>
                               <span>
-                                {v.producto.nombre} × {v.cantidad}
-                                {v.presentacion === 'CAJA' ? ` caja${v.cantidad === 1 ? '' : 's'} (${v.cantidad * (v.factorPresentacion ?? 1)} u)` : ''}
+                                {v.presentacion === 'GRANEL'
+                                  ? `${v.producto.nombre} · ${formatDesdeBase(v.cantidad, v.producto.unidadVenta)}`
+                                  : `${v.producto.nombre} × ${v.cantidad}${v.presentacion === 'CAJA' ? ` caja${v.cantidad === 1 ? '' : 's'} (${v.cantidad * (v.factorPresentacion ?? 1)} u)` : ''}`}
                               </span>
                               <span>{money(v.total)}</span>
                             </li>

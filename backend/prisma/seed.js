@@ -70,6 +70,29 @@ async function main() {
                   costo: 7400,
                   inventario: { create: { stockActual: 25, stockMinimo: 10, stockMaximo: 50 } },
                 },
+                {
+                  // A granel por peso: precio POR LIBRA, stock en gramos
+                  // (30 kg = 30000). El cajero teclea "1,5 lb" o "$2000".
+                  nombre: 'Arroz a granel',
+                  codigo: '2000000000015',
+                  categoria: 'Granos',
+                  precioVenta: 2800,
+                  costo: 2100,
+                  granel: true,
+                  unidadVenta: 'lb',
+                  inventario: { create: { stockActual: 30000, stockMinimo: 5000, stockMaximo: 60000 } },
+                },
+                {
+                  // A granel por volumen: precio POR LITRO, stock en mililitros.
+                  nombre: 'Aceite a granel',
+                  codigo: '2000000000022',
+                  categoria: 'Despensa',
+                  precioVenta: 12500,
+                  costo: 9800,
+                  granel: true,
+                  unidadVenta: 'L',
+                  inventario: { create: { stockActual: 20000, stockMinimo: 4000, stockMaximo: 40000 } },
+                },
               ],
             },
           },
@@ -122,9 +145,12 @@ async function seedMovimientos(comercianteId) {
     const numFacturas = finde ? randint(3, 6) : randint(2, 5);
 
     for (let f = 0; f < numFacturas; f++) {
-      // 1 a 3 productos por factura.
+      // 1 a 3 productos por factura. Los productos a granel (precio por
+      // libra/litro, stock en g/ml) no encajan en este generador simple de
+      // "cantidad entera de unidades" — se dejan fuera del historial sembrado.
       const nLineas = randint(1, 3);
-      const elegidos = [...pyme.productos].sort(() => Math.random() - 0.5).slice(0, nLineas);
+      const vendibles = pyme.productos.filter((p) => !p.granel);
+      const elegidos = [...vendibles].sort(() => Math.random() - 0.5).slice(0, nLineas);
       const lineas = elegidos.map((p) => {
         const cantidad = randint(1, 5);
         return {

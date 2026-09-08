@@ -21,6 +21,11 @@ const productoValidations = validate([
   body('stockSeguridad').optional().isInt({ min: 0 }).withMessage('Stock de seguridad inválido'),
   body('estado').optional().isIn(['ACTIVO', 'INACTIVO']).withMessage('Estado inválido'),
   body('inventario').optional().isObject().withMessage('inventario debe ser un objeto'),
+  body('granel').optional().isBoolean().withMessage('granel debe ser true o false'),
+  body('unidadVenta')
+    .optional({ nullable: true, checkFalsy: true })
+    .isIn(['kg', 'lb', 'oz', 'g', 'L', 'ml'])
+    .withMessage('Unidad de venta inválida'),
   body('unidadesPorCaja')
     .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 2 })

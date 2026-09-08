@@ -4,18 +4,77 @@ const prediccionesService = require('./predicciones.service');
 const iaSync = require('../lib/iaSync');
 const { accesoWhere, tieneAcceso, resolverSedeId } = require('./acceso.util');
 const { exigirCapacidad, tieneCapacidad, pymeIdsConCapacidad, ocultarCostoVenta } = require('./permisos');
+const {
+  esUnidadGranel,
+  dimensionDe,
+  factorBase,
+  formatDesdeBase,
+  REDONDEO_GRANEL,
+} = require('../lib/unidades.util');
 
 const ocultarCostoFactura = (factura) => ({ ...factura, ventas: factura.ventas.map((v) => ocultarCostoVenta(v)) });
 
-// Resuelve una línea de carrito según su presentación (UNIDAD | CAJA). El
-// stock, el ranking de unidades y el espejo al motor de IA siempre razonan
-// en UNIDAD BASE (`unidadesBase`); el ticket conserva lo que pidió el
-// cliente (`cantidad` cajas o `cantidad` sueltas) con su propio precio.
+// Resuelve una línea de carrito según su presentación (UNIDAD | CAJA |
+// GRANEL). El stock, el ranking de unidades y el espejo al motor de IA
+// siempre razonan en UNIDAD BASE (`unidadesBase`); el ticket conserva lo que
+// pidió el cliente con su propio precio. `total` es lo efectivamente cobrado
+// por la línea (para GRANEL por importe no es `precioUnitario * cantidad`).
 // Un producto sin `unidadesPorCaja` (>=2) solo admite UNIDAD.
 const FACTOR_CAJA_MINIMO = 2;
 
+// GRANEL: `linea.granel = { modo: 'MEDIDA' | 'IMPORTE', valor, unidad }`.
+//  - MEDIDA: `valor` es peso/volumen en `unidad` (o en `producto.unidadVenta`
+//    si no se manda / no es compatible). El total se redondea a $50.
+//  - IMPORTE: `valor` son pesos; se cobra exacto y se deriva la cantidad.
+// `cantidad` sale ya en unidad base (g/ml) y `factorPresentacion` = 1.
+const resolverLineaGranel = (producto, linea) => {
+  const g = linea.granel || {};
+  const modo = g.modo === 'IMPORTE' ? 'IMPORTE' : 'MEDIDA';
+  const valor = Number(g.valor);
+  if (!Number.isFinite(valor) || valor <= 0) {
+    throw new ApiError(400, `Cantidad inválida para "${producto.nombre}"`);
+  }
+
+  const factorProducto = factorBase(producto.unidadVenta); // g/ml por unidadVenta
+  const precioUnitario = producto.precioVenta / factorProducto; // $ por g/ml
+  const costoUnitario = producto.costo / factorProducto;
+
+  let base; // g/ml, entero
+  let total; // $ a cobrar
+  if (modo === 'IMPORTE') {
+    total = Math.round(valor);
+    base = Math.max(1, Math.round(valor / precioUnitario));
+  } else {
+    // El cajero puede teclear en otra unidad de la misma dimensión que la
+    // del producto (producto por kg, teclea onzas).
+    const unidadEntrada =
+      esUnidadGranel(g.unidad) && dimensionDe(g.unidad) === dimensionDe(producto.unidadVenta)
+        ? g.unidad
+        : producto.unidadVenta;
+    base = Math.max(1, Math.round(valor * factorBase(unidadEntrada)));
+    total = Math.round((base * precioUnitario) / REDONDEO_GRANEL) * REDONDEO_GRANEL;
+  }
+
+  return {
+    cantidad: base,
+    presentacion: 'GRANEL',
+    factor: 1,
+    unidadesBase: base,
+    precioUnitario,
+    costoUnitario,
+    total,
+  };
+};
+
 const resolverLineaPresentacion = (producto, linea) => {
+  if (producto.granel && esUnidadGranel(producto.unidadVenta)) {
+    return resolverLineaGranel(producto, linea);
+  }
+
   const cantidad = Number(linea.cantidad);
+  if (!Number.isFinite(cantidad) || cantidad < 1) {
+    throw new ApiError(400, `Cantidad inválida para "${producto.nombre}"`);
+  }
   const factorCaja =
     Number(producto.unidadesPorCaja) >= FACTOR_CAJA_MINIMO ? Number(producto.unidadesPorCaja) : null;
   const esCaja = linea.presentacion === 'CAJA' && !!factorCaja;
@@ -34,7 +93,15 @@ const resolverLineaPresentacion = (producto, linea) => {
 
   const costoUnitario = esCaja ? producto.costoCaja ?? producto.costo * factor : producto.costo;
 
-  return { cantidad, presentacion, factor, unidadesBase, precioUnitario, costoUnitario };
+  return {
+    cantidad,
+    presentacion,
+    factor,
+    unidadesBase,
+    precioUnitario,
+    costoUnitario,
+    total: precioUnitario * cantidad,
+  };
 };
 
 const list = async (user, { pymeId, sedeId, desde, hasta } = {}) => {
@@ -109,10 +176,14 @@ const create = async (user, { pymeId, sedeId, lineas, montoRecibido }) => {
     const inventario = await prisma.inventario.findUnique({ where: { productoId: producto.id } });
     if (inventario && yaComprometido + resuelta.unidadesBase > inventario.stockActual) {
       const disp = inventario.stockActual - yaComprometido;
-      const detalle =
-        resuelta.presentacion === 'CAJA'
-          ? `${disp} unidades (${Math.floor(disp / resuelta.factor)} cajas de ${resuelta.factor})`
-          : `${disp} unidades`;
+      let detalle;
+      if (resuelta.presentacion === 'CAJA') {
+        detalle = `${disp} unidades (${Math.floor(disp / resuelta.factor)} cajas de ${resuelta.factor})`;
+      } else if (resuelta.presentacion === 'GRANEL') {
+        detalle = formatDesdeBase(disp, producto.unidadVenta);
+      } else {
+        detalle = `${disp} unidades`;
+      }
       throw new ApiError(400, `Stock insuficiente de "${producto.nombre}": quedan ${detalle}`);
     }
     baseComprometida.set(producto.id, yaComprometido + resuelta.unidadesBase);
@@ -128,7 +199,7 @@ const create = async (user, { pymeId, sedeId, lineas, montoRecibido }) => {
 
   await exigirCapacidad(user, pymeIdReal, 'crearVentas');
 
-  const total = lineasResueltas.reduce((sum, l) => sum + l.precioUnitario * l.cantidad, 0);
+  const total = lineasResueltas.reduce((sum, l) => sum + l.total, 0);
 
   const facturaId = await prisma.$transaction(async (tx) => {
     const creada = await tx.factura.create({
@@ -152,7 +223,7 @@ const create = async (user, { pymeId, sedeId, lineas, montoRecibido }) => {
           factorPresentacion: l.factor,
           precioUnitario: l.precioUnitario,
           costoUnitario: l.costoUnitario,
-          total: l.precioUnitario * l.cantidad,
+          total: l.total,
         },
       });
       await tx.inventario.updateMany({
@@ -197,4 +268,4 @@ const create = async (user, { pymeId, sedeId, lineas, montoRecibido }) => {
   return (await tieneCapacidad(user, pymeIdReal, 'verCostoProducto')) ? factura : ocultarCostoFactura(factura);
 };
 
-module.exports = { list, create };
+module.exports = { list, create, resolverLineaPresentacion };

@@ -9,10 +9,21 @@ import ImportarProductosModal from '../components/ImportarProductosModal';
 import BarcodeScannerModal from '../components/BarcodeScannerModal';
 import { puede, puedeEnAlguna } from '../constants/permisos';
 import { usePymeFilter } from '../context/PymeFilterContext';
+import { UNIDADES_PESO, UNIDADES_VOLUMEN, ETIQUETA_UNIDAD, formatDesdeBase, factorBase, aBase } from '../constants/unidades';
+import { BotonGenerarCodigo, ImprimirEtiqueta } from '../components/CodigoBarras';
+import EtiquetasModal from '../components/EtiquetasModal';
 
 const PAGE_SIZE = 10;
 
 const OTRA_CATEGORIA = '__otra__';
+
+// El stock de un producto a granel se guarda en unidad base (g/ml); en el
+// form se ve y edita en su `unidadVenta` (número plano, sin formato de miles).
+const stockADisplay = (v, granel, unidadVenta) => {
+  if (!granel || !unidadVenta) return v;
+  const f = factorBase(unidadVenta);
+  return f ? Math.round((Number(v) / f) * 1000) / 1000 : v;
+};
 
 export default function Inventario() {
   const { pymeSeleccionada: filtroPymeId } = usePymeFilter();
@@ -22,9 +33,11 @@ export default function Inventario() {
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [etiquetasOpen, setEtiquetasOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({
     nombre: '', codigo: '', categoria: '', precioVenta: '', costo: '',
+    granel: false, unidadVenta: 'lb',
     unidadesPorCaja: '', codigoCaja: '', precioCaja: '', costoCaja: '',
     stockActual: 0, stockMinimo: 5, leadTimeDias: 7, stockSeguridad: 0,
   });
@@ -57,6 +70,10 @@ export default function Inventario() {
   }, [filtroPymeId]);
 
   const inventarios = data?.inventarios || [];
+  const productosParaEtiquetas = useMemo(
+    () => inventarios.map((inv) => inv.producto),
+    [inventarios]
+  );
   const tienePymes = (pymes.data?.pymes?.length ?? 0) > 0;
   const rolPorPyme = useMemo(
     () => new Map((pymes.data?.pymes || []).map((p) => [p.id, p.miRoles])),
@@ -146,6 +163,7 @@ export default function Inventario() {
     setEditing(null);
     setForm({
       nombre: '', codigo: `PROD-${Date.now()}`, categoria: '', precioVenta: '', costo: '',
+      granel: false, unidadVenta: 'lb',
       unidadesPorCaja: '', codigoCaja: '', precioCaja: '', costoCaja: '',
       stockActual: 0, stockMinimo: 5, leadTimeDias: 7, stockSeguridad: 0,
       pymeId: pymes.data?.pymes?.[0]?.id || '',
@@ -158,18 +176,22 @@ export default function Inventario() {
 
   const openEdit = (inv) => {
     setEditing(inv);
+    const granel = !!inv.producto.granel;
+    const unidadVenta = inv.producto.unidadVenta || 'lb';
     setForm({
       nombre: inv.producto.nombre,
       codigo: inv.producto.codigo,
       categoria: inv.producto.categoria || '',
       precioVenta: inv.producto.precioVenta,
       costo: inv.producto.costo,
+      granel,
+      unidadVenta,
       unidadesPorCaja: inv.producto.unidadesPorCaja ?? '',
       codigoCaja: inv.producto.codigoCaja ?? '',
       precioCaja: inv.producto.precioCaja ?? '',
       costoCaja: inv.producto.costoCaja ?? '',
-      stockActual: inv.stockActual,
-      stockMinimo: inv.stockMinimo,
+      stockActual: stockADisplay(inv.stockActual, granel, unidadVenta),
+      stockMinimo: stockADisplay(inv.stockMinimo, granel, unidadVenta),
       leadTimeDias: inv.producto.leadTimeDias ?? 7,
       stockSeguridad: inv.producto.stockSeguridad ?? 0,
       pymeId: inv.producto.pymeId,
@@ -181,13 +203,17 @@ export default function Inventario() {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     if (name === 'pymeId') {
       setOtraCategoria(false);
       setForm({ ...form, pymeId: value, categoria: '' });
       return;
     }
-    setForm({ ...form, [name]: value });
+    if (name === 'tipoVenta') {
+      setForm({ ...form, granel: value === 'granel', unidadVenta: form.unidadVenta || 'lb' });
+      return;
+    }
+    setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
   };
 
   const handleCategoriaSelect = (e) => {
@@ -206,14 +232,23 @@ export default function Inventario() {
     setSaving(true);
     setActionError(null);
 
-    // Caja opcional: si no hay factor válido, se manda todo en null para que
-    // el backend limpie cualquier configuración previa de caja.
-    const usaCaja = Number(form.unidadesPorCaja) >= 2;
+    const esGranel = !!form.granel;
+    // Granel y caja son excluyentes. Caja opcional: si no hay factor válido,
+    // se manda todo en null para que el backend limpie cualquier config previa.
+    const usaCaja = !esGranel && Number(form.unidadesPorCaja) >= 2;
     const camposCaja = {
+      granel: esGranel,
+      unidadVenta: esGranel ? form.unidadVenta : null,
       unidadesPorCaja: usaCaja ? Math.floor(Number(form.unidadesPorCaja)) : null,
       codigoCaja: usaCaja ? (form.codigoCaja || '').trim() || null : null,
       precioCaja: usaCaja && form.precioCaja !== '' ? Number(form.precioCaja) : null,
       costoCaja: usaCaja && form.costoCaja !== '' ? Number(form.costoCaja) : null,
+    };
+    // El stock de un granel se teclea en `unidadVenta` y se guarda en base (g/ml).
+    const enBase = (v) => (esGranel ? aBase(v, form.unidadVenta) : Number(v));
+    const inventarioPayload = {
+      stockActual: enBase(form.stockActual),
+      stockMinimo: enBase(form.stockMinimo),
     };
 
     try {
@@ -228,10 +263,7 @@ export default function Inventario() {
           leadTimeDias: Number(form.leadTimeDias),
           stockSeguridad: Number(form.stockSeguridad),
           ...camposCaja,
-          inventario: {
-            stockActual: Number(form.stockActual),
-            stockMinimo: Number(form.stockMinimo),
-          },
+          inventario: inventarioPayload,
         });
         showToast('Producto actualizado con éxito');
       } else {
@@ -251,10 +283,7 @@ export default function Inventario() {
           leadTimeDias: Number(form.leadTimeDias),
           stockSeguridad: Number(form.stockSeguridad),
           ...camposCaja,
-          inventario: {
-            stockActual: Number(form.stockActual),
-            stockMinimo: Number(form.stockMinimo),
-          },
+          inventario: inventarioPayload,
         });
         showToast('Producto añadido con éxito');
       }
@@ -303,6 +332,7 @@ export default function Inventario() {
             puedeGestionarProductos && (
             <>
               <Button variant="primary" onClick={openCreate}><IconPlus size={15} /> Añadir producto</Button>{' '}
+              <Button variant="outline" onClick={() => setEtiquetasOpen(true)}>Imprimir etiquetas</Button>{' '}
               <Button variant="outline" onClick={() => setImportOpen(true)}>Importar / Exportar</Button>
             </>
             )
@@ -400,6 +430,8 @@ export default function Inventario() {
                   const rol = rolPorPyme.get(inv.producto.pymeId);
                   const puedeGestionarFila = puede(rol, 'gestionarProductos');
                   const upc = Number(inv.producto.unidadesPorCaja) >= 2 ? Number(inv.producto.unidadesPorCaja) : null;
+                  const granel = inv.producto.granel && inv.producto.unidadVenta;
+                  const fmtStock = (v) => (granel ? formatDesdeBase(v, inv.producto.unidadVenta) : v);
                   return (
                     <tr
                       key={inv.id}
@@ -408,17 +440,20 @@ export default function Inventario() {
                       onClick={() => setFocusedRowIndex(i)}
                       style={{ animationDelay: `${i * 40}ms` }}
                     >
-                      <td><strong>{inv.producto.nombre}</strong></td>
+                      <td>
+                        <strong>{inv.producto.nombre}</strong>
+                        {granel && <span className="badge badge-default" style={{ marginLeft: 6 }}>a granel</span>}
+                      </td>
                       <td className="inv-cell-codigo">{inv.producto.codigo || '—'}</td>
                       <td><span className="inv-badge-categoria"><Badge tone="default">{inv.producto.categoria || 'Sin categoría'}</Badge></span></td>
                       <td>
                         <div className="inv-stock-cell">
-                          <span className={`inv-stock-cell-value${alerta ? ' cell-stock-critico' : ''}`}>{inv.stockActual}</span>
+                          <span className={`inv-stock-cell-value${alerta ? ' cell-stock-critico' : ''}`}>{fmtStock(inv.stockActual)}</span>
                           <span className={`inv-stock-bar inv-stock-bar-${stockTone}`} role="progressbar" aria-label={`Stock de ${inv.producto.nombre}`} aria-valuenow={inv.stockActual} aria-valuemin={0} aria-valuemax={techoStock}>
                             <span className="inv-stock-bar-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
                           </span>
                           <span className="inv-stock-cell-min">
-                            mín. {inv.stockMinimo}
+                            mín. {fmtStock(inv.stockMinimo)}
                             {upc ? ` · ≈ ${Math.floor(inv.stockActual / upc)} cajas de ${upc}` : ''}
                           </span>
                         </div>
@@ -463,12 +498,14 @@ export default function Inventario() {
               const rol = rolPorPyme.get(inv.producto.pymeId);
               const puedeGestionarFila = puede(rol, 'gestionarProductos');
               const upc = Number(inv.producto.unidadesPorCaja) >= 2 ? Number(inv.producto.unidadesPorCaja) : null;
+              const granel = inv.producto.granel && inv.producto.unidadVenta;
+              const fmtStock = (v) => (granel ? formatDesdeBase(v, inv.producto.unidadVenta) : v);
               return (
                 <div key={inv.id} className="inv-product-card animate-fade-in" style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}>
                   <div className="inv-product-card-head">
                     <div className="inv-product-card-title">
                       <strong>{inv.producto.nombre}</strong>
-                      <span className="inv-cell-codigo">{inv.producto.codigo || '—'}</span>
+                      <span className="inv-cell-codigo">{inv.producto.codigo || '—'}{granel ? ' · a granel' : ''}</span>
                     </div>
                     {puedeGestionarFila && (
                       <div className="row-actions">
@@ -488,12 +525,12 @@ export default function Inventario() {
                   </div>
 
                   <div className="inv-stock-cell">
-                    <span className={`inv-stock-cell-value${alerta ? ' cell-stock-critico' : ''}`}>{inv.stockActual}</span>
+                    <span className={`inv-stock-cell-value${alerta ? ' cell-stock-critico' : ''}`}>{fmtStock(inv.stockActual)}</span>
                     <span className={`inv-stock-bar inv-stock-bar-${stockTone}`} role="progressbar" aria-label={`Stock de ${inv.producto.nombre}`} aria-valuenow={inv.stockActual} aria-valuemin={0} aria-valuemax={techoStock}>
                       <span className="inv-stock-bar-fill" style={{ transform: `scaleX(${stockPct / 100})` }} />
                     </span>
                     <span className="inv-stock-cell-min">
-                      mín. {inv.stockMinimo}
+                      mín. {fmtStock(inv.stockMinimo)}
                       {upc ? ` · ≈ ${Math.floor(inv.stockActual / upc)} cajas de ${upc}` : ''}
                     </span>
                   </div>
@@ -553,7 +590,11 @@ export default function Inventario() {
             <ErrorBox error={deleteError} />
             <p>
               ¿Eliminar <strong>"{deleting.producto.nombre}"</strong>? Quedan{' '}
-              <strong>{deleting.stockActual}</strong> unidades en stock. Esta acción no se puede deshacer.
+              <strong>
+                {deleting.producto.granel && deleting.producto.unidadVenta
+                  ? formatDesdeBase(deleting.stockActual, deleting.producto.unidadVenta)
+                  : `${deleting.stockActual} unidades`}
+              </strong>{' '}en stock. Esta acción no se puede deshacer.
             </p>
             <div className="form-row">
               <Button type="button" variant="ghost" onClick={() => setDeleting(null)}>Cancelar</Button>
@@ -595,16 +636,21 @@ export default function Inventario() {
                 value={form.codigo}
                 onChange={handleChange}
                 onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-                placeholder="Escaneá o escribí el código"
+                placeholder="Escaneá, escribí o generá uno"
               />
               <Button type="button" variant="secondary" onClick={() => setCamaraAbierta((v) => !v)}>
                 <IconCamera size={16} aria-hidden="true" /> Cámara
               </Button>
+              <BotonGenerarCodigo pymeId={form.pymeId} onGenerar={(c) => setForm((f) => ({ ...f, codigo: c }))} />
             </div>
-            {!editing && (
-              <p className="muted" style={{ marginTop: 4, marginBottom: 0, fontSize: 12.5 }}>
-                Se rellenó uno automático — reemplazalo escaneando el código real del producto si lo tiene.
-              </p>
+            <p className="muted" style={{ marginTop: 4, marginBottom: 0, fontSize: 12.5 }}>
+              Si el producto trae código de fábrica, escanealo. Si no (pan, bombones, granel,
+              tornillos…), tocá <strong>Generar</strong> y luego <strong>imprimí la etiqueta</strong> para pegársela.
+            </p>
+            {form.nombre && form.codigo && (
+              <ImprimirEtiqueta
+                producto={{ nombre: form.nombre, precioVenta: Number(form.precioVenta), codigo: form.codigo, granel: form.granel, unidadVenta: form.unidadVenta }}
+              />
             )}
             <BarcodeScannerModal
               inline
@@ -612,6 +658,39 @@ export default function Inventario() {
               onClose={() => setCamaraAbierta(false)}
               onDetect={(codigo) => { setForm((f) => ({ ...f, codigo })); setCamaraAbierta(false); }}
             />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="inv-tipoVenta">¿Cómo se vende?</label>
+            <select id="inv-tipoVenta" name="tipoVenta" value={form.granel ? 'granel' : 'unidad'} onChange={handleChange}>
+              <option value="unidad">Por unidad (una pieza a la vez)</option>
+              <option value="granel">Por peso o volumen (a granel)</option>
+            </select>
+            {form.granel ? (
+              <div className="form-row" style={{ marginTop: 8 }}>
+                <div className="form-group">
+                  <label htmlFor="inv-unidadVenta">Unidad de venta</label>
+                  <select id="inv-unidadVenta" name="unidadVenta" value={form.unidadVenta} onChange={handleChange}>
+                    <optgroup label="Peso">
+                      {UNIDADES_PESO.map((u) => <option key={u} value={u}>{u} — {ETIQUETA_UNIDAD[u]}</option>)}
+                    </optgroup>
+                    <optgroup label="Volumen">
+                      {UNIDADES_VOLUMEN.map((u) => <option key={u} value={u}>{u} — {ETIQUETA_UNIDAD[u]}</option>)}
+                    </optgroup>
+                  </select>
+                </div>
+                <div className="form-group" style={{ alignSelf: 'end' }}>
+                  <p className="muted" style={{ margin: 0 }}>
+                    Precio y stock van por {ETIQUETA_UNIDAD[form.unidadVenta]}. En la caja el cajero teclea el peso o el importe.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="muted" style={{ marginTop: 6, marginBottom: 0, fontSize: 12.5 }}>
+                Para pan, bombones, tornillos y demás que no traen código de fábrica: generá uno
+                interno con el botón de arriba y pegáselo al producto o al estante.
+              </p>
+            )}
           </div>
 
           <div className="form-group">
@@ -642,7 +721,7 @@ export default function Inventario() {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="inv-precioVenta">Precio de venta (COP) <span className="conta-tag conta-tag-ingreso">ingreso</span></label>
+              <label htmlFor="inv-precioVenta">{form.granel ? `Precio por ${form.unidadVenta} (COP)` : 'Precio de venta (COP)'} <span className="conta-tag conta-tag-ingreso">ingreso</span></label>
               <input
                 id="inv-precioVenta"
                 className="campo-ingreso"
@@ -653,11 +732,11 @@ export default function Inventario() {
                 required
                 value={form.precioVenta}
                 onChange={handleChange}
-                placeholder="4500"
+                placeholder={form.granel ? '2800' : '4500'}
               />
             </div>
             <div className="form-group">
-              <label htmlFor="inv-costo">Costo (COP) <span className="conta-tag conta-tag-egreso">egreso</span></label>
+              <label htmlFor="inv-costo">{form.granel ? `Costo por ${form.unidadVenta} (COP)` : 'Costo (COP)'} <span className="conta-tag conta-tag-egreso">egreso</span></label>
               <input
                 id="inv-costo"
                 className="campo-egreso"
@@ -668,7 +747,7 @@ export default function Inventario() {
                 required
                 value={form.costo}
                 onChange={handleChange}
-                placeholder="3200"
+                placeholder={form.granel ? '2100' : '3200'}
               />
             </div>
           </div>
@@ -677,6 +756,7 @@ export default function Inventario() {
             al registrar una venta — no hay que volver a escribirlo cada vez.
           </p>
 
+          {!form.granel && (
           <details className="form-advanced" open={Number(form.unidadesPorCaja) >= 2}>
             <summary>Venta por caja (opcional)</summary>
             <p className="muted" style={{ marginTop: 8 }}>
@@ -705,15 +785,16 @@ export default function Inventario() {
               </div>
             </div>
           </details>
+          )}
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="inv-stockActual">Stock Actual</label>
-              <input id="inv-stockActual" name="stockActual" type="number" min="0" required value={form.stockActual} onChange={handleChange} />
+              <label htmlFor="inv-stockActual">Stock actual{form.granel ? ` (${form.unidadVenta})` : ''}</label>
+              <input id="inv-stockActual" name="stockActual" type="number" min="0" step={form.granel ? '0.001' : '1'} required value={form.stockActual} onChange={handleChange} />
             </div>
             <div className="form-group">
-              <label htmlFor="inv-stockMinimo">Stock mínimo</label>
-              <input id="inv-stockMinimo" name="stockMinimo" type="number" min="0" required value={form.stockMinimo} onChange={handleChange} />
+              <label htmlFor="inv-stockMinimo">Stock mínimo{form.granel ? ` (${form.unidadVenta})` : ''}</label>
+              <input id="inv-stockMinimo" name="stockMinimo" type="number" min="0" step={form.granel ? '0.001' : '1'} required value={form.stockMinimo} onChange={handleChange} />
             </div>
           </div>
 
@@ -751,6 +832,12 @@ export default function Inventario() {
           showToast(`Importación: ${resumen.creados} producto(s) creado(s)${resumen.errores.length ? `, ${resumen.errores.length} con error` : ''}`);
           run();
         }}
+      />
+
+      <EtiquetasModal
+        open={etiquetasOpen}
+        onClose={() => setEtiquetasOpen(false)}
+        productos={productosParaEtiquetas}
       />
     </div>
   );

@@ -134,6 +134,22 @@ table th {
 
 * { box-sizing: border-box; }
 
+/* La barra de scroll vertical de la página está SIEMPRE reservada
+   (`overflow-y: scroll`). Sin esto, en pantallas donde el contenido queda
+   apenas por encima o por debajo del alto del viewport (p. ej. Ventas con el
+   carrito lleno), la barra aparece y desaparece en bucle: cada vez recalcula
+   el ancho del contenido, el grid se reajusta, cambia el alto, y vuelve a
+   empezar — se ve como un temblor, sobre todo al pasar el cursor por encima
+   de la barra. Reservarla deja el ancho del contenido constante.
+   `overflow-x: hidden` es la red de seguridad contra scroll horizontal de
+   página (antes estaba en `body`); los overflow:auto internos siguen
+   funcionando igual. */
+html {
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   font-family: var(--font);
@@ -144,12 +160,6 @@ body {
   letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* Red de seguridad: nada debería forzar overflow horizontal de página en
-     ningún viewport, pero si algo lo hace igual (un valor sin wrap, un
-     ancho fijo mal puesto), esto lo contiene acá en vez de dejar que la
-     página entera scrollee de costado y el rail sticky quede pisando
-     contenido que se corrió bajo él. Los overflow:auto internos (p.ej.
-     .table-wrap) siguen scrolleando normal, esto solo topa el body. */
   overflow-x: hidden;
 }
 
@@ -275,6 +285,7 @@ input, textarea { caret-color: var(--navy); }
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: var(--sp-4) var(--sp-3);
   z-index: 10;
 }
@@ -1201,6 +1212,13 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 .list-card-preview {
   max-height: 260px;
   overflow-y: auto;
+  /* `overflow-x: hidden` explícito: si solo se declara `overflow-y`, el
+     navegador calcula `overflow-x: auto`, y una lista cuyo contenido roza el
+     borde puede hacer parpadear una barra horizontal. `scrollbar-gutter`
+     reserva el espacio de la barra vertical para que aparecer/desaparecer no
+     reajuste el ancho (fuente del temblor en el carrito de Ventas). */
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
 }
 
 .rank-item {
@@ -1663,6 +1681,13 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
   margin-bottom: var(--sp-5);
 }
 
+/* El historial es una lista, no una tabla: no necesita su propio scroll (la
+   página ya scrollea). Quitar el `overflow:auto` que trae `.table-wrap`
+   evita que calcule barras y contribuya al temblor. */
+.venta-pos-recientes .table-wrap {
+  overflow: visible;
+}
+
 .venta-pos-recientes-head {
   font-size: 13px;
   font-weight: 600;
@@ -2022,6 +2047,74 @@ td.cell-stock-critico { color: var(--danger); font-weight: 700; }
 }
 
 .venta-carrito-quitar:hover { color: var(--danger); background: var(--danger-soft); }
+
+/* --- Línea de carrito a granel: toggle medida/importe + campo + preview --- */
+.venta-carrito-granel-linea { align-items: flex-start; }
+.venta-carrito-granel-linea .rank-info { flex: 1 1 100%; min-width: 0; }
+
+.venta-carrito-granel-ctl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 8px;
+}
+
+.venta-granel-modo {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--surface-alt);
+}
+
+.venta-granel-modo button {
+  border: none;
+  background: none;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  min-height: 32px;
+}
+
+.venta-granel-modo button.is-active {
+  background: var(--navy);
+  color: #fff;
+  font-weight: 600;
+}
+
+.venta-granel-campo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.venta-granel-campo input {
+  width: 92px;
+  font-variant-numeric: tabular-nums;
+}
+
+.venta-granel-campo select { width: auto; min-width: 64px; }
+
+.venta-granel-uni {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.venta-granel-preview {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--navy-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.venta-granel-preview--error,
+.venta-carrito-granel-linea--error .venta-granel-preview { color: var(--danger); }
+
+.venta-carrito-granel-linea--error .venta-granel-campo input { border-color: var(--danger); }
 
 /* ======================== SPINNER ======================== */
 

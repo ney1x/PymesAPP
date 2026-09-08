@@ -111,18 +111,26 @@ model prediccion {
 }
 
 model producto {
-  id             Int          @id @default(autoincrement())
-  pymeId         Int
-  sedeId         Int?
-  nombre         String
-  descripcion    String?
-  codigo         String
-  categoria      String?
-  precioVenta    Float
-  costo          Float
-  leadTimeDias   Int          @default(7)
-  stockSeguridad Int          @default(0)
-  estado         String       @default("ACTIVO")
+  id              Int          @id @default(autoincrement())
+  pymeId          Int
+  sedeId          Int?
+  nombre          String
+  descripcion     String?
+  codigo          String
+  categoria       String?
+  precioVenta     Float
+  costo           Float
+  leadTimeDias    Int          @default(7)
+  stockSeguridad  Int          @default(0)
+  estado          String       @default("ACTIVO")
+  // Venta a granel (peso o volumen). Si `granel` es true el producto se
+  // vende por medida (kg, libra, onza, g / L, ml) o por importe ($X): el
+  // stock e `venta.cantidad` cuentan SIEMPRE en la unidad base (gramos para
+  // peso, mililitros para volumen), como entero, y `precioVenta` se
+  // interpreta como precio por `unidadVenta` (por libra, por kg, por litro…).
+  // Excluyente con la presentación en caja.
+  granel          Boolean      @default(false)
+  unidadVenta     String? // kg | lb | oz | g | L | ml  (solo si granel)
   // Presentación en caja (opcional). Si `unidadesPorCaja` está seteado (>=2)
   // el producto se puede vender suelto Y por caja: el stock sigue siendo uno
   // solo, en unidad base, y una venta por caja descuenta `cantidad * factor`.
@@ -132,13 +140,13 @@ model producto {
   codigoCaja      String?
   precioCaja      Float?
   costoCaja       Float?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  inventario     inventario?
-  predicciones   prediccion[]
-  pyme           pyme         @relation(fields: [pymeId], references: [id], map: "Producto_pymeId_fkey")
-  sede           sede?        @relation(fields: [sedeId], references: [id], map: "Producto_sedeId_fkey")
-  ventas         venta[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  inventario      inventario?
+  predicciones    prediccion[]
+  pyme            pyme         @relation(fields: [pymeId], references: [id], map: "Producto_pymeId_fkey")
+  sede            sede?        @relation(fields: [sedeId], references: [id], map: "Producto_sedeId_fkey")
+  ventas          venta[]
 
   @@unique([pymeId, codigo], map: "Producto_pymeId_codigo_key")
   @@index([pymeId], map: "Producto_pymeId_idx")
@@ -311,16 +319,19 @@ model mensaje {
 }
 
 model venta {
-  id             Int      @id @default(autoincrement())
-  pymeId         Int
-  sedeId         Int?
-  productoId     Int
-  facturaId      Int?
+  id                 Int      @id @default(autoincrement())
+  pymeId             Int
+  sedeId             Int?
+  productoId         Int
+  facturaId          Int?
   // `cantidad` = lo que va en el ticket (p. ej. 1 caja, o 30 sueltas).
-  // `presentacion` UNIDAD | CAJA. Unidades base reales de la venta (para
-  // stock, ranking y espejo al motor de IA) = `cantidad * factorPresentacion`.
-  // Default UNIDAD / factor 1: las ventas previas a esta feature quedan
-  // correctas sin backfill.
+  // `presentacion` UNIDAD | CAJA | GRANEL. Unidades base reales de la venta
+  // (para stock, ranking y espejo al motor de IA) = `cantidad *
+  // factorPresentacion`. Default UNIDAD / factor 1: las ventas previas a esta
+  // feature quedan correctas sin backfill. En GRANEL, `cantidad` ya viene en
+  // unidad base (gramos/mililitros) y `factorPresentacion` = 1; el precio y
+  // costo unitarios son por unidad base, y `total` es lo efectivamente
+  // cobrado (no siempre `precioUnitario * cantidad` — venta por importe).
   cantidad           Int
   presentacion       String   @default("UNIDAD")
   factorPresentacion Int      @default(1)
@@ -328,10 +339,10 @@ model venta {
   costoUnitario      Float
   total              Float
   fecha              DateTime @default(now())
-  producto       producto @relation(fields: [productoId], references: [id], map: "Venta_productoId_fkey")
-  pyme           pyme     @relation(fields: [pymeId], references: [id], map: "Venta_pymeId_fkey")
-  sede           sede?    @relation(fields: [sedeId], references: [id], map: "Venta_sedeId_fkey")
-  factura        factura? @relation(fields: [facturaId], references: [id], map: "Venta_facturaId_fkey")
+  producto           producto @relation(fields: [productoId], references: [id], map: "Venta_productoId_fkey")
+  pyme               pyme     @relation(fields: [pymeId], references: [id], map: "Venta_pymeId_fkey")
+  sede               sede?    @relation(fields: [sedeId], references: [id], map: "Venta_sedeId_fkey")
+  factura            factura? @relation(fields: [facturaId], references: [id], map: "Venta_facturaId_fkey")
 
   @@index([productoId, fecha], map: "Venta_productoId_fecha_idx")
   @@index([pymeId, fecha], map: "Venta_pymeId_fecha_idx")
@@ -363,19 +374,19 @@ model factura {
 // pagó. `categoria` es string libre con una lista sugerida (GASTO_CATEGORIAS
 // en backend/src/services/gastos.service.js), igual que `producto.categoria`.
 model gasto {
-  id              Int       @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   pymeId          Int
   sedeId          Int?
   categoria       String
   descripcion     String?
   monto           Float
-  fecha           DateTime  @default(now())
+  fecha           DateTime @default(now())
   registradoPorId Int?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  pyme            pyme      @relation(fields: [pymeId], references: [id], map: "Gasto_pymeId_fkey")
-  sede            sede?     @relation(fields: [sedeId], references: [id], map: "Gasto_sedeId_fkey")
-  registradoPor   user?     @relation("GastoRegistradoPor", fields: [registradoPorId], references: [id], map: "Gasto_registradoPorId_fkey")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  pyme            pyme     @relation(fields: [pymeId], references: [id], map: "Gasto_pymeId_fkey")
+  sede            sede?    @relation(fields: [sedeId], references: [id], map: "Gasto_sedeId_fkey")
+  registradoPor   user?    @relation("GastoRegistradoPor", fields: [registradoPorId], references: [id], map: "Gasto_registradoPorId_fkey")
 
   @@index([pymeId, fecha], map: "Gasto_pymeId_fecha_idx")
   @@index([sedeId, fecha], map: "Gasto_sedeId_fecha_idx")

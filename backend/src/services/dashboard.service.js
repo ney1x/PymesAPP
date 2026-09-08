@@ -37,7 +37,7 @@ const get = async (user, { pymeId, sedeId } = {}) => {
     }),
     prisma.venta.findMany({
       where: whereVentaInventario,
-      select: { total: true, cantidad: true, factorPresentacion: true, precioUnitario: true, costoUnitario: true, fecha: true, productoId: true },
+      select: { total: true, cantidad: true, factorPresentacion: true, presentacion: true, precioUnitario: true, costoUnitario: true, fecha: true, productoId: true },
     }),
     prisma.inventario.findMany({
       where: { producto: whereVentaInventario },
@@ -55,7 +55,9 @@ const get = async (user, { pymeId, sedeId } = {}) => {
   const unidadesBase = (v) => v.cantidad * (v.factorPresentacion ?? 1);
   const ingresos = sum(ventas.map((v) => v.total));
   const margenBruto = sum(ventas.map((v) => (v.precioUnitario - v.costoUnitario) * v.cantidad));
-  const unidadesVendidas = sum(ventas.map(unidadesBase));
+  // Las ventas a granel están en g/ml — no se pueden sumar a un conteo de
+  // unidades. El KPI "unidades vendidas" cuenta solo lo que se vende por pieza.
+  const unidadesVendidas = sum(ventas.filter((v) => v.presentacion !== 'GRANEL').map(unidadesBase));
 
   const hoy = new Date();
   const hace7Dias = new Date(hoy.getTime() - 7 * 24 * 60 * 60 * 1000);
