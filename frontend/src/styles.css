@@ -269,11 +269,19 @@ input, textarea { caret-color: var(--navy); }
   .mobile-topbar-brand strong { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
   .mobile-topbar-brand svg { color: #fff; flex-shrink: 0; }
 
-  /* El contenido arranca debajo del topbar fijo. */
-  .content-col { padding-top: 56px; }
+  /* El contenido arranca debajo del topbar fijo. El rail es un drawer fuera
+     de pantalla acá (ver media query más abajo), así que no debe empujar
+     el contenido con el margin-left de escritorio. */
+  .content-col { padding-top: 56px; margin-left: 0; }
 }
 
-/* Rail lateral */
+/* Rail lateral
+   `position: fixed` (no `sticky`): `html { overflow-y: scroll }` de arriba
+   rompe `position: sticky` en Chromium (bug conocido — un `overflow`
+   explícito en el elemento raíz desactiva el "pegado" de los hijos respecto
+   al viewport). `fixed` no depende de ese comportamiento y garantiza que el
+   rail siempre cubra el alto completo de la pantalla. Como sale del flujo,
+   `.content-col` compensa con `margin-left` del mismo ancho. */
 .rail {
   display: flex;
   flex-direction: column;
@@ -281,8 +289,9 @@ input, textarea { caret-color: var(--navy); }
   flex-shrink: 0;
   background: var(--navy);
   border-right: 1px solid var(--navy-2);
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
   height: 100vh;
   overflow-y: auto;
   overflow-x: hidden;
@@ -509,10 +518,13 @@ input, textarea { caret-color: var(--navy); }
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Columna de contenido */
+/* Columna de contenido
+   `margin-left` compensa que `.rail` ahora es `position: fixed` (ver arriba)
+   y salió del flujo — sin esto el contenido quedaría tapado debajo del rail. */
 .content-col {
   flex: 1;
   min-width: 0;
+  margin-left: 240px;
   display: flex;
   flex-direction: column;
 }
