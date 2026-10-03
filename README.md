@@ -1,5 +1,7 @@
 # Plataforma Inteligente de Gestión de Inventarios para PYMES
 
+[![CI](https://github.com/ney1x/PymesAPP/actions/workflows/ci.yml/badge.svg)](https://github.com/ney1x/PymesAPP/actions/workflows/ci.yml)
+
 Sistema web para la administración de inventarios de pequeñas y medianas empresas, con un asistente conversacional impulsado por IA (Ollama + tool calling) y un motor de Machine Learning (varios modelos LightGBM en cascada, con fallback a Random Forest y heurística) para predicción de demanda.
 
 ---
@@ -8,7 +10,7 @@ Sistema web para la administración de inventarios de pequeñas y medianas empre
 
 - Autenticación mediante JWT, con verificación de correo al registrarse y recuperación de contraseña por código (ambos vía correo electrónico).
 - Gestión de PYMES, cada una con múltiples sedes. Un miembro invitado puede abandonar una PYME por su cuenta cuando quiera, sin depender del dueño; editar o eliminar una PYME es exclusivo del dueño (`OWNER`) — los demás roles ven su propio rol en vez de esos controles.
-- Equipo y roles: invitá miembros por correo, asignales rol (Vendedor, Inventario, Analista, o combinados) y limitá su acceso a una sede específica. Cada rol tiene permisos distintos sobre productos, inventario, ventas y reportes financieros, y además tiene bloqueadas pantallas completas que no le corresponden — no solo funciones puntuales (ver [Roles y permisos](#roles-y-permisos)).
+- Equipo y roles: invita miembros por correo, asígnales un rol (Vendedor, Inventario, Analista, o combinados) y limita su acceso a una sede específica. Cada rol tiene permisos distintos sobre productos, inventario, ventas y reportes financieros, y además tiene bloqueadas pantallas completas que no le corresponden — no solo funciones puntuales (ver [Roles y permisos](#roles-y-permisos)).
 - Mensajería interna entre miembros del equipo (a una persona puntual o a todos los de un rol) y centro de notificaciones (invitaciones, respuestas, mensajes).
 - Gestión de productos, con importación y exportación masiva por Excel/CSV.
 - Presentación por caja opcional: un producto puede venderse por unidad y por caja a la vez (con su propio código de barras y precio), manteniendo **un solo stock en unidad base** — vender una caja descuenta `unidades por caja` del inventario, sin productos duplicados ni stock fantasma (ver [Presentaciones: unidad y caja](#presentaciones-unidad-y-caja)).
@@ -354,7 +356,7 @@ Variables para el envío de correos (verificación de cuenta y recuperación de 
 | `GMAIL_USER` | Cuenta de Gmail que envía los correos |
 | `GMAIL_APP_PASSWORD` | [App Password](https://myaccount.google.com/apppasswords) de esa cuenta (no la contraseña normal) |
 
-El servicio `backend` en `docker-compose.yml` las toma de un `.env` en la **raíz** del proyecto (distinto del `backend/.env` de desarrollo local) — creá ese archivo con las mismas dos variables antes de levantar Docker.
+El servicio `backend` en `docker-compose.yml` las toma de un `.env` en la **raíz** del proyecto (distinto del `backend/.env` de desarrollo local) — crea ese archivo con las mismas dos variables antes de levantar Docker.
 
 ---
 
@@ -370,7 +372,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-> `requirements.txt` instala el motor vendorizado en modo editable desde una ruta local fija (`-e file:///C:/Users/USER/Desktop/IA_INVENTARIO`), pensada solo para este equipo de desarrollo — en cualquier otra máquina esa línea va a fallar. Docker no tiene este problema: usa `requirements.docker.txt`, que instala la copia vendorizada dentro del propio repo (`vendor/ia-inventario/`). Para desarrollar en otra máquina sin Docker, hay que apuntar esa línea a una ruta local válida o instalar `./vendor/ia-inventario` en su lugar.
+> `requirements.txt` instala el motor de forecast en modo editable desde la copia vendorizada dentro del repo (`vendor/ia-inventario/`), así que funciona en cualquier máquina sin rutas locales. Docker usa `requirements.docker.txt`, que apunta a la misma copia.
 
 ---
 
@@ -424,8 +426,18 @@ o, para desarrollo:
 
 ---
 
+# Mi rol
+
+**Ney Salazar ([@ney1x](https://github.com/ney1x))** — desarrollador principal. Diseñé y programé la aplicación de punta a punta:
+
+- **Frontend** (React + Vite): POS de ventas con escáner, inventario, dashboard, equipo y el widget del asistente IA.
+- **Backend** (Node.js + Express + Prisma): API REST, autenticación JWT con verificación por correo, roles y permisos por sede, mensajería y notificaciones.
+- **Lógica de negocio**: venta por caja y a granel con stock único en unidad base, códigos de barras internos EAN-13.
+- **Asistente conversacional** (Ollama + tool calling) e integración con el servicio de predicción (FastAPI + LightGBM).
+- **Infraestructura**: Docker Compose con GPU para Ollama, tests y CI con GitHub Actions.
+
 # Autores
 
-Adriano Aragon, Santiago Perez, Pablo Arrieta, Ney Salazar
+Ney Salazar (desarrollo principal), Adriano Aragon, Santiago Perez, Pablo Arrieta
 
 Sistema Inteligente para Gestión y Predicción de Inventarios en PYMES utilizando Machine Learning.

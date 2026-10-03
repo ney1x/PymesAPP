@@ -6,5 +6,5 @@ pandas==3.0.5
 joblib==1.5.3
 python-dotenv==1.0.1
 
-# Motor de forecast (LightGBM), instalado en modo editable desde IA_INVENTARIO
--e file:///C:/Users/USER/Desktop/IA_INVENTARIO
+# Motor de forecast (LightGBM), instalado en modo editable desde la copia vendorizada
+-e ./vendor/ia-inventario
