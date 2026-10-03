@@ -63,7 +63,7 @@ function sinToolCall(texto) {
 
 test('conversacion multi-turno: continuacion contextual de STOCK no llama a Ollama', async () => {
   const mockLLM = makeMockLLM({
-    '¿Cuánto stock tengo de arroz?': toolCallStock('arroz'),
+    '¿Cuánto stock tengo de arroz 1kg?': toolCallStock('arroz 1kg'),
     '¿Cuánto tengo de gaseosa?': toolCallStock('gaseosa'),
   });
 
@@ -73,7 +73,7 @@ test('conversacion multi-turno: continuacion contextual de STOCK no llama a Olla
 
   try {
     // Turno 1: producto explicito -> Ollama SI debe interpretar.
-    const r1 = await chatService.procesarMensaje(TEST_USER, '¿Cuánto stock tengo de arroz?');
+    const r1 = await chatService.procesarMensaje(TEST_USER, '¿Cuánto stock tengo de arroz 1kg?');
     assert.match(r1, /Arroz/i);
     assert.equal(mockLLM.callCount, 1, 'turno 1 (producto explicito) debe llamar a Ollama exactamente una vez');
 
@@ -925,13 +925,13 @@ test('PRODUCT: "¿Cuánto he vendido de arroz/gaseosa?" resuelve SALES por regex
 // de esa ambiguedad como REORDER. Nada de este mecanismo se toco en el
 // refactor de hoy; se re-verifica que sigue intacto.
 test('CONTEXTO: secuencia completa arroz -> queda -> de gaseosa (ambiguo) -> deberia comprar mas', async () => {
-  const mockLLM = makeMockLLM({ '¿Cuánto stock tengo de arroz?': toolCallStock('arroz') });
+  const mockLLM = makeMockLLM({ '¿Cuánto stock tengo de arroz 1kg?': toolCallStock('arroz 1kg') });
   const originalLLM = chatService.llm;
   chatService.llm = mockLLM;
   chatService.limpiarHistorial(TEST_USER.id);
 
   try {
-    const r1 = await chatService.procesarMensaje(TEST_USER, '¿Cuánto stock tengo de arroz?');
+    const r1 = await chatService.procesarMensaje(TEST_USER, '¿Cuánto stock tengo de arroz 1kg?');
     assert.match(r1, /Arroz/i);
     assert.equal(mockLLM.callCount, 1);
 
